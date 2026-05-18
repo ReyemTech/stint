@@ -75,4 +75,34 @@ impl TimerService {
 
         Ok(local_uuid)
     }
+
+    pub async fn stop(&self) -> Result<String> {
+        let running = RunningTimer::new(self.store.clone());
+        let r = running
+            .get()
+            .await?
+            .ok_or_else(|| Error::Invariant("no timer running".into()))?;
+        let local_uuid = r.local_uuid;
+
+        let entries = Entries::new(self.store.clone());
+        let queue = Queue::new(self.store.clone());
+
+        let end_at = time::now_utc();
+        entries.set_end(&local_uuid, &end_at).await?;
+        running.clear().await?;
+
+        // If the entry is still pending_create, no extra queue op is needed —
+        // the create payload will be regenerated from current state at push time.
+        // If it's already synced (re-edited), enqueue an update.
+        let state = entries.get(&local_uuid).await?.unwrap().sync_state;
+        if state == "dirty" {
+            let row = entries.get(&local_uuid).await?.unwrap();
+            let payload = serde_json::to_string(&row)?;
+            queue
+                .enqueue(QueueOp::UpdateEntry, &payload, Some(&local_uuid))
+                .await?;
+        }
+
+        Ok(local_uuid)
+    }
 }
