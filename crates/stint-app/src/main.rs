@@ -24,6 +24,18 @@ async fn main() -> Result<()> {
         .manage(RwLock::new(app_state))
         .invoke_handler(tauri::generate_handler![
             commands::timer::get_running_timer,
+            commands::timer::start_timer,
+            commands::timer::stop_timer,
+            commands::timer::delete_entry,
+            commands::timer::update_description,
+            commands::entries::list_today,
+            commands::entries::list_between,
+            commands::projects::list_projects,
+            commands::projects::refresh_projects,
+            commands::config::config_show,
+            commands::config::config_set,
+            commands::config::config_test,
+            commands::sync::sync_now,
         ])
         .setup(|app| {
             // Show main window for now; tray + popover wiring lands in Tasks 16-18.
