@@ -1,6 +1,26 @@
 mod common;
 
 use stint_core::config::Settings;
+use stint_core::config::secrets::Secrets;
+
+// NOTE: These tests touch the real macOS Keychain. We use a unique service
+// suffix per test run to avoid collisions and clean up after ourselves.
+fn unique_secrets() -> (Secrets, String) {
+    let suffix = format!("test-{}", uuid::Uuid::new_v4());
+    let secrets = Secrets::with_service_prefix(format!("tech.reyem.stint.{suffix}"));
+    (secrets, suffix)
+}
+
+#[test]
+fn set_get_delete_round_trip() {
+    let (secrets, _suffix) = unique_secrets();
+
+    assert!(secrets.get("k").unwrap().is_none());
+    secrets.set("k", "hunter2").unwrap();
+    assert_eq!(secrets.get("k").unwrap().as_deref(), Some("hunter2"));
+    secrets.delete("k").unwrap();
+    assert!(secrets.get("k").unwrap().is_none());
+}
 
 #[tokio::test]
 async fn get_returns_none_for_unknown_key() {
