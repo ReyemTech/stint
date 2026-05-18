@@ -38,8 +38,7 @@ async fn main() -> Result<()> {
             commands::sync::sync_now,
         ])
         .setup(|app| {
-            // Show main window for now; tray + popover wiring lands in Tasks 16-18.
-            windows::show_main(&app.handle())?;
+            tray::build(&app.handle())?;
             Ok(())
         })
         .run(tauri::generate_context!())?;
