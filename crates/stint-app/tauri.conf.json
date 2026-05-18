@@ -1,0 +1,56 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Stint",
+  "version": "0.1.0",
+  "identifier": "tech.reyem.stint",
+  "build": {
+    "beforeDevCommand": "pnpm --filter stint-ui dev",
+    "beforeBuildCommand": "pnpm --filter stint-ui build",
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "../../ui/dist"
+  },
+  "app": {
+    "macOSPrivateApi": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Stint",
+        "width": 820,
+        "height": 600,
+        "minWidth": 640,
+        "minHeight": 480,
+        "visible": false,
+        "url": "/#/today"
+      },
+      {
+        "label": "popover",
+        "title": "",
+        "width": 320,
+        "height": 380,
+        "decorations": false,
+        "resizable": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false,
+        "transparent": false,
+        "url": "/#/popover"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["dmg", "app"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "12.0"
+    }
+  }
+}
