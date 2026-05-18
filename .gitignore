@@ -1,0 +1,49 @@
+# Rust
+/target/
+**/*.rs.bk
+*.pdb
+
+# Tauri
+/src-tauri/target/
+/ui/dist/
+/ui/dist-ssr/
+
+# Node
+node_modules/
+.pnp.*
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.log
+.yarn/install-state.gz
+
+# Build artifacts
+*.dmg
+*.app
+
+# Local databases
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Superpowers brainstorming workspace (transient mockups)
+.superpowers/
+
+# Logs
+*.log
