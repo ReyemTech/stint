@@ -92,4 +92,72 @@ impl SolidtimeClient {
         let wrapper: Wrapper<Vec<T>> = resp.json().await?;
         Ok(wrapper.data)
     }
+
+    pub async fn create_time_entry(&self, req: &CreateEntryRequest<'_>) -> Result<RemoteTimeEntry> {
+        let org = self.org()?;
+        let url = format!("{}/api/v1/organizations/{org}/time-entries", self.base_url);
+        let resp = self
+            .http
+            .post(&url)
+            .bearer_auth(&self.token)
+            .json(req)
+            .send()
+            .await?;
+        let status = resp.status();
+        if status == StatusCode::UNAUTHORIZED {
+            return Err(Error::SolidtimeAuth);
+        }
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            return Err(Error::Solidtime { status: status.as_u16(), body });
+        }
+        let wrapper: Wrapper<RemoteTimeEntry> = resp.json().await?;
+        Ok(wrapper.data)
+    }
+
+    pub async fn update_time_entry(
+        &self,
+        id: &str,
+        req: &CreateEntryRequest<'_>,
+    ) -> Result<RemoteTimeEntry> {
+        let org = self.org()?;
+        let url = format!("{}/api/v1/organizations/{org}/time-entries/{id}", self.base_url);
+        let resp = self
+            .http
+            .put(&url)
+            .bearer_auth(&self.token)
+            .json(req)
+            .send()
+            .await?;
+        let status = resp.status();
+        if status == StatusCode::UNAUTHORIZED {
+            return Err(Error::SolidtimeAuth);
+        }
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            return Err(Error::Solidtime { status: status.as_u16(), body });
+        }
+        let wrapper: Wrapper<RemoteTimeEntry> = resp.json().await?;
+        Ok(wrapper.data)
+    }
+
+    pub async fn delete_time_entry(&self, id: &str) -> Result<()> {
+        let org = self.org()?;
+        let url = format!("{}/api/v1/organizations/{org}/time-entries/{id}", self.base_url);
+        let resp = self
+            .http
+            .delete(&url)
+            .bearer_auth(&self.token)
+            .send()
+            .await?;
+        let status = resp.status();
+        if status == StatusCode::UNAUTHORIZED {
+            return Err(Error::SolidtimeAuth);
+        }
+        if !status.is_success() && status != StatusCode::NO_CONTENT {
+            let body = resp.text().await.unwrap_or_default();
+            return Err(Error::Solidtime { status: status.as_u16(), body });
+        }
+        Ok(())
+    }
 }
