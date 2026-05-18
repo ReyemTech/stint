@@ -3,6 +3,7 @@ resolver = "2"
 members = [
   "crates/stint-core",
   "crates/stint-cli",
+  "crates/stint-app",
 ]
 
 [workspace.package]
