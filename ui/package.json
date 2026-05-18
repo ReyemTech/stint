@@ -1,0 +1,28 @@
+{
+  "name": "stint-ui",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@solidjs/router": "^0.15",
+    "@tauri-apps/api": "^2.1",
+    "@tauri-apps/plugin-positioner": "^2.0",
+    "solid-js": "^1.9"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.0",
+    "@types/node": "^25.9.0",
+    "autoprefixer": "^10.4",
+    "postcss": "^8.4",
+    "tailwindcss": "^4.0",
+    "typescript": "^5.6",
+    "vite": "^5.4",
+    "vite-plugin-solid": "^2.10"
+  }
+}
