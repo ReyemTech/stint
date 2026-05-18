@@ -1,0 +1,61 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/stint-core",
+  "crates/stint-cli",
+]
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.81"
+license = "MIT"
+authors = ["Mario Meyer <mario@reyem.tech>"]
+repository = "https://github.com/reyemtech/stint"
+
+[workspace.dependencies]
+# async
+tokio = { version = "1.40", features = ["macros", "rt-multi-thread", "time", "fs", "sync", "signal"] }
+async-trait = "0.1"
+
+# error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# time / ids
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+uuid = { version = "1.10", features = ["v4", "serde"] }
+
+# logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+# storage
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite", "chrono", "macros", "migrate"] }
+
+# http
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
+# secrets
+keyring = "3.6"
+
+# cli
+clap = { version = "4.5", features = ["derive", "env"] }
+dirs = "5.0"
+
+# dev-only (named at workspace level so versions stay consistent)
+wiremock = "0.6"
+assert_cmd = "2.0"
+tempfile = "3.13"
+pretty_assertions = "1.4"
+
+[profile.dev]
+opt-level = 0
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
