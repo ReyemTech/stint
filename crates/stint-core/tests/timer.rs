@@ -85,3 +85,24 @@ async fn stop_with_no_timer_running_errors() {
     let err = timer.stop().await.unwrap_err();
     assert!(matches!(err, stint_core::Error::Invariant(_)));
 }
+
+#[tokio::test]
+async fn delete_synced_entry_enqueues_delete_op() {
+    let env = common::setup().await;
+    let timer = TimerService::new(env.store.clone());
+
+    let id = timer.start(StartArgs {
+        description: "x".into(), project_id: None, task_id: None, source: "cli".into(),
+    }).await.unwrap();
+    timer.stop().await.unwrap();
+
+    let entries = Entries::new(env.store.clone());
+    entries.mark_synced(&id, "remote-id").await.unwrap();
+
+    timer.delete(&id).await.unwrap();
+
+    let queue = Queue::new(env.store.clone());
+    let due = queue.take_due(10).await.unwrap();
+    let delete_ops: Vec<_> = due.iter().filter(|r| r.op == "delete_entry").collect();
+    assert_eq!(delete_ops.len(), 1);
+}

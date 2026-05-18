@@ -105,4 +105,48 @@ impl TimerService {
 
         Ok(local_uuid)
     }
+
+    pub async fn delete(&self, local_uuid: &str) -> Result<()> {
+        let entries = Entries::new(self.store.clone());
+        let queue = Queue::new(self.store.clone());
+
+        let row = entries
+            .get(local_uuid)
+            .await?
+            .ok_or_else(|| Error::NotFound(format!("entry {local_uuid}")))?;
+
+        if let Some(remote_id) = row.solidtime_id.clone() {
+            let payload = serde_json::json!({
+                "local_uuid": local_uuid,
+                "solidtime_id": remote_id,
+            })
+            .to_string();
+            queue
+                .enqueue(QueueOp::DeleteEntry, &payload, Some(local_uuid))
+                .await?;
+            entries.delete(local_uuid).await?;
+        } else {
+            entries.delete(local_uuid).await?;
+        }
+
+        Ok(())
+    }
+
+    pub async fn update_description(&self, local_uuid: &str, description: &str) -> Result<()> {
+        let entries = Entries::new(self.store.clone());
+        let queue = Queue::new(self.store.clone());
+        entries.update_description(local_uuid, description).await?;
+
+        let row = entries
+            .get(local_uuid)
+            .await?
+            .ok_or_else(|| Error::NotFound(format!("entry {local_uuid}")))?;
+        if row.sync_state == "dirty" {
+            let payload = serde_json::to_string(&row)?;
+            queue
+                .enqueue(QueueOp::UpdateEntry, &payload, Some(local_uuid))
+                .await?;
+        }
+        Ok(())
+    }
 }
