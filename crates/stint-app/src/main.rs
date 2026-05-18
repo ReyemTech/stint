@@ -22,6 +22,9 @@ async fn main() -> Result<()> {
     tauri::Builder::default()
         .plugin(tauri_plugin_positioner::init())
         .manage(RwLock::new(app_state))
+        .invoke_handler(tauri::generate_handler![
+            commands::timer::get_running_timer,
+        ])
         .setup(|app| {
             // Show main window for now; tray + popover wiring lands in Tasks 16-18.
             windows::show_main(&app.handle())?;

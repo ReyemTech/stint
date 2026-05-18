@@ -1,23 +1,31 @@
 import { render } from "solid-js/web";
 import { createSignal, onMount } from "solid-js";
-import { getVersion } from "@tauri-apps/api/app";
+import { invoke } from "@tauri-apps/api/core";
 import "./styles.css";
 
+type RunningTimer = {
+  local_uuid: string;
+  description: string;
+  start_at: string;
+  project_id: string | null;
+};
+
 function App() {
-  const [version, setVersion] = createSignal<string>("…");
+  const [timer, setTimer] = createSignal<RunningTimer | null>(null);
 
   onMount(async () => {
-    try {
-      setVersion(await getVersion());
-    } catch (e) {
-      setVersion(`ipc error: ${(e as Error).message}`);
-    }
+    const t = await invoke<RunningTimer | null>("get_running_timer");
+    setTimer(t);
   });
 
   return (
-    <div class="p-6 font-sans">
-      <h1 class="text-xl font-semibold">Stint</h1>
-      <p class="mt-2 text-sm text-zinc-500">App version: {version()}</p>
+    <div class="p-6 font-sans text-sm">
+      <h1 class="text-lg font-semibold">Stint</h1>
+      {timer() ? (
+        <p class="mt-2">Running: {timer()!.description}</p>
+      ) : (
+        <p class="mt-2 text-zinc-500">No timer running.</p>
+      )}
     </div>
   );
 }
