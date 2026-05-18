@@ -40,3 +40,32 @@ async fn test_connection_maps_401_to_auth_error() {
     let err = client.test_connection().await.unwrap_err();
     assert!(matches!(err, stint_core::Error::SolidtimeAuth));
 }
+
+#[tokio::test]
+async fn list_projects_returns_remote_rows() {
+    let server = fake_server().await;
+
+    Mock::given(method("GET"))
+        .and(path("/api/v1/organizations/org-1/projects"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "data": [
+                { "id": "p1", "name": "Tet", "color": "#aaa", "client_id": null, "archived": false },
+                { "id": "p2", "name": "Reyem", "color": null, "client_id": null, "archived": false }
+            ]
+        })))
+        .mount(&server)
+        .await;
+
+    let client = SolidtimeClient::new(&server.uri(), "t").with_org("org-1");
+    let projects = client.list_projects().await.unwrap();
+    assert_eq!(projects.len(), 2);
+    assert_eq!(projects[0].id, "p1");
+}
+
+#[tokio::test]
+async fn list_projects_requires_org() {
+    let server = fake_server().await;
+    let client = SolidtimeClient::new(&server.uri(), "t"); // no org
+    let err = client.list_projects().await.unwrap_err();
+    assert!(matches!(err, stint_core::Error::MissingConfig(_)));
+}

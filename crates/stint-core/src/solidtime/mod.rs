@@ -57,4 +57,39 @@ impl SolidtimeClient {
             .as_deref()
             .ok_or(Error::MissingConfig("solidtime.org_id"))
     }
+
+    pub async fn list_projects(&self) -> Result<Vec<RemoteProject>> {
+        let org = self.org()?;
+        let url = format!("{}/api/v1/organizations/{org}/projects", self.base_url);
+        self.get_list(&url).await
+    }
+
+    pub async fn list_tasks(&self) -> Result<Vec<RemoteTask>> {
+        let org = self.org()?;
+        let url = format!("{}/api/v1/organizations/{org}/tasks", self.base_url);
+        self.get_list(&url).await
+    }
+
+    pub async fn list_tags(&self) -> Result<Vec<RemoteTag>> {
+        let org = self.org()?;
+        let url = format!("{}/api/v1/organizations/{org}/tags", self.base_url);
+        self.get_list(&url).await
+    }
+
+    async fn get_list<T: for<'de> serde::Deserialize<'de>>(&self, url: &str) -> Result<Vec<T>> {
+        let resp = self.http.get(url).bearer_auth(&self.token).send().await?;
+        let status = resp.status();
+        if status == StatusCode::UNAUTHORIZED {
+            return Err(Error::SolidtimeAuth);
+        }
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            return Err(Error::Solidtime {
+                status: status.as_u16(),
+                body,
+            });
+        }
+        let wrapper: Wrapper<Vec<T>> = resp.json().await?;
+        Ok(wrapper.data)
+    }
 }
