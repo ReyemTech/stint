@@ -34,9 +34,7 @@ pub async fn list_projects(
 }
 
 #[tauri::command]
-pub async fn refresh_projects(
-    state: State<'_, RwLock<AppState>>,
-) -> Result<usize, AppError> {
+pub async fn refresh_projects(state: State<'_, RwLock<AppState>>) -> Result<usize, AppError> {
     let store = store(&state).await;
     let client = build_client(&store).await?;
     refresh_reference_data(&store, &client).await?;

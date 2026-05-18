@@ -17,9 +17,7 @@ pub struct ConfigView {
 }
 
 #[tauri::command]
-pub async fn config_show(
-    state: State<'_, RwLock<AppState>>,
-) -> Result<Vec<ConfigView>, AppError> {
+pub async fn config_show(state: State<'_, RwLock<AppState>>) -> Result<Vec<ConfigView>, AppError> {
     let store = store(&state).await;
     let settings = Settings::new((*store).clone());
     let secrets = Secrets::default();
@@ -64,9 +62,7 @@ pub async fn config_set(
 }
 
 #[tauri::command]
-pub async fn config_test(
-    state: State<'_, RwLock<AppState>>,
-) -> Result<String, AppError> {
+pub async fn config_test(state: State<'_, RwLock<AppState>>) -> Result<String, AppError> {
     let store = store(&state).await;
     let settings = Settings::new((*store).clone());
     let url = settings

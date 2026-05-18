@@ -10,6 +10,8 @@ impl AppState {
         stint_core::paths::ensure_data_dir()?;
         let db_path = stint_core::paths::database_path()?;
         let store = Store::connect(&db_path).await?;
-        Ok(Self { store: Arc::new(store) })
+        Ok(Self {
+            store: Arc::new(store),
+        })
     }
 }

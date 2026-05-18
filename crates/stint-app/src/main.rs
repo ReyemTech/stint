@@ -39,10 +39,10 @@ async fn main() -> Result<()> {
             commands::sync::sync_now,
         ])
         .setup(|app| {
-            tray::build(&app.handle())?;
+            tray::build(app.handle())?;
 
             // Hide dock icon on startup (menu-bar app behavior).
-            windows::hide_dock(&app.handle());
+            windows::hide_dock(app.handle());
 
             // Intercept main-window close: hide instead of quit, and return to
             // accessory mode (no dock icon) until the user reopens it.

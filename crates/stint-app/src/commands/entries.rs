@@ -36,9 +36,7 @@ impl From<TimeEntryRow> for EntryView {
 }
 
 #[tauri::command]
-pub async fn list_today(
-    state: State<'_, RwLock<AppState>>,
-) -> Result<Vec<EntryView>, AppError> {
+pub async fn list_today(state: State<'_, RwLock<AppState>>) -> Result<Vec<EntryView>, AppError> {
     let store = store(&state).await;
     let today = Local::now().date_naive();
     let start_local = Local
