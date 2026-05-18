@@ -28,9 +28,7 @@ pub async fn maybe_recover(store: &Store) -> Result<()> {
     let outcome = recover_on_startup(store, |info: StaleInfo| {
         eprintln!(
             "stint stopped at {} with timer still running ('{}', {}s elapsed).",
-            info.last_heartbeat_at,
-            info.description,
-            info.age_secs,
+            info.last_heartbeat_at, info.description, info.age_secs,
         );
         eprintln!("(K)eep running, (S)top at last heartbeat, (D)iscard? [K/s/d]");
         let mut buf = String::new();

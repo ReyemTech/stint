@@ -57,7 +57,10 @@ pub async fn run(c: ConfigCmd) -> Result<()> {
                 .get("solidtime.token")?
                 .ok_or_else(|| anyhow!("solidtime.token not set"))?;
             let client = SolidtimeClient::new(&url, &token);
-            let me = client.test_connection().await.context("solidtime ping failed")?;
+            let me = client
+                .test_connection()
+                .await
+                .context("solidtime ping failed")?;
             println!("✓ connected as {}", me.email.unwrap_or(me.id));
             Ok(())
         }

@@ -17,7 +17,9 @@ impl Default for Secrets {
 
 impl Secrets {
     pub fn with_service_prefix(prefix: impl Into<String>) -> Self {
-        Self { prefix: prefix.into() }
+        Self {
+            prefix: prefix.into(),
+        }
     }
 
     fn service_for(&self, key: &str) -> String {

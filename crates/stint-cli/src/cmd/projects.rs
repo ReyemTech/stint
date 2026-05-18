@@ -37,8 +37,16 @@ pub async fn run(p: ProjectsCmd) -> Result<()> {
 async fn build_client(store: &stint_core::store::Store) -> Result<SolidtimeClient> {
     let settings = Settings::new(store.clone());
     let secrets = Secrets::default();
-    let url = settings.get("solidtime.url").await?.ok_or_else(|| anyhow!("solidtime.url not set"))?;
-    let token = secrets.get("solidtime.token")?.ok_or_else(|| anyhow!("solidtime.token not set"))?;
-    let org = settings.get("solidtime.org").await?.ok_or_else(|| anyhow!("solidtime.org not set"))?;
+    let url = settings
+        .get("solidtime.url")
+        .await?
+        .ok_or_else(|| anyhow!("solidtime.url not set"))?;
+    let token = secrets
+        .get("solidtime.token")?
+        .ok_or_else(|| anyhow!("solidtime.token not set"))?;
+    let org = settings
+        .get("solidtime.org")
+        .await?
+        .ok_or_else(|| anyhow!("solidtime.org not set"))?;
     Ok(SolidtimeClient::new(&url, &token).with_org(org))
 }

@@ -18,7 +18,13 @@ pub async fn run(args: Args) -> Result<()> {
     let rows = entries.list_between(&args.from, &args.to).await?;
     for row in rows {
         let dur = format::duration_hms(&row.start_at, row.end_at.as_deref());
-        println!("{}  {}  {}  [{}]", &row.local_uuid[..8], dur, &row.description, &row.sync_state);
+        println!(
+            "{}  {}  {}  [{}]",
+            &row.local_uuid[..8],
+            dur,
+            &row.description,
+            &row.sync_state
+        );
     }
     Ok(())
 }

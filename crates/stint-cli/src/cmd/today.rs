@@ -22,10 +22,14 @@ pub async fn run() -> Result<()> {
         println!("No entries today.");
         return Ok(());
     }
-    println!("{:>10} {:<40} {}", "duration", "description", "status");
+    println!("{:>10} {:<40} status", "duration", "description");
     for row in &rows {
         let dur = format::duration_hms(&row.start_at, row.end_at.as_deref());
-        let status = if row.end_at.is_some() { row.sync_state.as_str() } else { "RUNNING" };
+        let status = if row.end_at.is_some() {
+            row.sync_state.as_str()
+        } else {
+            "RUNNING"
+        };
         println!("{:>10} {:<40} {}", dur, &row.description, status);
     }
     Ok(())

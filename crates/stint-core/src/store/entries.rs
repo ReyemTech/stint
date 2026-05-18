@@ -61,12 +61,11 @@ impl Entries {
     }
 
     pub async fn get(&self, local_uuid: &str) -> Result<Option<TimeEntryRow>> {
-        let row = sqlx::query_as::<_, TimeEntryRow>(
-            "SELECT * FROM time_entries WHERE local_uuid = ?",
-        )
-        .bind(local_uuid)
-        .fetch_optional(self.store.pool())
-        .await?;
+        let row =
+            sqlx::query_as::<_, TimeEntryRow>("SELECT * FROM time_entries WHERE local_uuid = ?")
+                .bind(local_uuid)
+                .fetch_optional(self.store.pool())
+                .await?;
         Ok(row)
     }
 
@@ -149,16 +148,20 @@ impl Entries {
     }
 
     async fn current_state(&self, local_uuid: &str) -> Result<String> {
-        let s: (String,) = sqlx::query_as("SELECT sync_state FROM time_entries WHERE local_uuid = ?")
-            .bind(local_uuid)
-            .fetch_one(self.store.pool())
-            .await?;
+        let s: (String,) =
+            sqlx::query_as("SELECT sync_state FROM time_entries WHERE local_uuid = ?")
+                .bind(local_uuid)
+                .fetch_one(self.store.pool())
+                .await?;
         Ok(s.0)
     }
 
     async fn update_one<'q, F>(&self, local_uuid: &'q str, build: F) -> Result<()>
     where
-        F: FnOnce(StateForUpdate) -> sqlx::query::Query<'q, sqlx::Sqlite, sqlx::sqlite::SqliteArguments<'q>>,
+        F: FnOnce(
+            StateForUpdate,
+        )
+            -> sqlx::query::Query<'q, sqlx::Sqlite, sqlx::sqlite::SqliteArguments<'q>>,
     {
         let state_str = self.current_state(local_uuid).await?;
         let s = StateForUpdate::from(state_str.as_str());

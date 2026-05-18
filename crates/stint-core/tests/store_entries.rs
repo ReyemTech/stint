@@ -65,9 +65,12 @@ async fn set_end_marks_dirty_if_synced_or_keeps_pending_create() {
 
     let id = entries
         .create(NewTimeEntry {
-            description: "x".into(), project_id: None, task_id: None,
+            description: "x".into(),
+            project_id: None,
+            task_id: None,
             start_at: "2026-05-17T09:00:00Z".into(),
-            billable: false, source: "cli".into(),
+            billable: false,
+            source: "cli".into(),
         })
         .await
         .unwrap();
@@ -94,9 +97,12 @@ async fn delete_pending_create_drops_row() {
 
     let id = entries
         .create(NewTimeEntry {
-            description: "x".into(), project_id: None, task_id: None,
+            description: "x".into(),
+            project_id: None,
+            task_id: None,
             start_at: "2026-05-17T09:00:00Z".into(),
-            billable: false, source: "cli".into(),
+            billable: false,
+            source: "cli".into(),
         })
         .await
         .unwrap();
@@ -112,9 +118,12 @@ async fn delete_synced_marks_pending_delete() {
 
     let id = entries
         .create(NewTimeEntry {
-            description: "x".into(), project_id: None, task_id: None,
+            description: "x".into(),
+            project_id: None,
+            task_id: None,
             start_at: "2026-05-17T09:00:00Z".into(),
-            billable: false, source: "cli".into(),
+            billable: false,
+            source: "cli".into(),
         })
         .await
         .unwrap();

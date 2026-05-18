@@ -58,7 +58,10 @@ where
     let row = entries.get(&r.local_uuid).await?;
     let info = StaleInfo {
         local_uuid: r.local_uuid.clone(),
-        description: row.as_ref().map(|x| x.description.clone()).unwrap_or_default(),
+        description: row
+            .as_ref()
+            .map(|x| x.description.clone())
+            .unwrap_or_default(),
         start_at: row.as_ref().map(|x| x.start_at.clone()).unwrap_or_default(),
         last_heartbeat_at: r.heartbeat_at.clone(),
         age_secs: age,
@@ -67,17 +70,23 @@ where
     match prompt(info) {
         RecoveryDecision::KeepRunning => {
             running.heartbeat().await?;
-            Ok(RecoveryOutcome::Recovered { local_uuid: r.local_uuid })
+            Ok(RecoveryOutcome::Recovered {
+                local_uuid: r.local_uuid,
+            })
         }
         RecoveryDecision::StopAtLastHeartbeat => {
             entries.set_end(&r.local_uuid, &r.heartbeat_at).await?;
             running.clear().await?;
-            Ok(RecoveryOutcome::StoppedAtHeartbeat { local_uuid: r.local_uuid })
+            Ok(RecoveryOutcome::StoppedAtHeartbeat {
+                local_uuid: r.local_uuid,
+            })
         }
         RecoveryDecision::Discard => {
             entries.delete(&r.local_uuid).await?;
             running.clear().await?;
-            Ok(RecoveryOutcome::Discarded { local_uuid: r.local_uuid })
+            Ok(RecoveryOutcome::Discarded {
+                local_uuid: r.local_uuid,
+            })
         }
     }
 }

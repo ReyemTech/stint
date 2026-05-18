@@ -1,5 +1,7 @@
 //! Shared test helpers. Each test file gets its own TempDir + Store.
 
+#![allow(dead_code)]
+
 use stint_core::store::Store;
 use tempfile::TempDir;
 
@@ -12,5 +14,8 @@ pub async fn setup() -> TestEnv {
     let tempdir = TempDir::new().expect("create tempdir");
     let db_path = tempdir.path().join("stint.db");
     let store = Store::connect(&db_path).await.expect("connect store");
-    TestEnv { _tempdir: tempdir, store }
+    TestEnv {
+        _tempdir: tempdir,
+        store,
+    }
 }

@@ -5,7 +5,11 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "stint", version, about = "Time tracker that syncs with Solidtime")]
+#[command(
+    name = "stint",
+    version,
+    about = "Time tracker that syncs with Solidtime"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Command,

@@ -11,9 +11,12 @@ async fn set_then_get_running_timer() {
 
     let id = entries
         .create(NewTimeEntry {
-            description: "x".into(), project_id: None, task_id: None,
+            description: "x".into(),
+            project_id: None,
+            task_id: None,
             start_at: "2026-05-17T09:00:00Z".into(),
-            billable: false, source: "cli".into(),
+            billable: false,
+            source: "cli".into(),
         })
         .await
         .unwrap();
@@ -31,9 +34,12 @@ async fn clear_removes_running_timer() {
 
     let id = entries
         .create(NewTimeEntry {
-            description: "x".into(), project_id: None, task_id: None,
+            description: "x".into(),
+            project_id: None,
+            task_id: None,
             start_at: "2026-05-17T09:00:00Z".into(),
-            billable: false, source: "cli".into(),
+            billable: false,
+            source: "cli".into(),
         })
         .await
         .unwrap();
@@ -51,9 +57,12 @@ async fn heartbeat_updates_timestamp() {
 
     let id = entries
         .create(NewTimeEntry {
-            description: "x".into(), project_id: None, task_id: None,
+            description: "x".into(),
+            project_id: None,
+            task_id: None,
             start_at: "2026-05-17T09:00:00Z".into(),
-            billable: false, source: "cli".into(),
+            billable: false,
+            source: "cli".into(),
         })
         .await
         .unwrap();

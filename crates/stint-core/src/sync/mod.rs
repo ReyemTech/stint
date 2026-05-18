@@ -1,7 +1,11 @@
 pub mod push;
 pub mod refresh;
 
-use crate::{solidtime::SolidtimeClient, store::{queue::Queue, Store}, Error, Result};
+use crate::{
+    solidtime::SolidtimeClient,
+    store::{queue::Queue, Store},
+    Error, Result,
+};
 use std::time::Duration;
 use tokio::time::sleep;
 use tracing::{info, warn};
@@ -27,9 +31,7 @@ pub async fn drain_once(store: &Store, client: &SolidtimeClient) -> Result<usize
 pub async fn run_loop(store: Store, client: SolidtimeClient) -> Result<()> {
     let mut tick = 0u64;
     loop {
-        if let Err(e) = drain_once(&store, &client).await {
-            return Err(e);
-        }
+        drain_once(&store, &client).await?;
         if tick % 15 == 0 {
             if let Err(e) = refresh::refresh_reference_data(&store, &client).await {
                 warn!(error = %e, "reference refresh failed");

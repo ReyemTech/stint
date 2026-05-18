@@ -7,7 +7,9 @@ async fn enqueue_then_take_due_returns_item() {
     let env = common::setup().await;
     let q = Queue::new(env.store.clone());
 
-    q.enqueue(QueueOp::CreateEntry, "{\"x\":1}", Some("entry-1")).await.unwrap();
+    q.enqueue(QueueOp::CreateEntry, "{\"x\":1}", Some("entry-1"))
+        .await
+        .unwrap();
 
     let due = q.take_due(10).await.unwrap();
     assert_eq!(due.len(), 1);

@@ -83,11 +83,10 @@ impl Queue {
 
     pub async fn mark_failed(&self, id: i64, err: &str) -> Result<()> {
         // Read attempts to compute backoff.
-        let (attempts,): (i64,) =
-            sqlx::query_as("SELECT attempts FROM sync_queue WHERE id = ?")
-                .bind(id)
-                .fetch_one(self.store.pool())
-                .await?;
+        let (attempts,): (i64,) = sqlx::query_as("SELECT attempts FROM sync_queue WHERE id = ?")
+            .bind(id)
+            .fetch_one(self.store.pool())
+            .await?;
         let next_attempt = attempts + 1;
         let backoff_secs = (1u64 << next_attempt.min(8)) as i64; // 2,4,8,...,256
         let backoff_secs = backoff_secs.min(300); // cap at 5 min

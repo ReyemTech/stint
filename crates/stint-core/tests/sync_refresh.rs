@@ -22,13 +22,15 @@ async fn refresh_reference_data_writes_projects_tasks_tags() {
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "data": [{ "id": "t1", "project_id": "p1", "name": "T", "done": false }]
         })))
-        .mount(&server).await;
+        .mount(&server)
+        .await;
     Mock::given(method("GET"))
         .and(path("/api/v1/organizations/org-1/tags"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "data": [{ "id": "g1", "name": "billable" }]
         })))
-        .mount(&server).await;
+        .mount(&server)
+        .await;
 
     let client = SolidtimeClient::new(&server.uri(), "t").with_org("org-1");
     refresh_reference_data(&env.store, &client).await.unwrap();

@@ -79,7 +79,9 @@ async fn create_time_entry_posts_and_returns_id() {
 
     Mock::given(method("POST"))
         .and(path("/api/v1/organizations/org-1/time-entries"))
-        .and(body_partial_json(serde_json::json!({ "description": "test" })))
+        .and(body_partial_json(
+            serde_json::json!({ "description": "test" }),
+        ))
         .respond_with(ResponseTemplate::new(201).set_body_json(serde_json::json!({
             "data": { "id": "remote-1", "description": "test", "start": "2026-05-17T09:00:00Z" }
         })))

@@ -31,12 +31,7 @@ impl SolidtimeClient {
 
     pub async fn test_connection(&self) -> Result<UserMe> {
         let url = format!("{}/api/v1/users/me", self.base_url);
-        let resp = self
-            .http
-            .get(&url)
-            .bearer_auth(&self.token)
-            .send()
-            .await?;
+        let resp = self.http.get(&url).bearer_auth(&self.token).send().await?;
         let status = resp.status();
         if status == StatusCode::UNAUTHORIZED {
             return Err(Error::SolidtimeAuth);
@@ -109,7 +104,10 @@ impl SolidtimeClient {
         }
         if !status.is_success() {
             let body = resp.text().await.unwrap_or_default();
-            return Err(Error::Solidtime { status: status.as_u16(), body });
+            return Err(Error::Solidtime {
+                status: status.as_u16(),
+                body,
+            });
         }
         let wrapper: Wrapper<RemoteTimeEntry> = resp.json().await?;
         Ok(wrapper.data)
@@ -121,7 +119,10 @@ impl SolidtimeClient {
         req: &CreateEntryRequest<'_>,
     ) -> Result<RemoteTimeEntry> {
         let org = self.org()?;
-        let url = format!("{}/api/v1/organizations/{org}/time-entries/{id}", self.base_url);
+        let url = format!(
+            "{}/api/v1/organizations/{org}/time-entries/{id}",
+            self.base_url
+        );
         let resp = self
             .http
             .put(&url)
@@ -135,7 +136,10 @@ impl SolidtimeClient {
         }
         if !status.is_success() {
             let body = resp.text().await.unwrap_or_default();
-            return Err(Error::Solidtime { status: status.as_u16(), body });
+            return Err(Error::Solidtime {
+                status: status.as_u16(),
+                body,
+            });
         }
         let wrapper: Wrapper<RemoteTimeEntry> = resp.json().await?;
         Ok(wrapper.data)
@@ -143,7 +147,10 @@ impl SolidtimeClient {
 
     pub async fn delete_time_entry(&self, id: &str) -> Result<()> {
         let org = self.org()?;
-        let url = format!("{}/api/v1/organizations/{org}/time-entries/{id}", self.base_url);
+        let url = format!(
+            "{}/api/v1/organizations/{org}/time-entries/{id}",
+            self.base_url
+        );
         let resp = self
             .http
             .delete(&url)
@@ -156,7 +163,10 @@ impl SolidtimeClient {
         }
         if !status.is_success() && status != StatusCode::NO_CONTENT {
             let body = resp.text().await.unwrap_or_default();
-            return Err(Error::Solidtime { status: status.as_u16(), body });
+            return Err(Error::Solidtime {
+                status: status.as_u16(),
+                body,
+            });
         }
         Ok(())
     }

@@ -1,7 +1,7 @@
 mod common;
 
-use stint_core::config::Settings;
 use stint_core::config::secrets::Secrets;
+use stint_core::config::Settings;
 
 // NOTE: These tests touch the real macOS Keychain. We use a unique service
 // suffix per test run to avoid collisions and clean up after ourselves.
@@ -33,7 +33,9 @@ async fn get_returns_none_for_unknown_key() {
 async fn set_then_get_round_trips() {
     let env = common::setup().await;
     let s = Settings::new(env.store.clone());
-    s.set("solidtime.url", "https://time.reyem.ca").await.unwrap();
+    s.set("solidtime.url", "https://time.reyem.ca")
+        .await
+        .unwrap();
     assert_eq!(
         s.get("solidtime.url").await.unwrap().as_deref(),
         Some("https://time.reyem.ca")

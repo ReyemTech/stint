@@ -38,7 +38,10 @@ pub async fn refresh_reference_data(store: &Store, client: &SolidtimeClient) -> 
     let tags = client.list_tags().await?;
     let tag_rows: Vec<TagRow> = tags
         .into_iter()
-        .map(|t| TagRow { id: t.id, name: t.name })
+        .map(|t| TagRow {
+            id: t.id,
+            name: t.name,
+        })
         .collect();
     r.upsert_tags(&tag_rows).await?;
 

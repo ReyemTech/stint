@@ -40,13 +40,24 @@ async fn start_while_already_running_returns_invariant_error() {
     let env = common::setup().await;
     let timer = TimerService::new(env.store.clone());
 
-    timer.start(StartArgs {
-        description: "a".into(), project_id: None, task_id: None, source: "cli".into(),
-    }).await.unwrap();
+    timer
+        .start(StartArgs {
+            description: "a".into(),
+            project_id: None,
+            task_id: None,
+            source: "cli".into(),
+        })
+        .await
+        .unwrap();
 
-    let result = timer.start(StartArgs {
-        description: "b".into(), project_id: None, task_id: None, source: "cli".into(),
-    }).await;
+    let result = timer
+        .start(StartArgs {
+            description: "b".into(),
+            project_id: None,
+            task_id: None,
+            source: "cli".into(),
+        })
+        .await;
 
     assert!(matches!(result, Err(stint_core::Error::Invariant(_))));
 }
@@ -56,20 +67,34 @@ async fn stop_sets_end_clears_running_and_enqueues_update() {
     let env = common::setup().await;
     let timer = TimerService::new(env.store.clone());
 
-    let id = timer.start(StartArgs {
-        description: "x".into(), project_id: None, task_id: None, source: "cli".into(),
-    }).await.unwrap();
+    let id = timer
+        .start(StartArgs {
+            description: "x".into(),
+            project_id: None,
+            task_id: None,
+            source: "cli".into(),
+        })
+        .await
+        .unwrap();
 
     // small sleep so end > start in seconds resolution
     tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
 
     timer.stop().await.unwrap();
 
-    let row = Entries::new(env.store.clone()).get(&id).await.unwrap().unwrap();
+    let row = Entries::new(env.store.clone())
+        .get(&id)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(row.end_at.is_some());
     assert_eq!(row.sync_state, "pending_create");
 
-    assert!(RunningTimer::new(env.store.clone()).get().await.unwrap().is_none());
+    assert!(RunningTimer::new(env.store.clone())
+        .get()
+        .await
+        .unwrap()
+        .is_none());
 
     // sync_queue: create_entry only (still pending_create, so update is folded in via set_end)
     let due = Queue::new(env.store.clone()).take_due(10).await.unwrap();
@@ -91,9 +116,15 @@ async fn delete_synced_entry_enqueues_delete_op() {
     let env = common::setup().await;
     let timer = TimerService::new(env.store.clone());
 
-    let id = timer.start(StartArgs {
-        description: "x".into(), project_id: None, task_id: None, source: "cli".into(),
-    }).await.unwrap();
+    let id = timer
+        .start(StartArgs {
+            description: "x".into(),
+            project_id: None,
+            task_id: None,
+            source: "cli".into(),
+        })
+        .await
+        .unwrap();
     timer.stop().await.unwrap();
 
     let entries = Entries::new(env.store.clone());

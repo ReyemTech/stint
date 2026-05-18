@@ -10,9 +10,17 @@ pub async fn run() -> Result<()> {
     let settings = Settings::new(store.clone());
     let secrets = Secrets::default();
 
-    let url = settings.get("solidtime.url").await?.ok_or_else(|| anyhow!("solidtime.url not set"))?;
-    let token = secrets.get("solidtime.token")?.ok_or_else(|| anyhow!("solidtime.token not set"))?;
-    let org = settings.get("solidtime.org").await?.ok_or_else(|| anyhow!("solidtime.org not set"))?;
+    let url = settings
+        .get("solidtime.url")
+        .await?
+        .ok_or_else(|| anyhow!("solidtime.url not set"))?;
+    let token = secrets
+        .get("solidtime.token")?
+        .ok_or_else(|| anyhow!("solidtime.token not set"))?;
+    let org = settings
+        .get("solidtime.org")
+        .await?
+        .ok_or_else(|| anyhow!("solidtime.org not set"))?;
 
     let client = SolidtimeClient::new(&url, &token).with_org(org);
     let n = drain_once(&store, &client).await?;

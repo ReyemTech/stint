@@ -1,6 +1,10 @@
 use crate::{
     solidtime::{dto::CreateEntryRequest, SolidtimeClient},
-    store::{entries::Entries, queue::{Queue, QueueRow}, Store},
+    store::{
+        entries::Entries,
+        queue::{Queue, QueueRow},
+        Store,
+    },
     Error, Result,
 };
 use serde::Deserialize;
@@ -16,11 +20,7 @@ struct DeletePayload {
     solidtime_id: String,
 }
 
-pub async fn push_one(
-    store: &Store,
-    client: &SolidtimeClient,
-    row: &QueueRow,
-) -> Result<()> {
+pub async fn push_one(store: &Store, client: &SolidtimeClient, row: &QueueRow) -> Result<()> {
     let result = match row.op.as_str() {
         "create_entry" => push_create(store, client, row).await,
         "update_entry" => push_update(store, client, row).await,
@@ -36,14 +36,12 @@ pub async fn push_one(
     result
 }
 
-async fn push_create(
-    store: &Store,
-    client: &SolidtimeClient,
-    row: &QueueRow,
-) -> Result<()> {
+async fn push_create(store: &Store, client: &SolidtimeClient, row: &QueueRow) -> Result<()> {
     let payload: CreatePayload = serde_json::from_str(&row.payload)?;
     let entries = Entries::new(store.clone());
-    let current = entries.get(&payload.local_uuid).await?
+    let current = entries
+        .get(&payload.local_uuid)
+        .await?
         .ok_or_else(|| Error::NotFound(format!("entry {}", payload.local_uuid)))?;
 
     let req = CreateEntryRequest {
@@ -59,16 +57,16 @@ async fn push_create(
     Ok(())
 }
 
-async fn push_update(
-    store: &Store,
-    client: &SolidtimeClient,
-    row: &QueueRow,
-) -> Result<()> {
+async fn push_update(store: &Store, client: &SolidtimeClient, row: &QueueRow) -> Result<()> {
     let payload: CreatePayload = serde_json::from_str(&row.payload)?;
     let entries = Entries::new(store.clone());
-    let current = entries.get(&payload.local_uuid).await?
+    let current = entries
+        .get(&payload.local_uuid)
+        .await?
         .ok_or_else(|| Error::NotFound(format!("entry {}", payload.local_uuid)))?;
-    let remote_id = current.solidtime_id.clone()
+    let remote_id = current
+        .solidtime_id
+        .clone()
         .ok_or_else(|| Error::Invariant("update_entry without solidtime_id".into()))?;
 
     let req = CreateEntryRequest {
@@ -84,11 +82,7 @@ async fn push_update(
     Ok(())
 }
 
-async fn push_delete(
-    store: &Store,
-    client: &SolidtimeClient,
-    row: &QueueRow,
-) -> Result<()> {
+async fn push_delete(store: &Store, client: &SolidtimeClient, row: &QueueRow) -> Result<()> {
     let payload: DeletePayload = serde_json::from_str(&row.payload)?;
     client.delete_time_entry(&payload.solidtime_id).await?;
 
