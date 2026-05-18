@@ -1,1 +1,60 @@
-fn main() {}
+mod cmd;
+mod format;
+
+use anyhow::Result;
+use clap::{Parser, Subcommand};
+
+#[derive(Parser)]
+#[command(name = "stint", version, about = "Time tracker that syncs with Solidtime")]
+struct Cli {
+    #[command(subcommand)]
+    command: Command,
+}
+
+#[derive(Subcommand)]
+enum Command {
+    /// Start a new timer
+    Start(cmd::start::Args),
+    /// Stop the running timer
+    Stop,
+    /// Show today's entries
+    Today,
+    /// List entries between two dates
+    List(cmd::list::Args),
+    /// Edit an entry
+    Edit(cmd::edit::Args),
+    /// Delete an entry
+    Delete(cmd::delete::Args),
+    /// View and modify configuration
+    #[command(subcommand)]
+    Config(cmd::config::ConfigCmd),
+    /// Refresh and list projects/tasks/tags
+    #[command(subcommand)]
+    Projects(cmd::projects::ProjectsCmd),
+    /// Drain the sync queue once
+    Sync,
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_env("STINT_LOG")
+                .unwrap_or_else(|_| "warn".into()),
+        )
+        .with_writer(std::io::stderr)
+        .init();
+
+    let cli = Cli::parse();
+    match cli.command {
+        Command::Start(args) => cmd::start::run(args).await,
+        Command::Stop => cmd::stop::run().await,
+        Command::Today => cmd::today::run().await,
+        Command::List(args) => cmd::list::run(args).await,
+        Command::Edit(args) => cmd::edit::run(args).await,
+        Command::Delete(args) => cmd::delete::run(args).await,
+        Command::Config(c) => cmd::config::run(c).await,
+        Command::Projects(p) => cmd::projects::run(p).await,
+        Command::Sync => cmd::sync::run().await,
+    }
+}
