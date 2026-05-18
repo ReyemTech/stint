@@ -46,6 +46,14 @@ async fn main() -> Result<()> {
         .init();
 
     let cli = Cli::parse();
+
+    // Run startup recovery once, before any command. Skip for `Sync` to avoid
+    // recursion when the GUI is also running concurrently.
+    if !matches!(cli.command, Command::Sync) {
+        let store = cmd::open_store().await?;
+        cmd::maybe_recover(&store).await?;
+    }
+
     match cli.command {
         Command::Start(args) => cmd::start::run(args).await,
         Command::Stop => cmd::stop::run().await,
