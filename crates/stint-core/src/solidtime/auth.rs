@@ -6,13 +6,14 @@
 //! shared OAuth machinery). Tests use a mock impl directly.
 
 use crate::config::secrets::Secrets;
-use crate::oauth::client::OAuthClient;
+use crate::config::Settings;
+use crate::oauth::client::{OAuthClient, OAuthConfig};
 use crate::oauth::tokens::TokenSet;
 use crate::Result;
 use async_trait::async_trait;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 #[async_trait]
 pub trait TokenProvider: Send + Sync {
@@ -101,4 +102,80 @@ pub fn oauth_blob_save(secrets: &Secrets, blob: &OAuthBlob) -> Result<()> {
 
 pub fn oauth_blob_delete(secrets: &Secrets) -> Result<()> {
     secrets.delete(OAUTH_KEYCHAIN_KEY)
+}
+
+const AUTH_MODE_KEY: &str = "solidtime.auth_mode";
+const API_TOKEN_KEYCHAIN_KEY: &str = "solidtime";
+
+const DEFAULT_SCOPES: &[&str] = &["read", "create", "update", "delete"];
+const DEFAULT_REDIRECT_URI_HOST: &str = "http://127.0.0.1:0/callback";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AuthMode {
+    ApiToken,
+    OAuth,
+}
+
+impl AuthMode {
+    pub fn from_str_or_default(s: Option<&str>) -> Self {
+        match s {
+            Some("oauth") => Self::OAuth,
+            _ => Self::ApiToken,
+        }
+    }
+}
+
+/// Build the right `(TokenProvider, OAuthClient)` pair based on settings + Keychain.
+/// The OAuthClient is returned even for the api_token path so the GUI can offer a
+/// "Sign in with Solidtime" button without re-resolving config.
+pub async fn build_token_provider(
+    settings: &Settings,
+    secrets: &Secrets,
+    solidtime_base_url: &str,
+) -> Result<(Arc<dyn TokenProvider>, OAuthClient)> {
+    let mode = AuthMode::from_str_or_default(settings.get(AUTH_MODE_KEY).await?.as_deref());
+
+    let blob = oauth_blob_load(secrets)?;
+    let client_id = blob
+        .as_ref()
+        .map(|b| b.client_id.clone())
+        .unwrap_or_else(|| "stint-desktop".to_string());
+
+    let oauth_client = OAuthClient::new(OAuthConfig {
+        authorize_url: format!(
+            "{}/oauth/authorize",
+            solidtime_base_url.trim_end_matches('/')
+        ),
+        token_url: format!("{}/oauth/token", solidtime_base_url.trim_end_matches('/')),
+        client_id,
+        redirect_uri: DEFAULT_REDIRECT_URI_HOST.into(),
+        scopes: DEFAULT_SCOPES.iter().map(|s| s.to_string()).collect(),
+    });
+
+    match mode {
+        AuthMode::ApiToken => {
+            let token = secrets
+                .get(API_TOKEN_KEYCHAIN_KEY)?
+                .ok_or(crate::Error::MissingConfig("solidtime"))?;
+            let provider: Arc<dyn TokenProvider> = Arc::new(ApiTokenProvider::new(token));
+            Ok((provider, oauth_client))
+        }
+        AuthMode::OAuth => {
+            let blob = blob.ok_or(crate::Error::MissingConfig("solidtime.oauth"))?;
+            let secrets_clone = secrets.clone();
+            let persist: PersistFn = Box::new(move |t: &TokenSet| {
+                let updated = OAuthBlob {
+                    client_id: blob.client_id.clone(),
+                    tokens: t.clone(),
+                };
+                oauth_blob_save(&secrets_clone, &updated)
+            });
+            let provider: Arc<dyn TokenProvider> = Arc::new(OAuthTokenProvider::new(
+                OAuthClient::new(oauth_client.config().clone()),
+                blob.tokens,
+                persist,
+            ));
+            Ok((provider, oauth_client))
+        }
+    }
 }

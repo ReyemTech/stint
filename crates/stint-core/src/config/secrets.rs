@@ -3,6 +3,7 @@ use keyring::Entry;
 
 pub const DEFAULT_SERVICE_PREFIX: &str = "tech.reyem.stint";
 
+#[derive(Clone)]
 pub struct Secrets {
     prefix: String,
 }
