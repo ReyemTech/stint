@@ -1,3 +1,4 @@
+pub mod auth;
 pub mod dto;
 
 use crate::{Error, Result};
