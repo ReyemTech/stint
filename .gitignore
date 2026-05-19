@@ -47,3 +47,6 @@ node_modules/
 
 # Logs
 *.log
+
+# Image-generation scratch output (nano-banana skill)
+nanobanana-output/
