@@ -13,6 +13,10 @@ pub enum ConfigCmd {
     Show,
     /// Verify that the configured Solidtime URL + token work.
     Test,
+    /// Run OAuth 2.0 PKCE login against the configured Solidtime instance.
+    Login,
+    /// Remove the OAuth token blob from Keychain.
+    Logout,
 }
 
 const SECRET_KEYS: &[&str] = &["solidtime.token"];
@@ -64,5 +68,7 @@ pub async fn run(c: ConfigCmd) -> Result<()> {
             println!("✓ connected as {}", me.email.unwrap_or(me.id));
             Ok(())
         }
+        ConfigCmd::Login => super::config_login::run_login(store).await,
+        ConfigCmd::Logout => super::config_login::run_logout(store).await,
     }
 }
