@@ -18,13 +18,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         &[
             &MenuItem::with_id(app, "menu-about", "About Stint", true, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(
-                app,
-                "menu-settings",
-                "Settings…",
-                true,
-                Some("CmdOrCtrl+,"),
-            )?,
+            &MenuItem::with_id(app, "menu-settings", "Settings…", true, Some("CmdOrCtrl+,"))?,
             &PredefinedMenuItem::separator(app)?,
             &PredefinedMenuItem::services(app, None)?,
             &PredefinedMenuItem::separator(app)?,

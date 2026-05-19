@@ -62,9 +62,7 @@ pub async fn config_set(
 }
 
 #[tauri::command]
-pub async fn solidtime_url(
-    state: State<'_, RwLock<AppState>>,
-) -> Result<Option<String>, AppError> {
+pub async fn solidtime_url(state: State<'_, RwLock<AppState>>) -> Result<Option<String>, AppError> {
     let store = store(&state).await;
     Ok(Settings::new((*store).clone())
         .get("solidtime.url")

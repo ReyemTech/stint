@@ -125,11 +125,7 @@ impl Entries {
         .await
     }
 
-    pub async fn set_project(
-        &self,
-        local_uuid: &str,
-        project_id: Option<&str>,
-    ) -> Result<()> {
+    pub async fn set_project(&self, local_uuid: &str, project_id: Option<&str>) -> Result<()> {
         self.update_one(local_uuid, |s| {
             sqlx::query(
                 "UPDATE time_entries

@@ -27,9 +27,7 @@ async fn build_client(store: &stint_core::store::Store) -> Result<SolidtimeClien
 
 /// Like build_client but does NOT require an org. Used for endpoints that
 /// don't depend on a specific org (e.g. listing memberships).
-async fn build_unorg_client(
-    store: &stint_core::store::Store,
-) -> Result<SolidtimeClient, AppError> {
+async fn build_unorg_client(store: &stint_core::store::Store) -> Result<SolidtimeClient, AppError> {
     let settings = Settings::new(store.clone());
     let secrets = Secrets::default();
     let url = settings
