@@ -34,18 +34,19 @@ pub async fn run_login(store: Store) -> Result<()> {
         token_url: format!("{}/oauth/token", base_url.trim_end_matches('/')),
         client_id: client_id.clone(),
         redirect_uri: "http://127.0.0.1:0/callback".into(),
-        scopes: vec![
-            "read".into(),
-            "create".into(),
-            "update".into(),
-            "delete".into(),
-        ],
+        // Solidtime/Passport may reject explicit scopes if `Passport::tokensCan`
+        // is not configured (scope enforcement is documented as not yet
+        // implemented). Send an empty scope list — the server falls back to
+        // whatever default it has configured.
+        scopes: vec![],
     });
 
-    println!("Opening browser to sign in to {base_url}...");
+    println!("Opening browser to sign in to {base_url}.");
+    println!("If the browser does not open, visit this URL manually:");
     let tokens = login_interactive(&client, FLOW_TIMEOUT, |url| {
+        println!("  {url}");
         if let Err(e) = webbrowser::open(&url) {
-            eprintln!("Could not open browser ({e}). Please visit:\n  {url}");
+            eprintln!("(Could not auto-open browser: {e})");
         }
     })
     .await
