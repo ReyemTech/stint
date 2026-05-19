@@ -108,6 +108,47 @@ impl OAuthClient {
             Utc::now(),
         ))
     }
+
+    /// Exchange a stored refresh-token for a fresh `TokenSet` using the
+    /// `refresh_token` grant.  If the server returns any 4xx status the
+    /// refresh-token is considered dead and `Error::OAuthRefreshFailed` is
+    /// returned so the caller can trigger re-authentication.
+    pub async fn refresh_tokens(&self, prior: &TokenSet) -> Result<TokenSet> {
+        let refresh_token = prior
+            .refresh_token
+            .as_deref()
+            .ok_or(Error::OAuthRefreshFailed)?;
+
+        let http = Client::new();
+        let form = [
+            ("grant_type", "refresh_token"),
+            ("refresh_token", refresh_token),
+            ("client_id", self.config.client_id.as_str()),
+        ];
+        let resp = http
+            .post(&self.config.token_url)
+            .form(&form)
+            .send()
+            .await
+            .map_err(|_| Error::OAuthRefreshFailed)?;
+
+        let status = resp.status();
+        // 4xx on refresh means the refresh_token is no good — require re-auth.
+        if status.is_client_error() {
+            return Err(Error::OAuthRefreshFailed);
+        }
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            return Err(Error::OAuthServer(format!("HTTP {status}: {body}")));
+        }
+        let parsed: TokenResponse = resp.json().await.map_err(|_| Error::OAuthRefreshFailed)?;
+        Ok(prior.merge_refresh_response(
+            parsed.access_token,
+            parsed.refresh_token,
+            parsed.expires_in,
+            parsed.scope,
+        ))
+    }
 }
 
 fn random_state() -> String {
