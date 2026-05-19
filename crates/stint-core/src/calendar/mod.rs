@@ -7,3 +7,8 @@ pub mod provider;
 pub mod store;
 pub mod sync;
 pub mod types;
+
+pub use provider::{CalendarProvider, RemoteCalendar, RemoteEvent};
+pub use types::{
+    AttendeeStatus, Calendar, CalendarAccount, CalendarEvent, EventDecision, ProviderKind, TimeRange,
+};
