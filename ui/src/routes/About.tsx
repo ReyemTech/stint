@@ -65,7 +65,14 @@ export default function About() {
                 </div>
                 <div>
                   <dt class="text-zinc-400 dark:text-zinc-500">Author</dt>
-                  <dd class="text-zinc-700 dark:text-zinc-200">Reyem Tech</dd>
+                  <dd>
+                    <button
+                      class="text-zinc-700 transition hover:text-indigo-600 dark:text-zinc-200 dark:hover:text-indigo-400"
+                      onClick={() => openUrl("https://www.reyem.tech")}
+                    >
+                      Reyem Tech ↗
+                    </button>
+                  </dd>
                 </div>
                 <div>
                   <dt class="text-zinc-400 dark:text-zinc-500">License</dt>
