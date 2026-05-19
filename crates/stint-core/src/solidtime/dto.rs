@@ -73,6 +73,7 @@ pub struct Membership {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct CreateEntryRequest<'a> {
+    pub member_id: &'a str,
     pub description: &'a str,
     pub project_id: Option<&'a str>,
     pub task_id: Option<&'a str>,

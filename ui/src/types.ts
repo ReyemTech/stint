@@ -29,6 +29,7 @@ export type Project = {
 
 export type OrgChoice = {
   id: string;
+  member_id: string;
   name: string;
 };
 

@@ -1,4 +1,11 @@
-import { For, Show, createMemo, createResource, createSignal } from "solid-js";
+import {
+  For,
+  Show,
+  createEffect,
+  createMemo,
+  createResource,
+  createSignal,
+} from "solid-js";
 import { api } from "~/api";
 import type { OrgChoice, Project } from "~/types";
 
@@ -6,6 +13,7 @@ const LABELS: Record<string, string> = {
   "solidtime.url": "Solidtime URL",
   "solidtime.token": "API token",
   "solidtime.org": "Organization",
+  "solidtime.member_id": "Membership",
   "solidtime.default-project": "Default project",
 };
 const labelFor = (key: string) => LABELS[key] ?? key;
@@ -57,6 +65,22 @@ export default function Settings() {
 
   const orgList = () => orgs() ?? [];
   const projectList = () => projects() ?? [];
+
+  // Backfill: when memberships first load and the user already has an org
+  // saved but no member_id, set it automatically. Without member_id every
+  // time-entry write to Solidtime fails with 422.
+  createEffect(() => {
+    const list = orgList();
+    if (list.length === 0) return;
+    const currentOrg = orgId();
+    if (!currentOrg) return;
+    const memberSet = lookup("solidtime.member_id")?.value;
+    if (memberSet) return;
+    const m = list.find((o) => o.id === currentOrg);
+    if (m) {
+      void saveValue("solidtime.member_id", m.member_id);
+    }
+  });
 
   function flash(kind: "ok" | "err" | "info", msg: string) {
     setStatusKind(kind);
@@ -177,7 +201,13 @@ export default function Settings() {
               hint="Time entries are logged into this org."
               value={orgId()}
               options={orgList().map((o) => ({ value: o.id, label: o.name }))}
-              onChange={(v) => saveValue("solidtime.org", v)}
+              onChange={async (v) => {
+                // Save org and the matching membership id together — the API
+                // requires member_id on every time-entry write.
+                const m = orgList().find((o) => o.id === v);
+                await saveValue("solidtime.org", v);
+                if (m) await saveValue("solidtime.member_id", m.member_id);
+              }}
               placeholder="Select an organization…"
             />
           </Show>

@@ -45,6 +45,7 @@ async fn build_unorg_client(
 #[derive(Serialize)]
 pub struct OrgChoice {
     pub id: String,
+    pub member_id: String,
     pub name: String,
 }
 
@@ -59,6 +60,7 @@ pub async fn list_organizations(
         .into_iter()
         .map(|m| OrgChoice {
             id: m.organization.id,
+            member_id: m.id,
             name: m.organization.name,
         })
         .collect())
