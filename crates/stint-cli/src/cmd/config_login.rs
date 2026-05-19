@@ -66,7 +66,7 @@ pub async fn run_logout(store: Store) -> Result<()> {
 
     // If a PAT exists, fall back to it. Otherwise leave auth_mode as-is so the
     // user knows they need to re-authenticate.
-    if secrets.get("solidtime")?.is_some() {
+    if secrets.get("solidtime.token")?.is_some() {
         settings.set("solidtime.auth_mode", "api_token").await?;
         println!("OAuth tokens cleared. Falling back to the stored API token.");
     } else {

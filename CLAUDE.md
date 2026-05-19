@@ -204,7 +204,7 @@ git checkout -b phase-2.5
 - **OAuth tokens are one Keychain entry, not three.** Solidtime OAuth
   refresh/access/expiry are persisted as a single JSON blob under
   `tech.reyem.stint.solidtime.oauth`. The blob is rewritten atomically
-  on every refresh. The legacy PAT entry at `tech.reyem.stint.solidtime`
+  on every refresh. The legacy PAT entry at `tech.reyem.stint.solidtime.token`
   is independent — both can coexist; `solidtime.auth_mode` settings key
   picks which is active. The OAuth `client_id` is non-secret and lives
   in the same blob (and is mirrored to the `solidtime.oauth.client_id`

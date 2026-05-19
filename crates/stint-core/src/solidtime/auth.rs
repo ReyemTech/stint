@@ -138,9 +138,13 @@ where
 }
 
 const AUTH_MODE_KEY: &str = "solidtime.auth_mode";
-const API_TOKEN_KEYCHAIN_KEY: &str = "solidtime";
+const API_TOKEN_KEYCHAIN_KEY: &str = "solidtime.token";
 
-const DEFAULT_SCOPES: &[&str] = &["read", "create", "update", "delete"];
+// Empty by default. Passport instances without `Passport::tokensCan(...)`
+// configured reject explicit scope requests with `invalid_scope`. Scopes are
+// not currently enforced by Solidtime (SECURITY.md flags this as a known gap),
+// so the default token covers all operations.
+const DEFAULT_SCOPES: &[&str] = &[];
 const DEFAULT_REDIRECT_URI_HOST: &str = "http://127.0.0.1:0/callback";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -189,7 +193,7 @@ pub async fn build_token_provider(
         AuthMode::ApiToken => {
             let token = secrets
                 .get(API_TOKEN_KEYCHAIN_KEY)?
-                .ok_or(crate::Error::MissingConfig("solidtime"))?;
+                .ok_or(crate::Error::MissingConfig("solidtime.token"))?;
             let provider: Arc<dyn TokenProvider> = Arc::new(ApiTokenProvider::new(token));
             Ok((provider, oauth_client))
         }

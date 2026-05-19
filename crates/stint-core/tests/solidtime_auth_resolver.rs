@@ -17,7 +17,7 @@ async fn returns_api_token_provider_when_mode_is_api_token() {
         .unwrap();
     let secrets =
         Secrets::with_service_prefix(format!("tech.reyem.stint.test-{}", uuid::Uuid::new_v4()));
-    secrets.set("solidtime", "the-pat-token").unwrap();
+    secrets.set("solidtime.token", "the-pat-token").unwrap();
 
     let (provider, _client) = build_token_provider(
         &Settings::new(env.store.clone()),
@@ -27,7 +27,7 @@ async fn returns_api_token_provider_when_mode_is_api_token() {
     .await
     .unwrap();
     assert_eq!(provider.access_token().await.unwrap(), "the-pat-token");
-    secrets.delete("solidtime").unwrap();
+    secrets.delete("solidtime.token").unwrap();
 }
 
 #[tokio::test]
