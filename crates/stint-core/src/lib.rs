@@ -6,6 +6,7 @@
 pub mod config;
 pub mod error;
 pub mod ids;
+pub mod oauth;
 pub mod paths;
 pub mod recovery;
 pub mod solidtime;

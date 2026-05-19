@@ -19,6 +19,7 @@ tracing.workspace = true
 sqlx.workspace = true
 reqwest.workspace = true
 keyring.workspace = true
+oauth2.workspace = true
 dirs.workspace = true
 
 [dev-dependencies]
