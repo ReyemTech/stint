@@ -7,6 +7,7 @@ import {
   createSignal,
 } from "solid-js";
 import { api } from "~/api";
+import Button from "~/components/ui/Button";
 import type { OrgChoice, Project } from "~/types";
 
 const LABELS: Record<string, string> = {
@@ -257,18 +258,8 @@ export default function Settings() {
         </div>
 
         <div class="mt-6 flex items-center gap-3 border-t border-black/[0.05] pt-4 dark:border-white/[0.04]">
-          <button
-            class="rounded-lg bg-zinc-900 px-3.5 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-700 active:scale-[0.99] dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
-            onClick={testConnection}
-          >
-            Test connection
-          </button>
-          <button
-            class="rounded-lg border border-zinc-200 bg-white px-3.5 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-            onClick={syncNow}
-          >
-            Sync now
-          </button>
+          <Button onClick={testConnection}>Test connection</Button>
+          <Button variant="secondary" onClick={syncNow}>Sync now</Button>
         </div>
       </section>
       </div>

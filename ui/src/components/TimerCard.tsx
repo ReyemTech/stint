@@ -1,6 +1,10 @@
 import { For, Show, createResource, createSignal } from "solid-js";
 import { api } from "~/api";
 import Duration from "./Duration";
+import Button from "./ui/Button";
+import SectionLabel from "./ui/SectionLabel";
+import StatusDot from "./ui/StatusDot";
+import Toggle from "./ui/Toggle";
 import { useTimerStore } from "~/stores/timer";
 
 export default function TimerCard() {
@@ -48,14 +52,10 @@ export default function TimerCard() {
                   {(p) => <option value={p.id}>{p.name}</option>}
                 </For>
               </select>
-              <BillableToggle checked={billable()} onChange={setBillable} />
-              <button
-                type="submit"
-                class="rounded-lg bg-zinc-900 px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
-                disabled={!description().trim()}
-              >
+              <Toggle label="Billable" checked={billable()} onChange={setBillable} />
+              <Button type="submit" disabled={!description().trim()}>
                 Start
-              </button>
+              </Button>
             </div>
           </form>
         }
@@ -63,14 +63,9 @@ export default function TimerCard() {
         {(t) => (
           <div>
             <div class="flex items-center justify-between">
-              <span class="text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500">
-                Tracking
-              </span>
+              <SectionLabel>Tracking</SectionLabel>
               <span class="inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.06em] text-emerald-600 dark:text-emerald-400">
-                <span class="relative inline-flex h-1.5 w-1.5">
-                  <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                  <span class="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                </span>
+                <StatusDot tone="emerald" ping />
                 Live
               </span>
             </div>
@@ -96,53 +91,21 @@ export default function TimerCard() {
                   {(p) => <option value={p.id}>{p.name}</option>}
                 </For>
               </select>
-              <BillableToggle
+              <Toggle
+                label="Billable"
                 checked={t().billable}
                 onChange={async (next) => {
                   await api.setEntryBillable(t().local_uuid, next);
                   await timer.refresh();
                 }}
               />
-              <button
-                class="rounded-lg bg-red-500 px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-600 active:scale-[0.99]"
-                onClick={() => timer.stop()}
-              >
+              <Button variant="danger" onClick={() => timer.stop()}>
                 Stop
-              </button>
+              </Button>
             </div>
           </div>
         )}
       </Show>
     </div>
-  );
-}
-
-function BillableToggle(props: {
-  checked: boolean;
-  onChange: (next: boolean) => void | Promise<void>;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={props.checked}
-      class="inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition"
-      classList={{
-        "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300":
-          props.checked,
-        "border-zinc-200 bg-white text-zinc-500 hover:text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/40 dark:text-zinc-400 dark:hover:text-zinc-200":
-          !props.checked,
-      }}
-      onClick={() => props.onChange(!props.checked)}
-    >
-      <span
-        class="h-1.5 w-1.5 rounded-full"
-        classList={{
-          "bg-emerald-500": props.checked,
-          "bg-zinc-300 dark:bg-zinc-600": !props.checked,
-        }}
-      />
-      Billable
-    </button>
   );
 }

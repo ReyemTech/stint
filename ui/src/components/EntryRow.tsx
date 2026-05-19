@@ -2,6 +2,10 @@ import { For, Show, createResource, createSignal } from "solid-js";
 import { api } from "~/api";
 import type { Entry } from "~/types";
 import { formatDuration } from "./Duration";
+import Pill, { type PillTone } from "./ui/Pill";
+import StatusDot, { type DotTone } from "./ui/StatusDot";
+import Toggle from "./ui/Toggle";
+import Button from "./ui/Button";
 
 function durationSecs(start: string, end: string | null): number {
   const s = new Date(start).getTime();
@@ -9,16 +13,21 @@ function durationSecs(start: string, end: string | null): number {
   return Math.max(0, Math.floor((e - s) / 1000));
 }
 
-function syncLabel(state: Entry["sync_state"]): { text: string; tone: string } {
+function syncMeta(state: Entry["sync_state"], isRunning: boolean): {
+  text: string;
+  tone: PillTone;
+  dotTone: DotTone;
+} {
+  if (isRunning) return { text: "Running", tone: "emerald", dotTone: "emerald" };
   switch (state) {
     case "synced":
-      return { text: "Synced", tone: "emerald" };
+      return { text: "Synced", tone: "emerald", dotTone: "emerald" };
     case "dirty":
-      return { text: "Edited", tone: "amber" };
+      return { text: "Edited", tone: "amber", dotTone: "amber" };
     case "pending_create":
-      return { text: "Pending", tone: "amber" };
+      return { text: "Pending", tone: "amber", dotTone: "amber" };
     case "pending_delete":
-      return { text: "Deleting", tone: "red" };
+      return { text: "Deleting", tone: "red", dotTone: "red" };
   }
 }
 
@@ -35,7 +44,7 @@ export default function EntryRow(props: {
     initialValue: [],
   });
   const isRunning = !props.entry.end_at;
-  const sync = () => syncLabel(props.entry.sync_state);
+  const meta = () => syncMeta(props.entry.sync_state, isRunning);
 
   async function saveDescription() {
     if (desc().trim() === props.entry.description.trim()) return;
@@ -64,17 +73,7 @@ export default function EntryRow(props: {
         class="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-zinc-50 dark:hover:bg-zinc-800/40"
         onClick={() => setOpen((v) => !v)}
       >
-        <span
-          class="h-2 w-2 shrink-0 rounded-full"
-          classList={{
-            "bg-emerald-500": isRunning || props.entry.sync_state === "synced",
-            "bg-amber-500":
-              !isRunning &&
-              (props.entry.sync_state === "pending_create" ||
-                props.entry.sync_state === "dirty"),
-            "bg-red-500": props.entry.sync_state === "pending_delete",
-          }}
-        />
+        <StatusDot tone={meta().dotTone} ping={isRunning} />
         <div class="min-w-0 flex-1">
           <div class="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
             {props.entry.description || (
@@ -83,35 +82,12 @@ export default function EntryRow(props: {
           </div>
           <div class="mt-0.5 flex items-center gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
             <Show when={props.projectName}>
-              <span class="rounded bg-zinc-100 px-1.5 py-0.5 font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                {props.projectName}
-              </span>
+              <Pill>{props.projectName}</Pill>
             </Show>
             <Show when={props.entry.billable}>
-              <span class="rounded bg-emerald-50 px-1.5 py-0.5 font-medium text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
-                Billable
-              </span>
+              <Pill tone="emerald">Billable</Pill>
             </Show>
-            <Show when={!isRunning}>
-              <span
-                class="rounded px-1.5 py-0.5 font-medium"
-                classList={{
-                  "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300":
-                    sync().tone === "emerald",
-                  "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300":
-                    sync().tone === "amber",
-                  "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300":
-                    sync().tone === "red",
-                }}
-              >
-                {sync().text}
-              </span>
-            </Show>
-            <Show when={isRunning}>
-              <span class="rounded bg-emerald-50 px-1.5 py-0.5 font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
-                Running
-              </span>
-            </Show>
+            <Pill tone={meta().tone}>{meta().text}</Pill>
           </div>
         </div>
         <span class="font-mono tabular-nums text-sm font-medium text-zinc-700 dark:text-zinc-300">
@@ -142,8 +118,8 @@ export default function EntryRow(props: {
               onBlur={saveDescription}
             />
           </div>
-          <div class="grid grid-cols-[1fr_auto] gap-3">
-            <div>
+          <div class="flex items-end gap-3">
+            <div class="flex-1">
               <label class="block text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500">
                 Project
               </label>
@@ -158,25 +134,20 @@ export default function EntryRow(props: {
                 </For>
               </select>
             </div>
-            <div class="flex items-end pb-px">
-              <label class="inline-flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300">
-                <input
-                  type="checkbox"
-                  class="accent-indigo-500"
-                  checked={props.entry.billable}
-                  onChange={(e) => changeBillable(e.currentTarget.checked)}
-                />
-                Billable
-              </label>
-            </div>
+            <Toggle
+              label="Billable"
+              checked={props.entry.billable}
+              onChange={changeBillable}
+            />
           </div>
           <div class="flex justify-end pt-1">
-            <button
-              class="rounded-md border border-red-200 bg-white px-2.5 py-1 text-xs font-medium text-red-700 transition hover:bg-red-50 dark:border-red-900/50 dark:bg-zinc-900 dark:text-red-300 dark:hover:bg-red-950/30"
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => props.onDelete?.(props.entry.local_uuid)}
             >
               Delete entry
-            </button>
+            </Button>
           </div>
         </div>
       </Show>

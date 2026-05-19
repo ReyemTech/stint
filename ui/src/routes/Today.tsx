@@ -1,9 +1,11 @@
 import { Show, createMemo, createResource, createSignal, onCleanup } from "solid-js";
 import { listen } from "@tauri-apps/api/event";
 import { api } from "~/api";
+import Duration from "~/components/Duration";
 import EntryList from "~/components/EntryList";
 import TimerCard from "~/components/TimerCard";
-import Duration from "~/components/Duration";
+import SectionLabel from "~/components/ui/SectionLabel";
+import StatusDot from "~/components/ui/StatusDot";
 import { useTimerStore } from "~/stores/timer";
 import { openSolidtime } from "~/lib/openSolidtime";
 
@@ -80,18 +82,8 @@ export default function Today() {
               pending={pending()}
               onClick={syncNow}
             />
-            <a
-              class="rounded-md px-2.5 py-1.5 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
-              href="#/today"
-            >
-              Today
-            </a>
-            <a
-              class="rounded-md px-2.5 py-1.5 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
-              href="#/settings"
-            >
-              Settings
-            </a>
+            <NavLink href="#/today" active>Today</NavLink>
+            <NavLink href="#/settings">Settings</NavLink>
             <button
               class="rounded-md px-2.5 py-1.5 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
               onClick={() => openSolidtime()}
@@ -113,7 +105,7 @@ export default function Today() {
           <Stat
             label="Billable"
             value={<Duration seconds={billableSeconds()} />}
-            accent="emerald"
+            accent
           />
         </div>
 
@@ -121,9 +113,7 @@ export default function Today() {
 
         <section class="mt-8">
           <div class="mb-3 flex items-baseline justify-between">
-            <h2 class="text-sm font-semibold uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500">
-              Entries
-            </h2>
+            <SectionLabel>Entries</SectionLabel>
             <span class="text-xs text-zinc-400 dark:text-zinc-500">
               {(entries() ?? []).length} total
             </span>
@@ -131,7 +121,7 @@ export default function Today() {
           <Show
             when={!entries.loading}
             fallback={
-              <p class="rounded-xl border border-dashed border-zinc-200 py-8 text-center text-sm text-zinc-400 dark:border-zinc-800">
+              <p class="rounded-2xl border border-dashed border-zinc-200 py-8 text-center text-sm text-zinc-400 dark:border-zinc-800">
                 Loading…
               </p>
             }
@@ -153,20 +143,14 @@ export default function Today() {
   );
 }
 
-function Stat(props: {
-  label: string;
-  value: any;
-  accent?: "emerald" | "indigo";
-}) {
+function Stat(props: { label: string; value: any; accent?: boolean }) {
   return (
     <div class="rounded-2xl border border-black/[0.06] bg-white px-4 py-3 dark:border-white/[0.06] dark:bg-zinc-900">
-      <div class="text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500">
-        {props.label}
-      </div>
+      <SectionLabel>{props.label}</SectionLabel>
       <div
         class="mt-1 text-2xl font-semibold tracking-tight tabular-nums"
         classList={{
-          "text-emerald-600 dark:text-emerald-400": props.accent === "emerald",
+          "text-emerald-600 dark:text-emerald-400": props.accent,
         }}
       >
         {props.value}
@@ -175,11 +159,31 @@ function Stat(props: {
   );
 }
 
+function NavLink(props: { href: string; active?: boolean; children: any }) {
+  return (
+    <a
+      href={props.href}
+      class="rounded-md px-2.5 py-1.5 transition"
+      classList={{
+        "text-zinc-900 dark:text-zinc-100": props.active,
+        "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100":
+          !props.active,
+      }}
+    >
+      {props.children}
+    </a>
+  );
+}
+
 function SyncBadge(props: {
   syncing: boolean;
   pending: number;
   onClick: () => void;
 }) {
+  const tone = () => {
+    if (props.syncing || props.pending > 0) return "amber" as const;
+    return "emerald" as const;
+  };
   return (
     <button
       class="mr-2 inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-50 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
@@ -190,14 +194,7 @@ function SyncBadge(props: {
       onClick={props.onClick}
       title="Push pending entries to Solidtime"
     >
-      <span
-        class="h-1.5 w-1.5 rounded-full"
-        classList={{
-          "bg-amber-500 animate-pulse": props.syncing,
-          "bg-amber-500": props.pending > 0 && !props.syncing,
-          "bg-emerald-500": props.pending === 0 && !props.syncing,
-        }}
-      />
+      <StatusDot tone={tone()} ping={props.syncing} />
       {props.syncing
         ? "Syncing…"
         : props.pending > 0
