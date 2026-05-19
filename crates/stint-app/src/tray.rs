@@ -34,6 +34,10 @@ pub fn build(app: &AppHandle) -> tauri::Result<TrayIcon> {
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {
+            // Feed every tray event to the positioner so it records the icon's
+            // screen rect — required before move_window(TrayCenter) works.
+            tauri_plugin_positioner::on_tray_event(tray.app_handle(), &event);
+
             if let TrayIconEvent::Click { button, .. } = event {
                 if matches!(button, MouseButton::Left) {
                     let app = tray.app_handle();
