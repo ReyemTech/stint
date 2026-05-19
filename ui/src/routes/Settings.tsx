@@ -124,18 +124,30 @@ export default function Settings() {
   }
 
   return (
-    <div class="mx-auto max-w-2xl p-6">
-      <header class="mb-6 flex items-baseline justify-between">
-        <h1 class="text-xl font-semibold">Settings</h1>
-        <nav class="text-sm text-zinc-500">
-          <a class="mr-4 hover:text-zinc-900 dark:hover:text-zinc-100" href="#/today">
-            Today
-          </a>
-          <a class="text-zinc-900 dark:text-zinc-100" href="#/settings">
-            Settings
-          </a>
-        </nav>
-      </header>
+    <div class="min-h-screen bg-zinc-50/60 dark:bg-zinc-950">
+      <div class="mx-auto max-w-3xl px-6 py-8">
+        <header class="mb-6 flex items-center justify-between">
+          <div>
+            <h1 class="text-2xl font-semibold tracking-tight">Settings</h1>
+            <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+              Connection, organization, and defaults.
+            </p>
+          </div>
+          <nav class="flex items-center gap-1 text-xs">
+            <a
+              class="rounded-md px-2.5 py-1.5 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+              href="#/today"
+            >
+              Today
+            </a>
+            <a
+              class="rounded-md px-2.5 py-1.5 text-zinc-900 dark:text-zinc-100"
+              href="#/settings"
+            >
+              Settings
+            </a>
+          </nav>
+        </header>
 
       <Show when={status()}>
         <div
@@ -153,7 +165,7 @@ export default function Settings() {
         </div>
       </Show>
 
-      <section class="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+      <section class="rounded-2xl border border-black/[0.06] bg-white p-6 dark:border-white/[0.06] dark:bg-zinc-900">
         <h2 class="mb-1 text-sm font-semibold uppercase tracking-wide text-zinc-500">
           Solidtime connection
         </h2>
@@ -244,21 +256,22 @@ export default function Settings() {
           </Show>
         </div>
 
-        <div class="mt-6 flex items-center gap-3 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+        <div class="mt-6 flex items-center gap-3 border-t border-black/[0.05] pt-4 dark:border-white/[0.04]">
           <button
-            class="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+            class="rounded-lg bg-zinc-900 px-3.5 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-700 active:scale-[0.99] dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
             onClick={testConnection}
           >
             Test connection
           </button>
           <button
-            class="rounded-md border border-zinc-300 px-3 py-1.5 text-sm transition hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            class="rounded-lg border border-zinc-200 bg-white px-3.5 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
             onClick={syncNow}
           >
             Sync now
           </button>
         </div>
       </section>
+      </div>
     </div>
   );
 }

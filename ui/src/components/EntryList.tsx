@@ -20,14 +20,19 @@ export default function EntryList(props: {
   return (
     <Show
       when={props.entries.length > 0}
-      fallback={<p class="py-4 text-center text-sm text-zinc-500">No entries.</p>}
+      fallback={
+        <p class="py-12 text-center text-sm text-zinc-400 dark:text-zinc-500">
+          No entries yet today.
+        </p>
+      }
     >
       <ul>
         <For each={props.entries}>
-          {(e) => (
+          {(e, i) => (
             <EntryRow
               entry={e}
               projectName={projectName()(e.project_id)}
+              isFirst={i() === 0}
               onChange={props.onChange}
               onDelete={props.onDelete}
             />

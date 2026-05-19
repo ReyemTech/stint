@@ -25,14 +25,15 @@
       {
         "label": "popover",
         "title": "",
-        "width": 320,
-        "height": 380,
+        "width": 340,
+        "height": 440,
         "decorations": false,
         "resizable": false,
         "alwaysOnTop": true,
         "skipTaskbar": true,
         "visible": false,
-        "transparent": false,
+        "transparent": true,
+        "shadow": false,
         "url": "/#/popover"
       }
     ],

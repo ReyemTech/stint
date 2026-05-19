@@ -2,9 +2,53 @@
 
 :root {
   color-scheme: light dark;
+
+  --accent: 99 102 241;
+  --accent-hover: 79 70 229;
+  --danger: 239 68 68;
+  --success: 16 185 129;
+}
+
+html,
+body {
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv11", "ss01", "ss03";
+  user-select: none;
 }
 
 body {
-  margin: 0;
-  user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
+    sans-serif;
+}
+
+input,
+textarea,
+[contenteditable] {
+  user-select: text;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgb(0 0 0 / 0.15);
+  border-radius: 4px;
+}
+@media (prefers-color-scheme: dark) {
+  ::-webkit-scrollbar-thumb {
+    background: rgb(255 255 255 / 0.12);
+  }
+}
+
+body.popover-window {
+  background: transparent;
+}
+
+*:focus-visible {
+  outline: 2px solid rgb(var(--accent) / 0.6);
+  outline-offset: 1px;
+  border-radius: 4px;
 }

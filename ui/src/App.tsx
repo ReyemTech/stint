@@ -6,6 +6,10 @@ import Today from "./routes/Today";
 
 const isPopover = getCurrentWindow().label === "popover";
 
+if (isPopover) {
+  document.body.classList.add("popover-window");
+}
+
 export default function App() {
   if (isPopover) {
     return <Popover />;
