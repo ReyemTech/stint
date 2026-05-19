@@ -5,7 +5,8 @@ use std::time::Duration;
 use stint_core::config::{secrets::Secrets, Settings};
 use stint_core::oauth::client::{OAuthClient, OAuthConfig};
 use stint_core::solidtime::auth::{
-    login_interactive, oauth_blob_delete, oauth_blob_load, oauth_blob_save, AuthMode, OAuthBlob,
+    build_token_provider, login_interactive, oauth_blob_delete, oauth_blob_load, oauth_blob_save,
+    AuthMode, OAuthBlob,
 };
 use stint_core::solidtime::SolidtimeClient;
 use tauri::State;
@@ -79,14 +80,13 @@ pub async fn solidtime_url(state: State<'_, RwLock<AppState>>) -> Result<Option<
 pub async fn config_test(state: State<'_, RwLock<AppState>>) -> Result<String, AppError> {
     let store = store(&state).await;
     let settings = Settings::new((*store).clone());
+    let secrets = Secrets::default();
     let url = settings
         .get("solidtime.url")
         .await?
         .ok_or(stint_core::Error::MissingConfig("solidtime.url"))?;
-    let token = Secrets::default()
-        .get("solidtime.token")?
-        .ok_or(stint_core::Error::MissingConfig("solidtime.token"))?;
-    let client = SolidtimeClient::with_api_token(&url, &token);
+    let (provider, _oauth_client) = build_token_provider(&settings, &secrets, &url).await?;
+    let client = SolidtimeClient::new(&url, provider);
     let me = client.test_connection().await?;
     Ok(me.email.unwrap_or(me.id))
 }

@@ -9,6 +9,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use stint_core::{
     config::{secrets::Secrets, Settings},
+    solidtime::auth::build_token_provider,
     solidtime::SolidtimeClient,
     store::Store,
     sync::drain_once,
@@ -71,13 +72,9 @@ async fn build_client(store: &Store) -> stint_core::Result<Option<SolidtimeClien
     let Some(url) = settings.get("solidtime.url").await? else {
         return Ok(None);
     };
-    let Some(token) = secrets.get("solidtime.token")? else {
-        return Ok(None);
-    };
     let Some(org) = settings.get("solidtime.org").await? else {
         return Ok(None);
     };
-    Ok(Some(
-        SolidtimeClient::with_api_token(&url, &token).with_org(org),
-    ))
+    let (provider, _oauth_client) = build_token_provider(&settings, &secrets, &url).await?;
+    Ok(Some(SolidtimeClient::new(&url, provider).with_org(org)))
 }

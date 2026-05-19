@@ -2,6 +2,7 @@ use crate::app_state::AppState;
 use crate::commands::{store, AppError};
 use serde::Serialize;
 use stint_core::config::{secrets::Secrets, Settings};
+use stint_core::solidtime::auth::build_token_provider;
 use stint_core::solidtime::SolidtimeClient;
 use stint_core::store::reference::{ProjectRow, Reference};
 use stint_core::sync::refresh::refresh_reference_data;
@@ -15,14 +16,12 @@ async fn build_client(store: &stint_core::store::Store) -> Result<SolidtimeClien
         .get("solidtime.url")
         .await?
         .ok_or(stint_core::Error::MissingConfig("solidtime.url"))?;
-    let token = secrets
-        .get("solidtime.token")?
-        .ok_or(stint_core::Error::MissingConfig("solidtime.token"))?;
     let org = settings
         .get("solidtime.org")
         .await?
         .ok_or(stint_core::Error::MissingConfig("solidtime.org"))?;
-    Ok(SolidtimeClient::with_api_token(&url, &token).with_org(org))
+    let (provider, _oauth_client) = build_token_provider(&settings, &secrets, &url).await?;
+    Ok(SolidtimeClient::new(&url, provider).with_org(org))
 }
 
 /// Like build_client but does NOT require an org. Used for endpoints that
@@ -34,10 +33,8 @@ async fn build_unorg_client(store: &stint_core::store::Store) -> Result<Solidtim
         .get("solidtime.url")
         .await?
         .ok_or(stint_core::Error::MissingConfig("solidtime.url"))?;
-    let token = secrets
-        .get("solidtime.token")?
-        .ok_or(stint_core::Error::MissingConfig("solidtime.token"))?;
-    Ok(SolidtimeClient::with_api_token(&url, &token))
+    let (provider, _oauth_client) = build_token_provider(&settings, &secrets, &url).await?;
+    Ok(SolidtimeClient::new(&url, provider))
 }
 
 #[derive(Serialize)]
