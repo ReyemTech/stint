@@ -2,6 +2,14 @@ import { For, Show, createMemo, createResource, createSignal } from "solid-js";
 import { api } from "~/api";
 import type { OrgChoice, Project } from "~/types";
 
+const LABELS: Record<string, string> = {
+  "solidtime.url": "Solidtime URL",
+  "solidtime.token": "API token",
+  "solidtime.org": "Organization",
+  "solidtime.default-project": "Default project",
+};
+const labelFor = (key: string) => LABELS[key] ?? key;
+
 export default function Settings() {
   const [config, { refetch: refetchConfig }] = createResource(() => api.configShow());
   const [status, setStatus] = createSignal<string | null>(null);
@@ -58,12 +66,15 @@ export default function Settings() {
   async function saveValue(key: string, value: string) {
     try {
       await api.configSet(key, value);
-      flash("ok", `Saved ${key}.`);
+      flash("ok", `Saved ${labelFor(key)}.`);
       refetchConfig();
       if (key === "solidtime.token" || key === "solidtime.url") refetchOrgs();
       if (key === "solidtime.org") refetchProjects();
     } catch (e) {
-      flash("err", `Failed to save ${key}: ${(e as { message: string }).message}`);
+      flash(
+        "err",
+        `Failed to save ${labelFor(key)}: ${(e as { message: string }).message}`,
+      );
     }
   }
 
