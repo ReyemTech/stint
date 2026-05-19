@@ -1,7 +1,7 @@
 use tauri::{
     image::Image,
     menu::{Menu, MenuItem},
-    tray::{MouseButton, TrayIcon, TrayIconBuilder, TrayIconEvent},
+    tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent},
     AppHandle, Manager,
 };
 
@@ -38,19 +38,24 @@ pub fn build(app: &AppHandle) -> tauri::Result<TrayIcon> {
             // screen rect — required before move_window(TrayCenter) works.
             tauri_plugin_positioner::on_tray_event(tray.app_handle(), &event);
 
-            if let TrayIconEvent::Click { button, .. } = event {
-                if matches!(button, MouseButton::Left) {
-                    let app = tray.app_handle();
-                    if let Some(win) = app.get_webview_window("popover") {
-                        if win.is_visible().unwrap_or(false) {
-                            let _ = windows::hide_popover(app);
-                        } else {
-                            let _ = windows::show_popover(app);
-                            let _ = tauri_plugin_positioner::WindowExt::move_window(
-                                &win,
-                                tauri_plugin_positioner::Position::TrayCenter,
-                            );
-                        }
+            // TrayIconEvent::Click fires for BOTH mouse-down and mouse-up.
+            // Only act on the release (Up) so we don't toggle twice per click.
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
+                let app = tray.app_handle();
+                if let Some(win) = app.get_webview_window("popover") {
+                    if win.is_visible().unwrap_or(false) {
+                        let _ = windows::hide_popover(app);
+                    } else {
+                        let _ = tauri_plugin_positioner::WindowExt::move_window(
+                            &win,
+                            tauri_plugin_positioner::Position::TrayCenter,
+                        );
+                        let _ = windows::show_popover(app);
                     }
                 }
             }
