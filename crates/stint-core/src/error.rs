@@ -34,6 +34,21 @@ pub enum Error {
 
     #[error("not found: {0}")]
     NotFound(String),
+
+    #[error("OAuth flow was cancelled or timed out")]
+    OAuthCancelled,
+
+    #[error("OAuth authorization server returned an error: {0}")]
+    OAuthServer(String),
+
+    #[error("OAuth refresh failed; user must re-authenticate")]
+    OAuthRefreshFailed,
+
+    #[error("OAuth state mismatch (possible CSRF)")]
+    OAuthStateMismatch,
+
+    #[error("Loopback redirect server failed to bind a port: {0}")]
+    OAuthLoopback(String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

@@ -35,6 +35,11 @@ impl From<stint_core::Error> for AppError {
             stint_core::Error::MissingConfig(_) => "missing_config",
             stint_core::Error::Invariant(_) => "invariant",
             stint_core::Error::NotFound(_) => "not_found",
+            stint_core::Error::OAuthCancelled => "oauth_cancelled",
+            stint_core::Error::OAuthServer(_) => "oauth_server",
+            stint_core::Error::OAuthRefreshFailed => "oauth_refresh_failed",
+            stint_core::Error::OAuthStateMismatch => "oauth_state_mismatch",
+            stint_core::Error::OAuthLoopback(_) => "oauth_loopback",
         };
         Self {
             kind: kind.into(),
