@@ -161,7 +161,8 @@ git checkout -b phase-2.5
 | 1 | CLI + sync + crash recovery | ✅ shipped (`phase-1-complete`) |
 | 2 | Tauri GUI + SolidJS UI | ✅ shipped (`phase-2-complete`) |
 | 2.5 | CI baseline (lint / test / typecheck on PR) | ✅ shipped (`phase-2.5-complete`) |
-| 3 | Calendar (Google + MS + CalDAV) + Solidtime OAuth | planned |
+| 3a | OAuth 2.0 foundation + Solidtime OAuth | ✅ shipped (`phase-3a-complete`) |
+| 3b | Calendar (Google + MS + CalDAV) | planned |
 | 4 | Distribution (Homebrew cask + signing + release CD) | planned |
 | 5 | Documentation site (GitHub Pages) | planned |
 
@@ -200,6 +201,19 @@ git checkout -b phase-2.5
   CI. Bump both together. (The pin only takes effect locally if you
   invoke cargo via rustup, not via Homebrew-installed rustc, which
   bypasses rustup entirely.)
+- **OAuth tokens are one Keychain entry, not three.** Solidtime OAuth
+  refresh/access/expiry are persisted as a single JSON blob under
+  `tech.reyem.stint.solidtime.oauth`. The blob is rewritten atomically
+  on every refresh. The legacy PAT entry at `tech.reyem.stint.solidtime`
+  is independent — both can coexist; `solidtime.auth_mode` settings key
+  picks which is active. The OAuth `client_id` is non-secret and lives
+  in the same blob (and is mirrored to the `solidtime.oauth.client_id`
+  settings key for first-time setup).
+- **OAuth flow needs a registered client on Solidtime.** There's no
+  public client-registration UI; users must run `php artisan
+  passport:client --public --name=stint --redirect_uri=http://127.0.0.1/callback`
+  on their Solidtime host. See the README "Signing in with Solidtime OAuth"
+  section for the full setup.
 
 ## When you start work on a phase
 
