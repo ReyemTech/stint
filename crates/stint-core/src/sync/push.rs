@@ -9,6 +9,7 @@ use crate::{
     Error, Result,
 };
 use serde::Deserialize;
+use tracing::{debug, info};
 
 #[derive(Debug, Deserialize)]
 struct CreatePayload {
@@ -62,7 +63,9 @@ async fn push_create(store: &Store, client: &SolidtimeClient, row: &QueueRow) ->
         end: current.end_at.as_deref(),
         billable: current.billable != 0,
     };
+    debug!(?req, "create_time_entry request");
     let remote = client.create_time_entry(&req).await?;
+    info!(local = %payload.local_uuid, remote = %remote.id, "create_entry synced");
     entries.mark_synced(&payload.local_uuid, &remote.id).await?;
     Ok(())
 }
@@ -89,7 +92,9 @@ async fn push_update(store: &Store, client: &SolidtimeClient, row: &QueueRow) ->
         end: current.end_at.as_deref(),
         billable: current.billable != 0,
     };
+    debug!(?req, remote = %remote_id, "update_time_entry request");
     client.update_time_entry(&remote_id, &req).await?;
+    info!(local = %payload.local_uuid, remote = %remote_id, "update_entry synced");
     entries.mark_synced(&payload.local_uuid, &remote_id).await?;
     Ok(())
 }
