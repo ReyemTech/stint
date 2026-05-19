@@ -5,11 +5,13 @@
 //! Keychain) and OAuthTokenProvider (refreshes on expiry using the
 //! shared OAuth machinery). Tests use a mock impl directly.
 
+use crate::config::secrets::Secrets;
 use crate::oauth::client::OAuthClient;
 use crate::oauth::tokens::TokenSet;
 use crate::Result;
 use async_trait::async_trait;
 use chrono::Utc;
+use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 
 #[async_trait]
@@ -73,4 +75,30 @@ impl TokenProvider for OAuthTokenProvider {
         let guard = self.state.lock().unwrap();
         Ok(guard.access_token.clone())
     }
+}
+
+const OAUTH_KEYCHAIN_KEY: &str = "solidtime.oauth";
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OAuthBlob {
+    pub client_id: String,
+    pub tokens: TokenSet,
+}
+
+pub fn oauth_blob_load(secrets: &Secrets) -> Result<Option<OAuthBlob>> {
+    let Some(raw) = secrets.get(OAUTH_KEYCHAIN_KEY)? else {
+        return Ok(None);
+    };
+    let blob: OAuthBlob = serde_json::from_str(&raw)
+        .map_err(|e| crate::Error::OAuthServer(format!("OAuth Keychain blob malformed: {e}")))?;
+    Ok(Some(blob))
+}
+
+pub fn oauth_blob_save(secrets: &Secrets, blob: &OAuthBlob) -> Result<()> {
+    let raw = serde_json::to_string(blob).expect("OAuthBlob is JSON-serializable");
+    secrets.set(OAUTH_KEYCHAIN_KEY, &raw)
+}
+
+pub fn oauth_blob_delete(secrets: &Secrets) -> Result<()> {
+    secrets.delete(OAUTH_KEYCHAIN_KEY)
 }
