@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Tray icon for Stint — drawn as a stopwatch silhouette.
+
+  Rendered as a macOS template image: pure black on transparent so
+  AppKit can recolor it for light/dark menu bars and active state.
+  Designed on a 44×44 canvas with ~3px padding so it sits well at
+  the 22pt menu bar slot.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" fill="none">
+  <!-- Crown (top stem of the stopwatch) -->
+  <rect x="19" y="4" width="6" height="4" rx="1.2" fill="#000"/>
+  <!-- Side button (top-right of the dial) -->
+  <rect x="30" y="7.5" width="3.5" height="3" rx="0.8"
+        transform="rotate(45 31.75 9)" fill="#000"/>
+  <!-- Dial outline -->
+  <circle cx="22" cy="26" r="13.5" stroke="#000" stroke-width="3" fill="none"/>
+  <!-- 12 o'clock tick -->
+  <rect x="21" y="13.5" width="2" height="3" fill="#000"/>
+  <!-- Hand pointing to ~2 o'clock (minute hand) -->
+  <rect x="21" y="17" width="2" height="11" rx="1" fill="#000"
+        transform="rotate(45 22 26)"/>
+  <!-- Center cap -->
+  <circle cx="22" cy="26" r="2" fill="#000"/>
+</svg>
