@@ -9,11 +9,23 @@ import { openSolidtime } from "~/lib/openSolidtime";
 
 const CREDITS = [
   { name: "Tauri", purpose: "macOS shell + IPC", url: "https://tauri.app" },
-  { name: "Rust", purpose: "core, store, sync", url: "https://www.rust-lang.org" },
+  {
+    name: "Rust",
+    purpose: "core, store, sync",
+    url: "https://www.rust-lang.org",
+  },
   { name: "SolidJS", purpose: "reactive UI", url: "https://www.solidjs.com" },
   { name: "Tailwind CSS", purpose: "styling", url: "https://tailwindcss.com" },
-  { name: "SQLite", purpose: "local persistence", url: "https://www.sqlite.org" },
-  { name: "Solidtime", purpose: "sync target", url: "https://www.solidtime.io" },
+  {
+    name: "SQLite",
+    purpose: "local persistence",
+    url: "https://www.sqlite.org",
+  },
+  {
+    name: "Solidtime",
+    purpose: "sync target",
+    url: "https://www.solidtime.io",
+  },
 ];
 
 export default function About() {
@@ -92,7 +104,9 @@ export default function About() {
             </Button>
             <Button
               variant="secondary"
-              onClick={() => openUrl("https://github.com/reyemtech/stint/issues")}
+              onClick={() =>
+                openUrl("https://github.com/reyemtech/stint/issues")
+              }
             >
               Report an issue
             </Button>
@@ -129,7 +143,14 @@ export default function About() {
         </section>
 
         <p class="mt-6 text-center text-[11px] text-zinc-400 dark:text-zinc-500">
-          Made with care.
+          Made with ❤️ by{" "}
+          <a
+            href="https://www.reyem.tech"
+            class="text-zinc-700 dark:text-zinc-200 hover:text-indigo-600 dark:hover:text-indigo-400"
+          >
+            Reyem Tech
+          </a>
+          .
         </p>
       </div>
     </div>
