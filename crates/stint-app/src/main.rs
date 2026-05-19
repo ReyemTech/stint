@@ -1,5 +1,6 @@
 mod app_state;
 mod commands;
+mod menu;
 mod sync_worker;
 mod tray;
 mod windows;
@@ -25,6 +26,8 @@ async fn main() -> Result<()> {
     tauri::Builder::default()
         .plugin(tauri_plugin_positioner::init())
         .plugin(tauri_plugin_opener::init())
+        .menu(|handle| menu::build(handle))
+        .on_menu_event(|app, event| menu::handle(app, event.id.as_ref()))
         .manage(RwLock::new(app_state))
         .invoke_handler(tauri::generate_handler![
             commands::timer::get_running_timer,

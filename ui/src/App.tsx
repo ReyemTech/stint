@@ -37,8 +37,8 @@ export default function App() {
     return <Popover />;
   }
 
-  // macOS-style shortcuts for the main window
-  useHotkey("mod+,", () => navigate("/settings"));
+  // ⌘, is owned by the native macOS menu (Settings…). Number shortcuts
+  // are convenience switches between the three main routes.
   useHotkey("mod+1", () => navigate("/today"));
   useHotkey("mod+2", () => navigate("/settings"));
   useHotkey("mod+3", () => navigate("/about"));
