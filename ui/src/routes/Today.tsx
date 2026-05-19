@@ -28,6 +28,7 @@ export default function Today() {
         >
           <EntryList
             entries={entries() ?? []}
+            onChange={() => refetch()}
             onDelete={async (id) => {
               await api.deleteEntry(id);
               refetch();

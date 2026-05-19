@@ -3,6 +3,7 @@ export type RunningTimer = {
   description: string;
   start_at: string;
   project_id: string | null;
+  billable: boolean;
 };
 
 export type Entry = {
@@ -13,6 +14,7 @@ export type Entry = {
   task_id: string | null;
   start_at: string;
   end_at: string | null;
+  billable: boolean;
   sync_state: "synced" | "dirty" | "pending_create" | "pending_delete";
   source: string;
 };

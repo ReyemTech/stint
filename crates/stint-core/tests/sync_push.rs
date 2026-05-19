@@ -17,6 +17,7 @@ async fn push_one_succeeds_for_create_entry_and_marks_synced() {
             description: "do thing".into(),
             project_id: None,
             task_id: None,
+            billable: false,
             source: "cli".into(),
         })
         .await
@@ -60,6 +61,7 @@ async fn push_one_marks_failed_on_500_and_backs_off() {
             description: "x".into(),
             project_id: None,
             task_id: None,
+            billable: false,
             source: "cli".into(),
         })
         .await
@@ -94,6 +96,7 @@ async fn push_one_handles_delete_entry() {
             description: "x".into(),
             project_id: None,
             task_id: None,
+            billable: false,
             source: "cli".into(),
         })
         .await

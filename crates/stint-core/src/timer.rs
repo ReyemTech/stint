@@ -18,6 +18,7 @@ pub struct StartArgs {
     pub description: String,
     pub project_id: Option<String>,
     pub task_id: Option<String>,
+    pub billable: bool,
     pub source: String,
 }
 
@@ -54,7 +55,7 @@ impl TimerService {
                 project_id: args.project_id.clone(),
                 task_id: args.task_id.clone(),
                 start_at: start_at.clone(),
-                billable: false,
+                billable: args.billable,
                 source: args.source.clone(),
             })
             .await?;
@@ -67,7 +68,7 @@ impl TimerService {
             project_id: args.project_id.as_deref(),
             task_id: args.task_id.as_deref(),
             start_at: &start_at,
-            billable: false,
+            billable: args.billable,
         })?;
         queue
             .enqueue(QueueOp::CreateEntry, &payload, Some(&local_uuid))
@@ -134,9 +135,29 @@ impl TimerService {
 
     pub async fn update_description(&self, local_uuid: &str, description: &str) -> Result<()> {
         let entries = Entries::new(self.store.clone());
-        let queue = Queue::new(self.store.clone());
         entries.update_description(local_uuid, description).await?;
+        self.maybe_enqueue_update(local_uuid).await
+    }
 
+    pub async fn set_project(
+        &self,
+        local_uuid: &str,
+        project_id: Option<&str>,
+    ) -> Result<()> {
+        let entries = Entries::new(self.store.clone());
+        entries.set_project(local_uuid, project_id).await?;
+        self.maybe_enqueue_update(local_uuid).await
+    }
+
+    pub async fn set_billable(&self, local_uuid: &str, billable: bool) -> Result<()> {
+        let entries = Entries::new(self.store.clone());
+        entries.set_billable(local_uuid, billable).await?;
+        self.maybe_enqueue_update(local_uuid).await
+    }
+
+    async fn maybe_enqueue_update(&self, local_uuid: &str) -> Result<()> {
+        let entries = Entries::new(self.store.clone());
+        let queue = Queue::new(self.store.clone());
         let row = entries
             .get(local_uuid)
             .await?

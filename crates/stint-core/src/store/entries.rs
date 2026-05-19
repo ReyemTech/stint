@@ -125,6 +125,40 @@ impl Entries {
         .await
     }
 
+    pub async fn set_project(
+        &self,
+        local_uuid: &str,
+        project_id: Option<&str>,
+    ) -> Result<()> {
+        self.update_one(local_uuid, |s| {
+            sqlx::query(
+                "UPDATE time_entries
+                 SET project_id = ?, sync_state = ?, updated_at = ?
+                 WHERE local_uuid = ?",
+            )
+            .bind(project_id)
+            .bind(s.next_state())
+            .bind(time::now_utc())
+            .bind(local_uuid)
+        })
+        .await
+    }
+
+    pub async fn set_billable(&self, local_uuid: &str, billable: bool) -> Result<()> {
+        self.update_one(local_uuid, |s| {
+            sqlx::query(
+                "UPDATE time_entries
+                 SET billable = ?, sync_state = ?, updated_at = ?
+                 WHERE local_uuid = ?",
+            )
+            .bind(if billable { 1 } else { 0 })
+            .bind(s.next_state())
+            .bind(time::now_utc())
+            .bind(local_uuid)
+        })
+        .await
+    }
+
     pub async fn delete(&self, local_uuid: &str) -> Result<()> {
         let state = self.current_state(local_uuid).await?;
         match state.as_str() {

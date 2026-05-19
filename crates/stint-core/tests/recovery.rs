@@ -23,6 +23,7 @@ async fn fresh_heartbeat_returns_attach_in_place() {
             description: "x".into(),
             project_id: None,
             task_id: None,
+            billable: false,
             source: "cli".into(),
         })
         .await
@@ -43,6 +44,7 @@ async fn very_stale_heartbeat_prompts_decision_and_keep_continues_timer() {
             description: "x".into(),
             project_id: None,
             task_id: None,
+            billable: false,
             source: "cli".into(),
         })
         .await
@@ -84,6 +86,7 @@ async fn very_stale_heartbeat_stop_at_last_heartbeat_sets_end_and_clears() {
             description: "x".into(),
             project_id: None,
             task_id: None,
+            billable: false,
             source: "cli".into(),
         })
         .await

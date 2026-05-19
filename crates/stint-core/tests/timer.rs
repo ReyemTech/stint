@@ -15,6 +15,7 @@ async fn start_creates_entry_sets_running_and_enqueues_sync() {
             description: "writing tests".into(),
             project_id: None,
             task_id: None,
+            billable: false,
             source: "cli".into(),
         })
         .await
@@ -45,6 +46,7 @@ async fn start_while_already_running_returns_invariant_error() {
             description: "a".into(),
             project_id: None,
             task_id: None,
+            billable: false,
             source: "cli".into(),
         })
         .await
@@ -55,6 +57,7 @@ async fn start_while_already_running_returns_invariant_error() {
             description: "b".into(),
             project_id: None,
             task_id: None,
+            billable: false,
             source: "cli".into(),
         })
         .await;
@@ -72,6 +75,7 @@ async fn stop_sets_end_clears_running_and_enqueues_update() {
             description: "x".into(),
             project_id: None,
             task_id: None,
+            billable: false,
             source: "cli".into(),
         })
         .await
@@ -121,6 +125,7 @@ async fn delete_synced_entry_enqueues_delete_op() {
             description: "x".into(),
             project_id: None,
             task_id: None,
+            billable: false,
             source: "cli".into(),
         })
         .await

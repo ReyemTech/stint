@@ -15,6 +15,7 @@ pub struct EntryView {
     pub task_id: Option<String>,
     pub start_at: String,
     pub end_at: Option<String>,
+    pub billable: bool,
     pub sync_state: String,
     pub source: String,
 }
@@ -29,6 +30,7 @@ impl From<TimeEntryRow> for EntryView {
             task_id: r.task_id,
             start_at: r.start_at,
             end_at: r.end_at,
+            billable: r.billable != 0,
             sync_state: r.sync_state,
             source: r.source,
         }

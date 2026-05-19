@@ -29,6 +29,8 @@ async fn main() -> Result<()> {
             commands::timer::stop_timer,
             commands::timer::delete_entry,
             commands::timer::update_description,
+            commands::timer::set_entry_project,
+            commands::timer::set_entry_billable,
             commands::entries::list_today,
             commands::entries::list_between,
             commands::projects::list_projects,

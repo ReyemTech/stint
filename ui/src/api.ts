@@ -3,12 +3,18 @@ import type { ConfigEntry, Entry, OrgChoice, Project, RunningTimer } from "./typ
 
 export const api = {
   getRunningTimer: () => invoke<RunningTimer | null>("get_running_timer"),
-  startTimer: (description: string, projectId?: string, taskId?: string) =>
+  startTimer: (
+    description: string,
+    projectId?: string | null,
+    taskId?: string | null,
+    billable = false,
+  ) =>
     invoke<string>("start_timer", {
       args: {
         description,
         project_id: projectId ?? null,
         task_id: taskId ?? null,
+        billable,
       },
     }),
   stopTimer: () => invoke<string>("stop_timer"),
@@ -16,6 +22,10 @@ export const api = {
     invoke<void>("delete_entry", { localUuid }),
   updateDescription: (localUuid: string, description: string) =>
     invoke<void>("update_description", { localUuid, description }),
+  setEntryProject: (localUuid: string, projectId: string | null) =>
+    invoke<void>("set_entry_project", { localUuid, projectId }),
+  setEntryBillable: (localUuid: string, billable: boolean) =>
+    invoke<void>("set_entry_billable", { localUuid, billable }),
 
   listToday: () => invoke<Entry[]>("list_today"),
   listBetween: (from: string, to: string) =>

@@ -29,8 +29,8 @@ export function useTimerStore() {
     running,
     elapsedSecs,
     refresh,
-    async start(description: string, projectId?: string) {
-      await api.startTimer(description, projectId);
+    async start(description: string, projectId?: string, billable = false) {
+      await api.startTimer(description, projectId ?? null, null, billable);
       await refresh();
     },
     async stop() {

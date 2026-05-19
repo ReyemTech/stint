@@ -1,4 +1,4 @@
-import { Show, createResource, createSignal } from "solid-js";
+import { For, Show, createResource, createSignal } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
 import { api } from "~/api";
 import Duration from "~/components/Duration";
@@ -7,7 +7,12 @@ import { useTimerStore } from "~/stores/timer";
 export default function Popover() {
   const timer = useTimerStore();
   const [description, setDescription] = createSignal("");
+  const [projectId, setProjectId] = createSignal<string>("");
+  const [billable, setBillable] = createSignal(false);
   const [entries] = createResource(() => api.listToday(), {
+    initialValue: [],
+  });
+  const [projects] = createResource(() => api.listProjects(), {
     initialValue: [],
   });
 
@@ -68,7 +73,9 @@ export default function Popover() {
                 e.preventDefault();
                 const d = description().trim();
                 if (!d) return;
-                timer.start(d).then(() => setDescription(""));
+                timer
+                  .start(d, projectId() || undefined, billable())
+                  .then(() => setDescription(""));
               }}
             >
               <input
@@ -78,6 +85,26 @@ export default function Popover() {
                 value={description()}
                 onInput={(e) => setDescription(e.currentTarget.value)}
               />
+              <div class="flex items-center gap-2">
+                <select
+                  class="flex-1 rounded-md border border-zinc-300 bg-zinc-50 px-2 py-1.5 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                  value={projectId()}
+                  onChange={(e) => setProjectId(e.currentTarget.value)}
+                >
+                  <option value="">No project</option>
+                  <For each={projects() ?? []}>
+                    {(p) => <option value={p.id}>{p.name}</option>}
+                  </For>
+                </select>
+                <label class="flex shrink-0 items-center gap-1 text-xs text-zinc-600 dark:text-zinc-300">
+                  <input
+                    type="checkbox"
+                    checked={billable()}
+                    onChange={(e) => setBillable(e.currentTarget.checked)}
+                  />
+                  Billable
+                </label>
+              </div>
               <button
                 type="submit"
                 class="w-full rounded-md bg-zinc-900 py-2 text-sm font-semibold text-white transition hover:bg-zinc-700 disabled:opacity-40 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"

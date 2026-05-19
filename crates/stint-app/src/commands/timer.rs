@@ -13,6 +13,7 @@ pub struct RunningTimerView {
     pub description: String,
     pub start_at: String,
     pub project_id: Option<String>,
+    pub billable: bool,
 }
 
 #[tauri::command]
@@ -31,6 +32,7 @@ pub async fn get_running_timer(
         description: e.description,
         start_at: e.start_at,
         project_id: e.project_id,
+        billable: e.billable != 0,
     }))
 }
 
@@ -39,6 +41,8 @@ pub struct StartTimerArgs {
     pub description: String,
     pub project_id: Option<String>,
     pub task_id: Option<String>,
+    #[serde(default)]
+    pub billable: bool,
 }
 
 #[tauri::command]
@@ -53,6 +57,7 @@ pub async fn start_timer(
             description: args.description,
             project_id: args.project_id,
             task_id: args.task_id,
+            billable: args.billable,
             source: "gui".into(),
         })
         .await?;
@@ -86,5 +91,29 @@ pub async fn update_description(
     let store = store(&state).await;
     let timer = TimerService::new((*store).clone());
     timer.update_description(&local_uuid, &description).await?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn set_entry_project(
+    state: State<'_, RwLock<AppState>>,
+    local_uuid: String,
+    project_id: Option<String>,
+) -> Result<(), AppError> {
+    let store = store(&state).await;
+    let timer = TimerService::new((*store).clone());
+    timer.set_project(&local_uuid, project_id.as_deref()).await?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn set_entry_billable(
+    state: State<'_, RwLock<AppState>>,
+    local_uuid: String,
+    billable: bool,
+) -> Result<(), AppError> {
+    let store = store(&state).await;
+    let timer = TimerService::new((*store).clone());
+    timer.set_billable(&local_uuid, billable).await?;
     Ok(())
 }

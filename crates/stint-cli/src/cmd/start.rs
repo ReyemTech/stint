@@ -23,6 +23,7 @@ pub async fn run(args: Args) -> Result<()> {
             description: args.description.clone(),
             project_id: args.project,
             task_id: args.task,
+            billable: false,
             source: "cli".into(),
         })
         .await?;
