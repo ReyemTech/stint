@@ -48,7 +48,7 @@ async fn main() -> Result<()> {
             tray::build(app.handle())?;
 
             // Periodic background sync (drains queue every 30s while running).
-            sync_worker::spawn(store_for_worker.clone());
+            sync_worker::spawn(app.handle().clone(), store_for_worker.clone());
 
             // Hide dock icon on startup (menu-bar app behavior).
             windows::hide_dock(app.handle());

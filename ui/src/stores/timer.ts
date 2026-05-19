@@ -1,4 +1,5 @@
 import { createSignal, onCleanup } from "solid-js";
+import { listen } from "@tauri-apps/api/event";
 import { api } from "~/api";
 import type { RunningTimer } from "~/types";
 
@@ -21,9 +22,16 @@ export function useTimerStore() {
     }
   }
 
+  // 1s tick keeps the elapsed counter live. Event listener makes
+  // start/stop from another window propagate instantly instead of waiting
+  // up to a full second.
   const id = window.setInterval(refresh, 1000);
+  const unlisten = listen("entries:changed", () => refresh());
   refresh();
-  onCleanup(() => window.clearInterval(id));
+  onCleanup(() => {
+    window.clearInterval(id);
+    unlisten.then((fn) => fn()).catch(() => {});
+  });
 
   return {
     running,

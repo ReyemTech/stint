@@ -1,5 +1,6 @@
 import { For, Show, createResource, createSignal, onCleanup } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { api } from "~/api";
 import Duration from "~/components/Duration";
 import { useTimerStore } from "~/stores/timer";
@@ -13,8 +14,10 @@ export default function Popover() {
     () => api.listToday(),
     { initialValue: [] },
   );
-  const refetchId = window.setInterval(() => refetchEntries(), 3000);
-  onCleanup(() => window.clearInterval(refetchId));
+  const unlistenEntries = listen("entries:changed", () => refetchEntries());
+  onCleanup(() => {
+    unlistenEntries.then((fn) => fn()).catch(() => {});
+  });
   const [projects] = createResource(() => api.listProjects(), {
     initialValue: [],
   });

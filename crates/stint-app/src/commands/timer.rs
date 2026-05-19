@@ -1,12 +1,16 @@
 use crate::app_state::AppState;
 use crate::commands::{store, AppError};
-use crate::sync_worker;
+use crate::sync_worker::{self, EVENT_ENTRIES_CHANGED};
 use serde::{Deserialize, Serialize};
 use stint_core::store::entries::Entries;
 use stint_core::store::running::RunningTimer;
 use stint_core::timer::{StartArgs, TimerService};
-use tauri::State;
+use tauri::{AppHandle, Emitter, State};
 use tokio::sync::RwLock;
+
+fn announce_change(app: &AppHandle) {
+    let _ = app.emit(EVENT_ENTRIES_CHANGED, ());
+}
 
 #[derive(Serialize)]
 pub struct RunningTimerView {
@@ -48,6 +52,7 @@ pub struct StartTimerArgs {
 
 #[tauri::command]
 pub async fn start_timer(
+    app: AppHandle,
     state: State<'_, RwLock<AppState>>,
     args: StartTimerArgs,
 ) -> Result<String, AppError> {
@@ -62,33 +67,41 @@ pub async fn start_timer(
             source: "gui".into(),
         })
         .await?;
-    sync_worker::nudge(store);
+    announce_change(&app);
+    sync_worker::nudge(app.clone(), store);
     Ok(id)
 }
 
 #[tauri::command]
-pub async fn stop_timer(state: State<'_, RwLock<AppState>>) -> Result<String, AppError> {
+pub async fn stop_timer(
+    app: AppHandle,
+    state: State<'_, RwLock<AppState>>,
+) -> Result<String, AppError> {
     let store = store(&state).await;
     let timer = TimerService::new((*store).clone());
     let id = timer.stop().await?;
-    sync_worker::nudge(store);
+    announce_change(&app);
+    sync_worker::nudge(app.clone(), store);
     Ok(id)
 }
 
 #[tauri::command]
 pub async fn delete_entry(
+    app: AppHandle,
     state: State<'_, RwLock<AppState>>,
     local_uuid: String,
 ) -> Result<(), AppError> {
     let store = store(&state).await;
     let timer = TimerService::new((*store).clone());
     timer.delete(&local_uuid).await?;
-    sync_worker::nudge(store);
+    announce_change(&app);
+    sync_worker::nudge(app.clone(), store);
     Ok(())
 }
 
 #[tauri::command]
 pub async fn update_description(
+    app: AppHandle,
     state: State<'_, RwLock<AppState>>,
     local_uuid: String,
     description: String,
@@ -96,12 +109,14 @@ pub async fn update_description(
     let store = store(&state).await;
     let timer = TimerService::new((*store).clone());
     timer.update_description(&local_uuid, &description).await?;
-    sync_worker::nudge(store);
+    announce_change(&app);
+    sync_worker::nudge(app.clone(), store);
     Ok(())
 }
 
 #[tauri::command]
 pub async fn set_entry_project(
+    app: AppHandle,
     state: State<'_, RwLock<AppState>>,
     local_uuid: String,
     project_id: Option<String>,
@@ -109,12 +124,14 @@ pub async fn set_entry_project(
     let store = store(&state).await;
     let timer = TimerService::new((*store).clone());
     timer.set_project(&local_uuid, project_id.as_deref()).await?;
-    sync_worker::nudge(store);
+    announce_change(&app);
+    sync_worker::nudge(app.clone(), store);
     Ok(())
 }
 
 #[tauri::command]
 pub async fn set_entry_billable(
+    app: AppHandle,
     state: State<'_, RwLock<AppState>>,
     local_uuid: String,
     billable: bool,
@@ -122,6 +139,7 @@ pub async fn set_entry_billable(
     let store = store(&state).await;
     let timer = TimerService::new((*store).clone());
     timer.set_billable(&local_uuid, billable).await?;
-    sync_worker::nudge(store);
+    announce_change(&app);
+    sync_worker::nudge(app.clone(), store);
     Ok(())
 }

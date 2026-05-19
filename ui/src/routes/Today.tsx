@@ -1,4 +1,5 @@
 import { Show, createResource, createSignal, onCleanup } from "solid-js";
+import { listen } from "@tauri-apps/api/event";
 import { api } from "~/api";
 import EntryList from "~/components/EntryList";
 import TimerCard from "~/components/TimerCard";
@@ -8,11 +9,11 @@ export default function Today() {
   const [syncing, setSyncing] = createSignal(false);
   const [syncMsg, setSyncMsg] = createSignal<string | null>(null);
 
-  // Poll entries every 3s while the route is visible. Cheap local-SQLite
-  // query that catches background sync state transitions (pending_create
-  // → synced) without requiring an event channel from Rust.
-  const id = window.setInterval(() => refetch(), 3000);
-  onCleanup(() => window.clearInterval(id));
+  // Refetch on every `entries:changed` event from Rust (mutations + drains).
+  const unlisten = listen("entries:changed", () => refetch());
+  onCleanup(() => {
+    unlisten.then((fn) => fn()).catch(() => {});
+  });
 
   // Count unsynced entries for the badge.
   const pending = () =>

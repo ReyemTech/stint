@@ -38,7 +38,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<TrayIcon> {
                 tokio::spawn(async move {
                     let state = app_handle.state::<RwLock<AppState>>();
                     let store = state.read().await.store.clone();
-                    sync_worker::nudge(store);
+                    sync_worker::nudge(app_handle.clone(), store);
                 });
             }
             "quit" => {
