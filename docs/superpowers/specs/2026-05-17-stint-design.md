@@ -290,7 +290,19 @@ The heartbeat is a single-row update every 5 s while a timer is active.
 
 A separate sync daemon was considered and rejected. The CLI invocations are brief but enqueue mutations regardless; the GUI is the primary long-running surface. A daemon adds launchd plumbing, IPC, and lifecycle complexity for marginal benefit. The accepted trade-off: if neither the GUI nor a CLI command runs for hours, the queue does not drain until next interaction, at which point it catches up in seconds.
 
-## 5. Calendar integration
+## 5. Calendar integration (and Solidtime OAuth)
+
+The calendar phase builds OAuth 2.0 PKCE infrastructure (authorize → redirect → exchange → store + refresh tokens in Keychain). The same machinery is reused to offer **Solidtime OAuth** alongside the existing API-token path:
+
+- The user can pick **API token** (paste a personal access token, as today) or **Sign in with Solidtime** (browser-based OAuth flow) in Settings.
+- API-token connections keep working unchanged; the OAuth path adds a `SolidtimeAuth` enum so the rest of `stint-core` doesn't care which auth shape was used.
+- Refresh tokens land in Keychain under `tech.reyem.stint.solidtime.oauth.*`, separate from the existing `tech.reyem.stint.solidtime` token entry.
+
+The four OAuth providers (Google, Microsoft, CalDAV when applicable, and Solidtime) share:
+
+- A common `OAuthClient` wrapper around the `oauth2` crate
+- A common redirect-capture HTTP server bound to `127.0.0.1:<random>`
+- A common refresh loop that writes refreshed tokens back to Keychain
 
 ### The trait
 
@@ -514,9 +526,55 @@ The tap repo is intentionally separate from the application repo so the cask can
 
 v1 ships no in-app update mechanism. Users update via `brew upgrade stint`, which updates both the GUI and the bundled CLI in one step. A future in-app updater (e.g., `tauri-plugin-updater`) is deferred.
 
-## 9. Out of scope for v1
+## 9. Continuous integration (Phase 2.5)
 
-To prevent scope creep, the following are explicitly excluded from v1:
+A small, focused CI baseline lands as Phase 2.5 — separate from the release pipeline — so every push and pull request gets fast feedback before more code accumulates.
+
+**GitHub Actions workflow** (`.github/workflows/ci.yml`), macOS runners only since the app targets macOS:
+
+1. `cargo fmt --all -- --check`
+2. `cargo clippy --workspace --all-targets -- -D warnings`
+3. `cargo test --workspace -- --test-threads=1`
+4. `pnpm install --frozen-lockfile`
+5. `pnpm -C ui typecheck`
+6. `pnpm -C ui build`
+
+The workflow caches Cargo (`~/.cargo/registry`, `target/`) and pnpm (`~/.local/share/pnpm/store`) to keep runs under a few minutes after warm-up. Required check on PRs merging to `main`.
+
+## 10. Release pipeline (CD, part of Phase 4)
+
+Triggered by tag push `vX.Y.Z`. Runs on a macOS runner with the signing identity injected via GitHub secrets:
+
+1. Build both architectures (`x86_64-apple-darwin` + `aarch64-apple-darwin`) for the CLI and Tauri app.
+2. `lipo` them into universal binaries.
+3. Copy the CLI into `Stint.app/Contents/MacOS/stint` (alongside the GUI binary).
+4. Sign the `.app` with the Developer ID certificate (`signing_identity` from secrets).
+5. Submit to Apple notarization, wait for the ticket, staple it.
+6. Package the signed app into a `.dmg`, sign and notarize the `.dmg` too.
+7. Compute the SHA256 of the `.dmg`.
+8. Create a GitHub Release at the tag with the `.dmg` attached.
+9. Open a PR (or commit directly) to `reyemtech/homebrew-tap` updating the cask's `version` and `sha256`.
+
+Secrets required: `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_PASSWORD` (app-specific password), `APPLE_TEAM_ID`, plus a `HOMEBREW_TAP_TOKEN` (fine-grained PAT scoped to the tap repo).
+
+## 11. Documentation site (Phase 5)
+
+Published to **GitHub Pages** from `docs/` via a separate workflow that triggers on pushes to `main`. Tooling: **VitePress** (lightest fit; we already have a JS ecosystem in `ui/`) or **Astro Starlight** (better default look + search, slightly larger). Pick during Phase 5 planning.
+
+Contents:
+
+- **Getting started** — install via brew, configure Solidtime URL + token (or OAuth), first timer
+- **CLI reference** — every command with arguments and examples (auto-generated from `clap` where practical)
+- **GUI tour** — popover, main window, menu bar shortcuts, with screenshots
+- **Architecture** — workspace layout, data model, sync model, recovery, cross-surface coordination, the OAuth providers
+- **Contributing** — repo layout, how to run dev, where to add tests, the testing layers, commit conventions
+- **FAQ + troubleshooting** — common Keychain prompts, sync failures, log paths
+
+The site URL: `https://reyemtech.github.io/stint/` (default) or a custom domain like `stint.reyem.tech` once stable.
+
+## 12. Out of scope
+
+To prevent scope creep, the following are explicitly excluded from the current roadmap:
 
 - **Auto-log from calendar events** — schema prepped, logic deferred to v2.
 - **Writing to calendars** — read-only in v1.
@@ -528,7 +586,7 @@ To prevent scope creep, the following are explicitly excluded from v1:
 - **Real-time push from Solidtime** — Solidtime does not expose a WebSocket; sync is pull-based on a timer.
 - **Sophisticated conflict-resolution UI** — client-wins on push; unrecoverable errors are surfaced.
 
-## 10. Decision summary
+## 13. Decision summary
 
 | Decision | Value |
 |---|---|
@@ -545,3 +603,18 @@ To prevent scope creep, the following are explicitly excluded from v1:
 | Frontend | SolidJS + Tailwind |
 | Distribution | Single Homebrew cask `reyemtech/tap/stint` (bundles CLI inside `Stint.app`) |
 | Signing | Apple Developer ID + notarization for the `.app` and `.dmg` |
+| Solidtime auth | API token (today) **and** OAuth 2.0 PKCE (Phase 3) |
+| CI baseline | Phase 2.5 — fmt/clippy/test/typecheck/build on every push and PR |
+| Release pipeline | Phase 4 — tag-triggered sign + notarize + publish to brew tap |
+| Docs site | Phase 5 — VitePress (TBD Starlight) on GitHub Pages |
+
+## Phase roadmap
+
+| Phase | Scope | Status |
+|---|---|---|
+| 1 | CLI + sync + crash recovery | ✅ shipped (`phase-1-complete`) |
+| 2 | Tauri GUI + SolidJS UI | ✅ shipped (`phase-2-complete`) |
+| 2.5 | CI baseline (lint / test / typecheck on PR) | planned |
+| 3 | Calendar (Google + MS + CalDAV) + Solidtime OAuth | planned |
+| 4 | Distribution + release CD pipeline | planned |
+| 5 | Documentation site (GitHub Pages) | planned |

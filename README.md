@@ -7,8 +7,11 @@ that sync with a self-hosted Solidtime instance.
 
 - **Phase 1** ✅ — CLI + sync + crash recovery (`phase-1-complete` tag)
 - **Phase 2** ✅ — Tauri GUI + SolidJS UI + tray + dock visibility (`phase-2-complete` tag)
-- **Phase 3** — Calendar integration (Google + Microsoft + CalDAV), not started
-- **Phase 4** — Homebrew distribution, not started
+- **Phase 2.5** — CI baseline (lint / test / typecheck on every push and PR)
+- **Phase 3** — Calendar integration (Google + Microsoft + CalDAV) **and** Solidtime
+  OAuth as an alternative to the manual API token
+- **Phase 4** — Distribution (Homebrew cask) + release CD pipeline
+- **Phase 5** — Documentation site (GitHub Pages)
 
 ## Run the CLI
 
