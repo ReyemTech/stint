@@ -55,6 +55,22 @@ pub struct RemoteTimeEntry {
     pub billable: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RemoteOrganization {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub currency: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Membership {
+    pub id: String,
+    pub organization: RemoteOrganization,
+    #[serde(default)]
+    pub role: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct CreateEntryRequest<'a> {
     pub description: &'a str,

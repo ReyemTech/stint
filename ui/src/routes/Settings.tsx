@@ -1,94 +1,90 @@
-import { For, Show, createResource, createSignal } from "solid-js";
+import { For, Show, createMemo, createResource, createSignal } from "solid-js";
 import { api } from "~/api";
-
-type FieldKind = "text" | "password";
-
-type FieldDef = {
-  key: string;
-  label: string;
-  hint?: string;
-  placeholder?: string;
-  kind: FieldKind;
-};
-
-const FIELDS: FieldDef[] = [
-  {
-    key: "solidtime.url",
-    label: "Solidtime URL",
-    hint: "Base URL of your self-hosted Solidtime instance.",
-    placeholder: "https://time.example.com",
-    kind: "text",
-  },
-  {
-    key: "solidtime.token",
-    label: "API token",
-    hint: "Personal access token. Stored in macOS Keychain — never in the database.",
-    placeholder: "Paste token, press Enter",
-    kind: "password",
-  },
-  {
-    key: "solidtime.org",
-    label: "Organization ID",
-    hint: "UUID of the organization you want to log time into.",
-    placeholder: "00000000-0000-0000-0000-000000000000",
-    kind: "text",
-  },
-  {
-    key: "solidtime.default-project",
-    label: "Default project ID",
-    hint: "Optional. New timers pre-fill this project if no other is given.",
-    placeholder: "(none)",
-    kind: "text",
-  },
-];
+import type { OrgChoice, Project } from "~/types";
 
 export default function Settings() {
-  const [config, { refetch }] = createResource(() => api.configShow());
+  const [config, { refetch: refetchConfig }] = createResource(() => api.configShow());
   const [status, setStatus] = createSignal<string | null>(null);
-  const [statusKind, setStatusKind] = createSignal<"ok" | "err" | null>(null);
+  const [statusKind, setStatusKind] = createSignal<"ok" | "err" | "info" | null>(
+    null,
+  );
 
-  const lookup = (key: string) => {
-    const list = config();
-    if (!list) return undefined;
-    return list.find((c) => c.key === key);
-  };
+  const lookup = (key: string) => config()?.find((c) => c.key === key);
+  const urlSet = () => Boolean(lookup("solidtime.url")?.value);
+  const tokenSet = () => Boolean(lookup("solidtime.token")?.present);
+  const orgId = () => lookup("solidtime.org")?.value ?? "";
+  const defaultProjectId = () => lookup("solidtime.default-project")?.value ?? "";
+  const canFetchOrgs = createMemo(() => urlSet() && tokenSet());
 
-  async function setValue(key: string, value: string) {
-    if (!value.trim()) return;
+  // Organizations: fetched once URL+token are set.
+  const [orgs, { refetch: refetchOrgs }] = createResource<OrgChoice[], boolean>(
+    canFetchOrgs,
+    async (enabled): Promise<OrgChoice[]> => {
+      if (!enabled) return [];
+      try {
+        return await api.listOrganizations();
+      } catch {
+        return [];
+      }
+    },
+  );
+
+  // Projects for the chosen org: refetched whenever org changes.
+  const [projects, { refetch: refetchProjects }] = createResource<Project[], boolean>(
+    () => Boolean(orgId()),
+    async (enabled): Promise<Project[]> => {
+      if (!enabled) return [];
+      try {
+        await api.refreshProjects();
+        return await api.listProjects();
+      } catch {
+        try {
+          return await api.listProjects();
+        } catch {
+          return [];
+        }
+      }
+    },
+  );
+
+  const orgList = () => orgs() ?? [];
+  const projectList = () => projects() ?? [];
+
+  function flash(kind: "ok" | "err" | "info", msg: string) {
+    setStatusKind(kind);
+    setStatus(msg);
+  }
+
+  async function saveValue(key: string, value: string) {
     try {
-      await api.configSet(key, value.trim());
-      setStatusKind("ok");
-      setStatus(`Saved ${key}.`);
-      refetch();
+      await api.configSet(key, value);
+      flash("ok", `Saved ${key}.`);
+      refetchConfig();
+      if (key === "solidtime.token" || key === "solidtime.url") refetchOrgs();
+      if (key === "solidtime.org") refetchProjects();
     } catch (e) {
-      setStatusKind("err");
-      setStatus(`Failed to save ${key}: ${(e as { message: string }).message}`);
+      flash("err", `Failed to save ${key}: ${(e as { message: string }).message}`);
     }
   }
 
-  async function test() {
-    setStatusKind(null);
-    setStatus("Testing…");
+  async function testConnection() {
+    flash("info", "Testing connection…");
     try {
       const who = await api.configTest();
-      setStatusKind("ok");
-      setStatus(`✓ Connected as ${who}`);
+      flash("ok", `✓ Connected as ${who}`);
+      refetchOrgs();
     } catch (e) {
-      setStatusKind("err");
-      setStatus(`✗ ${(e as { message: string }).message}`);
+      flash("err", `✗ ${(e as { message: string }).message}`);
     }
   }
 
   async function syncNow() {
-    setStatusKind(null);
-    setStatus("Draining sync queue…");
+    flash("info", "Draining sync queue…");
     try {
       const n = await api.syncNow();
-      setStatusKind("ok");
-      setStatus(`✓ Synced ${n} item${n === 1 ? "" : "s"}`);
+      flash("ok", `✓ Synced ${n} item${n === 1 ? "" : "s"}`);
     } catch (e) {
-      setStatusKind("err");
-      setStatus(`✗ ${(e as { message: string }).message}`);
+      flash("err", `✗ ${(e as { message: string }).message}`);
     }
   }
 
@@ -115,7 +111,7 @@ export default function Settings() {
             "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200":
               statusKind() === "err",
             "border-zinc-200 bg-zinc-50 text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300":
-              statusKind() === null,
+              statusKind() === "info" || statusKind() === null,
           }}
         >
           {status()}
@@ -127,35 +123,90 @@ export default function Settings() {
           Solidtime connection
         </h2>
         <p class="mb-5 text-xs text-zinc-500">
-          Saved values apply to both the CLI and this app. Both share the same database and Keychain.
+          Saved values apply to both the CLI and this app — they share the same
+          database and Keychain.
         </p>
 
         <div class="space-y-5">
-          <For each={FIELDS}>
-            {(f) => {
-              const current = () => lookup(f.key);
-              const initial = () => current()?.value ?? "";
-              const isSet = () => {
-                const c = current();
-                if (!c) return false;
-                return c.is_secret ? c.present : Boolean(c.value);
-              };
-              return (
-                <FieldRow
-                  def={f}
-                  initialValue={initial()}
-                  isSet={isSet()}
-                  onSave={(v) => setValue(f.key, v)}
+          <TextField
+            label="Solidtime URL"
+            hint="Base URL of your self-hosted Solidtime instance."
+            placeholder="https://time.example.com"
+            value={lookup("solidtime.url")?.value ?? ""}
+            onSave={(v) => saveValue("solidtime.url", v)}
+          />
+
+          <SecretField
+            label="API token"
+            hint="Personal access token. Stored in macOS Keychain — never in the database."
+            isSet={tokenSet()}
+            onSave={(v) => saveValue("solidtime.token", v)}
+          />
+
+          <Show
+            when={canFetchOrgs() && orgList().length > 0}
+            fallback={
+              <TextField
+                label="Organization ID"
+                hint={
+                  canFetchOrgs()
+                    ? orgs.loading
+                      ? "Loading organizations…"
+                      : "Couldn't load orgs — paste UUID manually or click Test connection."
+                    : "Set URL + token first; once connected this becomes a dropdown."
+                }
+                placeholder="00000000-0000-0000-0000-000000000000"
+                value={orgId()}
+                onSave={(v) => saveValue("solidtime.org", v)}
+              />
+            }
+          >
+            <SelectField
+              label="Organization"
+              hint="Time entries are logged into this org."
+              value={orgId()}
+              options={orgList().map((o) => ({ value: o.id, label: o.name }))}
+              onChange={(v) => saveValue("solidtime.org", v)}
+              placeholder="Select an organization…"
+            />
+          </Show>
+
+          <Show
+            when={Boolean(orgId()) && projectList().length > 0}
+            fallback={
+              <Show when={Boolean(orgId())}>
+                <TextField
+                  label="Default project ID"
+                  hint={
+                    projects.loading
+                      ? "Loading projects…"
+                      : "Optional. Couldn't load projects — paste UUID manually or save the org first."
+                  }
+                  placeholder="(none)"
+                  value={defaultProjectId()}
+                  onSave={(v) => saveValue("solidtime.default-project", v)}
                 />
-              );
-            }}
-          </For>
+              </Show>
+            }
+          >
+            <SelectField
+              label="Default project"
+              hint="Optional. New timers pre-fill this project."
+              value={defaultProjectId()}
+              options={[
+                { value: "", label: "(none)" },
+                ...projectList().map((p) => ({ value: p.id, label: p.name })),
+              ]}
+              onChange={(v) => saveValue("solidtime.default-project", v)}
+              placeholder="Select a project…"
+            />
+          </Show>
         </div>
 
         <div class="mt-6 flex items-center gap-3 border-t border-zinc-200 pt-4 dark:border-zinc-800">
           <button
             class="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
-            onClick={test}
+            onClick={testConnection}
           >
             Test connection
           </button>
@@ -171,55 +222,109 @@ export default function Settings() {
   );
 }
 
-function FieldRow(props: {
-  def: FieldDef;
-  initialValue: string;
-  isSet: boolean;
-  onSave: (value: string) => Promise<void>;
-}) {
-  const [value, setValue] = createSignal(props.initialValue);
-  const [editing, setEditing] = createSignal(false);
-
+function FieldShell(props: { label: string; hint?: string; children: any }) {
   return (
     <div class="grid grid-cols-3 gap-4">
       <div>
         <label class="block text-sm font-medium text-zinc-900 dark:text-zinc-100">
-          {props.def.label}
+          {props.label}
         </label>
-        <Show when={props.def.hint}>
-          <p class="mt-0.5 text-xs text-zinc-500">{props.def.hint}</p>
+        <Show when={props.hint}>
+          <p class="mt-0.5 text-xs text-zinc-500">{props.hint}</p>
         </Show>
       </div>
-      <div class="col-span-2">
-        <input
-          type={props.def.kind === "password" ? "password" : "text"}
-          class="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:focus:border-zinc-100"
-          placeholder={
-            props.def.kind === "password" && props.isSet
-              ? "•••• (set in Keychain — type to replace)"
-              : props.def.placeholder ?? ""
-          }
-          value={props.def.kind === "password" ? "" : value()}
-          onInput={(e) => {
-            setValue(e.currentTarget.value);
-            setEditing(true);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              (e.currentTarget as HTMLInputElement).blur();
-            }
-          }}
-          onBlur={async () => {
-            if (!editing()) return;
-            await props.onSave(value());
-            setEditing(false);
-            if (props.def.kind === "password") setValue("");
-          }}
-        />
-        <Show when={props.isSet && props.def.kind !== "password"}>
-          <p class="mt-1 text-xs text-zinc-400">Currently: {value()}</p>
-        </Show>
-      </div>
+      <div class="col-span-2">{props.children}</div>
     </div>
+  );
+}
+
+function TextField(props: {
+  label: string;
+  hint?: string;
+  placeholder?: string;
+  value: string;
+  onSave: (value: string) => void | Promise<void>;
+}) {
+  const [draft, setDraft] = createSignal(props.value);
+  const [dirty, setDirty] = createSignal(false);
+  return (
+    <FieldShell label={props.label} hint={props.hint}>
+      <input
+        type="text"
+        class="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:focus:border-zinc-100"
+        placeholder={props.placeholder ?? ""}
+        value={dirty() ? draft() : props.value}
+        onInput={(e) => {
+          setDraft(e.currentTarget.value);
+          setDirty(true);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
+        }}
+        onBlur={async () => {
+          if (!dirty()) return;
+          await props.onSave(draft().trim());
+          setDirty(false);
+        }}
+      />
+    </FieldShell>
+  );
+}
+
+function SecretField(props: {
+  label: string;
+  hint?: string;
+  isSet: boolean;
+  onSave: (value: string) => void | Promise<void>;
+}) {
+  const [draft, setDraft] = createSignal("");
+  return (
+    <FieldShell label={props.label} hint={props.hint}>
+      <input
+        type="password"
+        class="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:focus:border-zinc-100"
+        placeholder={
+          props.isSet ? "•••• (set in Keychain — type to replace)" : "Paste token"
+        }
+        value={draft()}
+        onInput={(e) => setDraft(e.currentTarget.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
+        }}
+        onBlur={async () => {
+          if (!draft().trim()) return;
+          await props.onSave(draft().trim());
+          setDraft("");
+        }}
+      />
+    </FieldShell>
+  );
+}
+
+function SelectField(props: {
+  label: string;
+  hint?: string;
+  value: string;
+  options: { value: string; label: string }[];
+  placeholder?: string;
+  onChange: (value: string) => void | Promise<void>;
+}) {
+  return (
+    <FieldShell label={props.label} hint={props.hint}>
+      <select
+        class="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:focus:border-zinc-100"
+        value={props.value}
+        onChange={(e) => props.onChange(e.currentTarget.value)}
+      >
+        <Show when={!props.value}>
+          <option value="" disabled>
+            {props.placeholder ?? "Select…"}
+          </option>
+        </Show>
+        <For each={props.options}>
+          {(o) => <option value={o.value}>{o.label}</option>}
+        </For>
+      </select>
+    </FieldShell>
   );
 }

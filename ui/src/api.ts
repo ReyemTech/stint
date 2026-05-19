@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { ConfigEntry, Entry, Project, RunningTimer } from "./types";
+import type { ConfigEntry, Entry, OrgChoice, Project, RunningTimer } from "./types";
 
 export const api = {
   getRunningTimer: () => invoke<RunningTimer | null>("get_running_timer"),
@@ -23,6 +23,7 @@ export const api = {
 
   listProjects: () => invoke<Project[]>("list_projects"),
   refreshProjects: () => invoke<number>("refresh_projects"),
+  listOrganizations: () => invoke<OrgChoice[]>("list_organizations"),
 
   configShow: () => invoke<ConfigEntry[]>("config_show"),
   configSet: (key: string, value: string) =>

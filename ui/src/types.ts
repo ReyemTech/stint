@@ -25,6 +25,11 @@ export type Project = {
   archived: number;
 };
 
+export type OrgChoice = {
+  id: string;
+  name: string;
+};
+
 export type ConfigEntry = {
   key: string;
   value: string | null;

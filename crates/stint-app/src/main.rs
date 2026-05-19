@@ -33,6 +33,7 @@ async fn main() -> Result<()> {
             commands::entries::list_between,
             commands::projects::list_projects,
             commands::projects::refresh_projects,
+            commands::projects::list_organizations,
             commands::config::config_show,
             commands::config::config_set,
             commands::config::config_test,

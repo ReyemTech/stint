@@ -71,6 +71,11 @@ impl SolidtimeClient {
         self.get_list(&url).await
     }
 
+    pub async fn list_memberships(&self) -> Result<Vec<Membership>> {
+        let url = format!("{}/api/v1/users/me/memberships", self.base_url);
+        self.get_list(&url).await
+    }
+
     async fn get_list<T: for<'de> serde::Deserialize<'de>>(&self, url: &str) -> Result<Vec<T>> {
         let resp = self.http.get(url).bearer_auth(&self.token).send().await?;
         let status = resp.status();
