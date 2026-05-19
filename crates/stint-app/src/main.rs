@@ -46,6 +46,9 @@ async fn main() -> Result<()> {
             commands::config::config_set,
             commands::config::config_test,
             commands::config::solidtime_url,
+            commands::config::oauth_solidtime_status,
+            commands::config::oauth_solidtime_start,
+            commands::config::oauth_solidtime_logout,
             commands::sync::sync_now,
             commands::ui::show_main_window,
         ])

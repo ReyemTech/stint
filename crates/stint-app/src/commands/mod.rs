@@ -21,6 +21,15 @@ pub struct AppError {
     pub message: String,
 }
 
+impl AppError {
+    pub fn msg(s: impl Into<String>) -> Self {
+        Self {
+            kind: "msg".into(),
+            message: s.into(),
+        }
+    }
+}
+
 impl From<stint_core::Error> for AppError {
     fn from(e: stint_core::Error) -> Self {
         let kind = match &e {
