@@ -129,7 +129,7 @@ export default function About() {
         </section>
 
         <p class="mt-6 text-center text-[11px] text-zinc-400 dark:text-zinc-500">
-          Made with care · Phase 1 + 2 shipped
+          Made with care.
         </p>
       </div>
     </div>
