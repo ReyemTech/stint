@@ -24,6 +24,7 @@ async fn main() -> Result<()> {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_positioner::init())
+        .plugin(tauri_plugin_opener::init())
         .manage(RwLock::new(app_state))
         .invoke_handler(tauri::generate_handler![
             commands::timer::get_running_timer,
@@ -41,6 +42,7 @@ async fn main() -> Result<()> {
             commands::config::config_show,
             commands::config::config_set,
             commands::config::config_test,
+            commands::config::solidtime_url,
             commands::sync::sync_now,
             commands::ui::show_main_window,
         ])

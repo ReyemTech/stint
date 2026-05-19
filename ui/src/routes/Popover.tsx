@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { api } from "~/api";
 import Duration from "~/components/Duration";
+import { openSolidtime } from "~/lib/openSolidtime";
 import { useTimerStore } from "~/stores/timer";
 
 export default function Popover() {
@@ -155,12 +156,19 @@ export default function Popover() {
         </Show>
       </div>
 
-      <div class="border-t border-zinc-200 px-4 py-2 dark:border-zinc-800">
+      <div class="flex items-center justify-between gap-3 border-t border-zinc-200 px-4 py-2 dark:border-zinc-800">
         <button
-          class="w-full text-left text-[11px] text-zinc-500 transition hover:text-zinc-900 dark:hover:text-zinc-100"
+          class="text-[11px] text-zinc-500 transition hover:text-zinc-900 dark:hover:text-zinc-100"
           onClick={openMain}
         >
           Open Stint →
+        </button>
+        <button
+          class="text-[11px] text-zinc-500 transition hover:text-zinc-900 dark:hover:text-zinc-100"
+          onClick={() => openSolidtime()}
+          title="Open Solidtime in browser"
+        >
+          Solidtime ↗
         </button>
       </div>
     </div>

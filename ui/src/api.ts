@@ -39,6 +39,7 @@ export const api = {
   configSet: (key: string, value: string) =>
     invoke<void>("config_set", { key, value }),
   configTest: () => invoke<string>("config_test"),
+  solidtimeUrl: () => invoke<string | null>("solidtime_url"),
 
   syncNow: () => invoke<number>("sync_now"),
 };

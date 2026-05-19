@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { api } from "~/api";
 import EntryList from "~/components/EntryList";
 import TimerCard from "~/components/TimerCard";
+import { openSolidtime } from "~/lib/openSolidtime";
 
 export default function Today() {
   const [entries, { refetch }] = createResource(() => api.listToday());
@@ -54,8 +55,15 @@ export default function Today() {
             />
             {syncing() ? "Syncing…" : pending() > 0 ? `Sync (${pending()})` : "Synced"}
           </button>
-          <nav class="text-xs text-zinc-500">
-            <a class="mr-3 hover:underline" href="#/today">
+          <nav class="flex items-center gap-3 text-xs text-zinc-500">
+            <button
+              class="hover:text-zinc-900 dark:hover:text-zinc-100"
+              onClick={() => openSolidtime()}
+              title="Open Solidtime in browser"
+            >
+              Solidtime ↗
+            </button>
+            <a class="hover:underline" href="#/today">
               Today
             </a>
             <a class="hover:underline" href="#/settings">
