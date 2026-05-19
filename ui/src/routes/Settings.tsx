@@ -6,9 +6,10 @@ import {
   createResource,
   createSignal,
 } from "solid-js";
-import { api } from "~/api";
+import { api, oauthSolidtimeLogout, oauthSolidtimeStart, oauthSolidtimeStatus } from "~/api";
 import MainNav from "~/components/MainNav";
 import Button from "~/components/ui/Button";
+import Pill from "~/components/ui/Pill";
 import type { OrgChoice, Project } from "~/types";
 
 const LABELS: Record<string, string> = {
@@ -125,6 +126,37 @@ export default function Settings() {
     }
   }
 
+  // OAuth auth status
+  const [authStatus, { refetch: refetchAuthStatus }] = createResource(() =>
+    oauthSolidtimeStatus(),
+  );
+  const [authMode, setAuthMode] = createSignal<"api_token" | "oauth">(
+    "api_token",
+  );
+
+  createEffect(() => {
+    const s = authStatus();
+    if (s) setAuthMode(s.mode);
+  });
+
+  async function handleSignIn() {
+    try {
+      await oauthSolidtimeStart();
+      await refetchAuthStatus();
+    } catch (e) {
+      flash("err", `OAuth sign-in failed: ${(e as { message: string }).message}`);
+    }
+  }
+
+  async function handleSignOut() {
+    try {
+      await oauthSolidtimeLogout();
+      await refetchAuthStatus();
+    } catch (e) {
+      flash("err", `Sign-out failed: ${(e as { message: string }).message}`);
+    }
+  }
+
   return (
     <div class="min-h-screen bg-zinc-50/60 dark:bg-zinc-950">
       <div class="mx-auto max-w-3xl px-6 py-8">
@@ -172,12 +204,79 @@ export default function Settings() {
             onSave={(v) => saveValue("solidtime.url", v)}
           />
 
-          <SecretField
-            label="API token"
-            hint="Personal access token. Stored in macOS Keychain — never in the database."
-            isSet={tokenSet()}
-            onSave={(v) => saveValue("solidtime.token", v)}
-          />
+          {/* Authentication method selector */}
+          <FieldShell
+            label="Authentication method"
+            hint="API token for personal access tokens; OAuth to sign in via the browser."
+          >
+            <div class="flex gap-5 pt-0.5">
+              <label class="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300 cursor-pointer">
+                <input
+                  type="radio"
+                  name="auth_mode"
+                  value="api_token"
+                  checked={authMode() === "api_token"}
+                  onChange={() => setAuthMode("api_token")}
+                  class="accent-zinc-900 dark:accent-zinc-100"
+                />
+                API token
+              </label>
+              <label class="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300 cursor-pointer">
+                <input
+                  type="radio"
+                  name="auth_mode"
+                  value="oauth"
+                  checked={authMode() === "oauth"}
+                  onChange={() => setAuthMode("oauth")}
+                  class="accent-zinc-900 dark:accent-zinc-100"
+                />
+                Sign in with Solidtime (OAuth)
+              </label>
+            </div>
+          </FieldShell>
+
+          {/* OAuth panel — visible when OAuth is selected */}
+          <Show when={authMode() === "oauth"}>
+            <TextField
+              label="OAuth client ID"
+              hint="Client ID of your Solidtime OAuth application."
+              placeholder="00000000-0000-0000-0000-000000000000"
+              value={lookup("solidtime.oauth.client_id")?.value ?? ""}
+              onSave={(v) => saveValue("solidtime.oauth.client_id", v)}
+            />
+
+            <FieldShell label="Sign-in status">
+              <Show
+                when={authStatus()?.signed_in}
+                fallback={
+                  <Button onClick={handleSignIn}>
+                    Sign in with Solidtime
+                  </Button>
+                }
+              >
+                <div class="flex flex-wrap items-center gap-2">
+                  <Pill tone="emerald">Signed in</Pill>
+                  <Show when={authStatus()?.scope}>
+                    <span class="text-xs text-zinc-500">
+                      scope: {authStatus()?.scope}
+                    </span>
+                  </Show>
+                  <Button variant="ghost" size="sm" onClick={handleSignOut}>
+                    Sign out
+                  </Button>
+                </div>
+              </Show>
+            </FieldShell>
+          </Show>
+
+          <Show when={authMode() === "api_token"}>
+            <SecretField
+              label="API token"
+              hint="Personal access token. Stored in macOS Keychain — never in the database."
+              isSet={tokenSet()}
+              onSave={(v) => saveValue("solidtime.token", v)}
+            />
+          </Show>
 
           <Show
             when={canFetchOrgs() && orgList().length > 0}
