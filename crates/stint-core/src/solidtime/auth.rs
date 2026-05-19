@@ -8,12 +8,14 @@
 use crate::config::secrets::Secrets;
 use crate::config::Settings;
 use crate::oauth::client::{OAuthClient, OAuthConfig};
+use crate::oauth::loopback::listen_for_callback;
 use crate::oauth::tokens::TokenSet;
 use crate::Result;
 use async_trait::async_trait;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 #[async_trait]
 pub trait TokenProvider: Send + Sync {
@@ -102,6 +104,37 @@ pub fn oauth_blob_save(secrets: &Secrets, blob: &OAuthBlob) -> Result<()> {
 
 pub fn oauth_blob_delete(secrets: &Secrets) -> Result<()> {
     secrets.delete(OAUTH_KEYCHAIN_KEY)
+}
+
+/// Run the full PKCE flow: spin up a loopback server, mutate the redirect_uri
+/// in `client.config` to include the bound port, generate authorize URL, call
+/// `open_browser(authorize_url_string)`, await the callback, exchange the code,
+/// return the TokenSet. The caller persists the TokenSet.
+pub async fn login_interactive<F>(
+    client: &OAuthClient,
+    flow_timeout: Duration,
+    open_browser: F,
+) -> Result<TokenSet>
+where
+    F: FnOnce(String),
+{
+    let server = listen_for_callback(flow_timeout).await?;
+    let port = server.port();
+    let mut config = client.config().clone();
+    config.redirect_uri = format!("http://127.0.0.1:{port}/callback");
+    let runtime_client = OAuthClient::new(config);
+
+    let prepared = runtime_client.prepare_authorize();
+    open_browser(prepared.authorize_url.to_string());
+
+    let captured = server.await_callback().await?;
+    if captured.state != prepared.state {
+        return Err(crate::Error::OAuthStateMismatch);
+    }
+
+    runtime_client
+        .exchange_code(&captured.code, &prepared.code_verifier)
+        .await
 }
 
 const AUTH_MODE_KEY: &str = "solidtime.auth_mode";
