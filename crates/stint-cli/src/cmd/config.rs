@@ -56,7 +56,7 @@ pub async fn run(c: ConfigCmd) -> Result<()> {
             let token = secrets
                 .get("solidtime.token")?
                 .ok_or_else(|| anyhow!("solidtime.token not set"))?;
-            let client = SolidtimeClient::new(&url, &token);
+            let client = SolidtimeClient::with_api_token(&url, &token);
             let me = client
                 .test_connection()
                 .await

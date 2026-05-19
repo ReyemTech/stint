@@ -22,7 +22,7 @@ async fn build_client(store: &stint_core::store::Store) -> Result<SolidtimeClien
         .get("solidtime.org")
         .await?
         .ok_or(stint_core::Error::MissingConfig("solidtime.org"))?;
-    Ok(SolidtimeClient::new(&url, &token).with_org(org))
+    Ok(SolidtimeClient::with_api_token(&url, &token).with_org(org))
 }
 
 /// Like build_client but does NOT require an org. Used for endpoints that
@@ -37,7 +37,7 @@ async fn build_unorg_client(store: &stint_core::store::Store) -> Result<Solidtim
     let token = secrets
         .get("solidtime.token")?
         .ok_or(stint_core::Error::MissingConfig("solidtime.token"))?;
-    Ok(SolidtimeClient::new(&url, &token))
+    Ok(SolidtimeClient::with_api_token(&url, &token))
 }
 
 #[derive(Serialize)]

@@ -37,7 +37,7 @@ async fn push_one_succeeds_for_create_entry_and_marks_synced() {
         .mount(&server)
         .await;
 
-    let client = SolidtimeClient::new(&server.uri(), "t").with_org("org-1");
+    let client = SolidtimeClient::with_api_token(&server.uri(), "t").with_org("org-1");
     let queue = Queue::new(env.store.clone());
 
     let due = queue.take_due(10).await.unwrap();
@@ -79,7 +79,7 @@ async fn push_one_marks_failed_on_500_and_backs_off() {
         .mount(&server)
         .await;
 
-    let client = SolidtimeClient::new(&server.uri(), "t").with_org("org-1");
+    let client = SolidtimeClient::with_api_token(&server.uri(), "t").with_org("org-1");
     let queue = Queue::new(env.store.clone());
     let due = queue.take_due(10).await.unwrap();
 
@@ -133,6 +133,6 @@ async fn push_one_handles_delete_entry() {
         .mount(&server)
         .await;
 
-    let client = SolidtimeClient::new(&server.uri(), "t").with_org("org-1");
+    let client = SolidtimeClient::with_api_token(&server.uri(), "t").with_org("org-1");
     push_one(&env.store, &client, &delete_row).await.unwrap();
 }

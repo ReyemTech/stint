@@ -22,7 +22,7 @@ pub async fn run() -> Result<()> {
         .await?
         .ok_or_else(|| anyhow!("solidtime.org not set"))?;
 
-    let client = SolidtimeClient::new(&url, &token).with_org(org);
+    let client = SolidtimeClient::with_api_token(&url, &token).with_org(org);
     let n = drain_once(&store, &client).await?;
     println!("Drained {n} item(s) from the sync queue.");
     Ok(())

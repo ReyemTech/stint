@@ -48,5 +48,5 @@ async fn build_client(store: &stint_core::store::Store) -> Result<SolidtimeClien
         .get("solidtime.org")
         .await?
         .ok_or_else(|| anyhow!("solidtime.org not set"))?;
-    Ok(SolidtimeClient::new(&url, &token).with_org(org))
+    Ok(SolidtimeClient::with_api_token(&url, &token).with_org(org))
 }

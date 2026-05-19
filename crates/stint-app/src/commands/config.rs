@@ -81,7 +81,7 @@ pub async fn config_test(state: State<'_, RwLock<AppState>>) -> Result<String, A
     let token = Secrets::default()
         .get("solidtime.token")?
         .ok_or(stint_core::Error::MissingConfig("solidtime.token"))?;
-    let client = SolidtimeClient::new(&url, &token);
+    let client = SolidtimeClient::with_api_token(&url, &token);
     let me = client.test_connection().await?;
     Ok(me.email.unwrap_or(me.id))
 }

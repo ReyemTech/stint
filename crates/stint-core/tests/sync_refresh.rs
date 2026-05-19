@@ -32,7 +32,7 @@ async fn refresh_reference_data_writes_projects_tasks_tags() {
         .mount(&server)
         .await;
 
-    let client = SolidtimeClient::new(&server.uri(), "t").with_org("org-1");
+    let client = SolidtimeClient::with_api_token(&server.uri(), "t").with_org("org-1");
     refresh_reference_data(&env.store, &client).await.unwrap();
 
     let r = Reference::new(env.store.clone());
