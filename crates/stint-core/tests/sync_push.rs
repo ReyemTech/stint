@@ -1,5 +1,6 @@
 mod common;
 
+use stint_core::config::Settings;
 use stint_core::solidtime::SolidtimeClient;
 use stint_core::store::entries::Entries;
 use stint_core::store::queue::Queue;
@@ -11,6 +12,10 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 #[tokio::test]
 async fn push_one_succeeds_for_create_entry_and_marks_synced() {
     let env = common::setup().await;
+    Settings::new(env.store.clone())
+        .set("solidtime.member_id", "m-1")
+        .await
+        .unwrap();
     let timer = TimerService::new(env.store.clone());
     let id = timer
         .start(StartArgs {

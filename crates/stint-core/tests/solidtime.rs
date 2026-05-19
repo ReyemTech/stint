@@ -90,6 +90,7 @@ async fn create_time_entry_posts_and_returns_id() {
 
     let client = SolidtimeClient::new(&server.uri(), "t").with_org("org-1");
     let req = CreateEntryRequest {
+        member_id: "m-1",
         description: "test",
         project_id: None,
         task_id: None,
