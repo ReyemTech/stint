@@ -169,16 +169,25 @@ git checkout -b phase-2.5
 ## Gotchas / dev-environment notes
 
 - **Keychain prompts in dev — use `scripts/dev-cli.sh` for CLI.** macOS
-  binds Keychain ACL to the binary signature. Plain `cargo build` produces
-  a different signature on every rebuild, so "Always Allow" never sticks.
-  Fix: run `scripts/setup-dev-cert.sh` once to create a stable self-signed
-  cert named `stint-dev` in your login keychain. Then run CLI dev work via
-  `scripts/dev-cli.sh <subcommand> <args>` instead of `cargo run -p stint-cli`.
-  The wrapper builds, codesigns with `stint-dev`, then execs the binary —
-  same signature every time, so "Always Allow" persists.
-  GUI (`cargo tauri dev`) is NOT yet covered by this; Tauri spawns the
-  binary itself outside of cargo run, so wrapping it requires a custom
-  file-watcher. Left as a follow-up.
+  binds Keychain ACL to the binary signature, and clicking "Always Allow"
+  stores the binary's exact cdhash — not its designated requirement.
+  Every `cargo build` produces a new cdhash, so each rebuild re-prompts
+  even when signed by a stable cert. Three-step fix (one-time):
+  1. `scripts/setup-dev-cert.sh` — creates a stable self-signed cert
+     `stint-dev` in your login keychain. Idempotent.
+  2. Use `scripts/dev-cli.sh <subcommand> <args>` instead of
+     `cargo run -p stint-cli -- <args>`. The wrapper codesigns with
+     `stint-dev` so all rebuilds share the same cert chain.
+  3. After the keychain entries exist (you've run `stint config set
+     solidtime.token <PAT>` and/or `scripts/dev-cli.sh config login`),
+     run `scripts/relax-keychain-acl.sh` once. It asks for your login
+     keychain password and applies a partition-list relaxation
+     (`codesign:`) to the `tech.reyem.stint.solidtime.token` and
+     `tech.reyem.stint.solidtime.oauth` entries so any binary signed
+     by `stint-dev` reads them without re-prompting after rebuilds.
+  GUI (`cargo tauri dev`) is NOT yet covered. Tauri spawns the binary
+  outside of `cargo run`, so wrapping it requires a custom file-watcher.
+  Tracked as a follow-up.
 - **Hot reload is flaky.** Vite reliably HMRs the UI. Cargo rebuilds the
   Rust side on save but the Tauri runtime needs to relaunch — sometimes the
   watcher misses changes when many files are touched. When in doubt,
