@@ -3,11 +3,11 @@ import { listen } from "@tauri-apps/api/event";
 import { api } from "~/api";
 import Duration from "~/components/Duration";
 import EntryList from "~/components/EntryList";
+import MainNav from "~/components/MainNav";
 import TimerCard from "~/components/TimerCard";
 import SectionLabel from "~/components/ui/SectionLabel";
 import StatusDot from "~/components/ui/StatusDot";
 import { useTimerStore } from "~/stores/timer";
-import { openSolidtime } from "~/lib/openSolidtime";
 
 export default function Today() {
   const timer = useTimerStore();
@@ -76,22 +76,16 @@ export default function Today() {
               })}
             </p>
           </div>
-          <nav class="flex items-center gap-1 text-xs">
-            <SyncBadge
-              syncing={syncing()}
-              pending={pending()}
-              onClick={syncNow}
-            />
-            <NavLink href="#/today" active>Today</NavLink>
-            <NavLink href="#/settings">Settings</NavLink>
-            <button
-              class="rounded-md px-2.5 py-1.5 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
-              onClick={() => openSolidtime()}
-              title="Open Solidtime in browser"
-            >
-              Solidtime ↗
-            </button>
-          </nav>
+          <MainNav
+            active="today"
+            leading={
+              <SyncBadge
+                syncing={syncing()}
+                pending={pending()}
+                onClick={syncNow}
+              />
+            }
+          />
         </header>
 
         <Show when={syncMsg()}>
@@ -156,22 +150,6 @@ function Stat(props: { label: string; value: any; accent?: boolean }) {
         {props.value}
       </div>
     </div>
-  );
-}
-
-function NavLink(props: { href: string; active?: boolean; children: any }) {
-  return (
-    <a
-      href={props.href}
-      class="rounded-md px-2.5 py-1.5 transition"
-      classList={{
-        "text-zinc-900 dark:text-zinc-100": props.active,
-        "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100":
-          !props.active,
-      }}
-    >
-      {props.children}
-    </a>
   );
 }
 

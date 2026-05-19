@@ -7,6 +7,7 @@ import {
   createSignal,
 } from "solid-js";
 import { api } from "~/api";
+import MainNav from "~/components/MainNav";
 import Button from "~/components/ui/Button";
 import type { OrgChoice, Project } from "~/types";
 
@@ -134,20 +135,7 @@ export default function Settings() {
               Connection, organization, and defaults.
             </p>
           </div>
-          <nav class="flex items-center gap-1 text-xs">
-            <a
-              class="rounded-md px-2.5 py-1.5 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
-              href="#/today"
-            >
-              Today
-            </a>
-            <a
-              class="rounded-md px-2.5 py-1.5 text-zinc-900 dark:text-zinc-100"
-              href="#/settings"
-            >
-              Settings
-            </a>
-          </nav>
+          <MainNav active="settings" />
         </header>
 
       <Show when={status()}>

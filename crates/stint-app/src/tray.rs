@@ -2,7 +2,7 @@ use tauri::{
     image::Image,
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Manager,
+    AppHandle, Emitter, Manager,
 };
 use tokio::sync::RwLock;
 
@@ -20,6 +20,8 @@ pub fn build(app: &AppHandle) -> tauri::Result<TrayIcon> {
             &MenuItem::with_id(app, "open", "Open Stint", true, None::<&str>)?,
             &MenuItem::with_id(app, "sync", "Sync now", true, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
+            &MenuItem::with_id(app, "about", "About Stint", true, None::<&str>)?,
+            &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?,
         ],
     )?;
@@ -32,6 +34,10 @@ pub fn build(app: &AppHandle) -> tauri::Result<TrayIcon> {
         .on_menu_event(|app, event| match event.id.as_ref() {
             "open" => {
                 let _ = windows::show_main(app);
+            }
+            "about" => {
+                let _ = windows::show_main(app);
+                let _ = app.emit("navigate", "/about");
             }
             "sync" => {
                 let app_handle = app.clone();
