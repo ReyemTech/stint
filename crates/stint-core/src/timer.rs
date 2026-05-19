@@ -139,11 +139,7 @@ impl TimerService {
         self.maybe_enqueue_update(local_uuid).await
     }
 
-    pub async fn set_project(
-        &self,
-        local_uuid: &str,
-        project_id: Option<&str>,
-    ) -> Result<()> {
+    pub async fn set_project(&self, local_uuid: &str, project_id: Option<&str>) -> Result<()> {
         let entries = Entries::new(self.store.clone());
         entries.set_project(local_uuid, project_id).await?;
         self.maybe_enqueue_update(local_uuid).await

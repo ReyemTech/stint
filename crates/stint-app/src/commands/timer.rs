@@ -123,7 +123,9 @@ pub async fn set_entry_project(
 ) -> Result<(), AppError> {
     let store = store(&state).await;
     let timer = TimerService::new((*store).clone());
-    timer.set_project(&local_uuid, project_id.as_deref()).await?;
+    timer
+        .set_project(&local_uuid, project_id.as_deref())
+        .await?;
     announce_change(&app);
     sync_worker::nudge(app.clone(), store);
     Ok(())
