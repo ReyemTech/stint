@@ -1,6 +1,5 @@
 import { Show, createResource, createSignal } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { api } from "~/api";
 import Duration from "~/components/Duration";
 import { useTimerStore } from "~/stores/timer";
@@ -24,8 +23,8 @@ export default function Popover() {
   };
 
   async function openMain() {
+    // Rust command hides the popover then shows the main window.
     await invoke("show_main_window");
-    await getCurrentWindow().hide();
   }
 
   return (
