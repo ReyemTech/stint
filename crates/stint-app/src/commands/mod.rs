@@ -3,6 +3,7 @@ pub mod entries;
 pub mod projects;
 pub mod sync;
 pub mod timer;
+pub mod ui;
 
 use crate::app_state::AppState;
 use std::sync::Arc;

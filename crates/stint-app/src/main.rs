@@ -37,6 +37,7 @@ async fn main() -> Result<()> {
             commands::config::config_set,
             commands::config::config_test,
             commands::sync::sync_now,
+            commands::ui::show_main_window,
         ])
         .setup(|app| {
             tray::build(app.handle())?;
