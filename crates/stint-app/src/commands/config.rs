@@ -107,7 +107,7 @@ pub async fn oauth_solidtime_status(
     let mode = AuthMode::from_str_or_default(settings.get("solidtime.auth_mode").await?.as_deref());
     let secrets = Secrets::default();
     let (signed_in, scope) = match mode {
-        AuthMode::ApiToken => (secrets.get("solidtime")?.is_some(), None),
+        AuthMode::ApiToken => (secrets.get("solidtime.token")?.is_some(), None),
         AuthMode::OAuth => {
             let blob = oauth_blob_load(&secrets)?;
             (blob.is_some(), blob.and_then(|b| b.tokens.scope))
@@ -141,12 +141,8 @@ pub async fn oauth_solidtime_start(state: State<'_, RwLock<AppState>>) -> Result
         token_url: format!("{}/oauth/token", base_url.trim_end_matches('/')),
         client_id: client_id.clone(),
         redirect_uri: "http://127.0.0.1:0/callback".into(),
-        scopes: vec![
-            "read".into(),
-            "create".into(),
-            "update".into(),
-            "delete".into(),
-        ],
+        // Empty by default — see DEFAULT_SCOPES doc in solidtime/auth.rs.
+        scopes: vec![],
     });
 
     let tokens = login_interactive(&client, Duration::from_secs(300), |url| {
@@ -167,7 +163,7 @@ pub async fn oauth_solidtime_logout(state: State<'_, RwLock<AppState>>) -> Resul
     let settings = Settings::new((*store).clone());
     let secrets = Secrets::default();
     oauth_blob_delete(&secrets)?;
-    if secrets.get("solidtime")?.is_some() {
+    if secrets.get("solidtime.token")?.is_some() {
         settings.set("solidtime.auth_mode", "api_token").await?;
     }
     Ok(())
