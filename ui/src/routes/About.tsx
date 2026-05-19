@@ -2,6 +2,7 @@ import { createResource, For } from "solid-js";
 import { getVersion, getTauriVersion } from "@tauri-apps/api/app";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import MainNav from "~/components/MainNav";
+import StintIcon from "~/components/StintIcon";
 import Button from "~/components/ui/Button";
 import SectionLabel from "~/components/ui/SectionLabel";
 import { openSolidtime } from "~/lib/openSolidtime";
@@ -39,8 +40,8 @@ export default function About() {
         {/* Identity card */}
         <section class="mb-6 rounded-2xl border border-black/[0.06] bg-white p-6 dark:border-white/[0.06] dark:bg-zinc-900">
           <div class="flex items-start gap-5">
-            <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-2xl font-semibold text-white shadow-sm">
-              s
+            <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-sm">
+              <StintIcon size={40} fill="white" />
             </div>
             <div class="flex-1">
               <h2 class="text-xl font-semibold tracking-tight">Stint</h2>
