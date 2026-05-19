@@ -8,6 +8,13 @@
 
 **Tech Stack:** GitHub Actions · `actions/checkout@v4` · `dtolnay/rust-toolchain@stable` (with explicit `toolchain: "1.81"`) · `Swatinem/rust-cache@v2` · `pnpm/action-setup@v4` · `actions/setup-node@v4`.
 
+> **Errata (added post-execution 2026-05-18).** Three things below turned out wrong in practice:
+> 1. The Rust pin landed at **`1.95.0`**, not `1.81` — the dep tree required cascading bumps (`1.81` → `1.85` → `1.88` minimum → `1.95.0` for headroom). The `1.81` value in `rust-toolchain.toml` was fictional locally because Homebrew rustc bypasses rustup.
+> 2. **Task 6 (smoke) must run after Task 7 (merge)**, not before. `pull_request` workflows are loaded from the PR's head branch, so a fresh branch off pre-merge `main` finds no workflow file.
+> 3. **AGENTS.md is a pointer file**, not a content-duplicate of CLAUDE.md (CLAUDE.md's own description of AGENTS.md is inaccurate). Task 4 should treat AGENTS.md as redirect-only.
+>
+> See "Post-execution: Lessons Learned" at the end of this doc for the full retrospective. The plan body below is preserved as-written for historical fidelity.
+
 ---
 
 ## Why env-gated skip (not a mock backend)
@@ -639,15 +646,16 @@ Search this plan for the patterns `TODO`, `TBD`, `fill in`, `appropriate error h
 - The job name `build` appears in: Task 2 step 2 (`jobs.build`), Task 5 step 3 (status check selection). Both must match.
 - The branch name `phase-2.5` appears throughout. The tag `phase-2.5-complete` appears in Task 7 step 3 and the README/CLAUDE updates.
 
-**4. Captured numbers (fill in during execution):**
+**4. Captured numbers (observed during execution on 2026-05-18):**
 
 | Metric | Target | Observed |
 |---|---|---|
-| Cold-cache run wall-clock | — | _(fill in from Task 3 step 3)_ |
-| Warm-cache run wall-clock | < 5 min | _(fill in from Task 3 step 5)_ |
-| Smoke-test run wall-clock | near warm | _(fill in from Task 6 step 5)_ |
+| Cold-cache run wall-clock | — | **3m58s** (run 26073639721) |
+| Warm-cache run wall-clock | < 5 min | **1m33s** (re-run of same SHA) |
+| Smoke-test run wall-clock (true warm, fresh branch) | near warm | **1m07s** (run 26074350048) |
+| First push-to-main run wall-clock | — | **3m14s** (run 26074238692 — rebase changed SHAs so cache partially missed) |
 
-If warm is over 5 min, do not call the plan done — investigate cache hits in the run logs (`gh run view <id> --log | grep -i cache`) and iterate with a `fix(ci):` commit (e.g., the pnpm cache path may not match macOS reality and need an explicit `actions/cache` override).
+All targets met. If a future warm run exceeds 5 min, investigate cache hits in the run logs (`gh run view <id> --log | grep -i cache`) and iterate with a `fix(ci):` commit (e.g., the pnpm cache path may not match macOS reality and need an explicit `actions/cache` override).
 
 ---
 
@@ -666,3 +674,100 @@ Either way, **stop and confirm with the human** before:
 - Pushing the tag (Task 7 step 3)
 
 Which approach?
+
+---
+
+## Post-execution: Lessons Learned
+
+Recorded 2026-05-18 after Phase 2.5 shipped (tag `phase-2.5-complete`). Things the plan got wrong, things it didn't anticipate, and what to copy forward.
+
+### 1. Pin-the-toolchain cascade (worst surprise)
+
+The plan pinned Rust to `1.81` to match `rust-toolchain.toml`. First CI run failed in 30s parsing a transitive dep that needed `edition2024` (stabilized in 1.85). Bumped to `1.85` — failed again, more crates required 1.88. Bumped to `1.95.0` (matching local Homebrew rustc) — finally green.
+
+Root cause: the `1.81` pin in `rust-toolchain.toml` was fictional locally. The maintainer's Homebrew-installed rustc bypasses rustup, so the file was never honored. The lights only came on when CI used `dtolnay/rust-toolchain@stable` with the explicit pin and actually got 1.81.
+
+**Lessons for future phases:**
+- Before pinning a Rust version in CI, run `rustup which rustc` locally — if it's not under `~/.cargo/`, the pin file is not in effect, and the "known-good" version is whatever the package manager installed.
+- A pin should be ≥ the highest MSRV in the dep tree. Run `cargo +nightly -Z minimal-versions ...` or just try the pin in a throwaway PR before committing to it.
+- Bump both `rust-toolchain.toml` and the workflow `toolchain:` field together — they form a dual source of truth (now documented as a gotcha in CLAUDE.md).
+
+### 2. Task ordering: smoke must come after merge
+
+The plan put Task 6 (smoke-from-fresh-branch) before Task 7 (merge phase-2.5 to main). It can't work. `pull_request` workflows are resolved against the **head branch** of the PR; `ci-smoke` was branched from pre-merge `main` which had no `.github/workflows/ci.yml`, so no run ever started. The PR sat in `BLOCKED` indefinitely waiting for a check that would never fire.
+
+Cleanup cost: 1 closed PR (#2), 1 deleted branch on both sides, ~5 min of confusion. Recoverable but avoidable.
+
+**Lesson:** any "verify with a fresh branch" step in a CI-introduction plan must come after the workflow exists on the base branch. The correct order is:
+```
+1. Build workflow on feature branch (Tasks 1–4)
+2. Merge feature branch to main (was Task 7)
+3. Branch protection on main (can be done before OR after merge; before is safer)
+4. Smoke test from fresh branch (was Task 6) — verifies the post-merge steady state
+5. Tag
+```
+
+If branch protection is configured before merge, the merge itself becomes the first under-protection event, which is even better — proves the rule lets you in when you should be let in.
+
+### 3. Pre-existing breakage is the point of turning CI on
+
+Phase 2.5 was specified as "add CI." In practice the first 60% of the work was fixing things CI immediately caught:
+- `tests/solidtime.rs:92` was missing `member_id` (compile error, since Phase 2 refactor).
+- `tests/sync_push.rs:13` didn't seed `solidtime.member_id` (runtime panic — masked by a sibling test that error-passed for the wrong reason).
+- 6 files needed `cargo fmt`.
+- `crates/stint-app/src/main.rs:29` had a `clippy::redundant_closure`.
+
+None of these were caused by Phase 2.5. All four had been on `main` since Phase 2 ended, because nobody had run `cargo fmt --check` / `cargo clippy -D warnings` / `cargo test --workspace` end-to-end since then. CLAUDE.md tells you to, but absent CI to enforce it, drift accumulated.
+
+**Lesson:** the first CI run on an existing codebase will find old breakage. Plan for it: budget 1–3 cleanup commits before the workflow itself can pass. Land the cleanup as separate atomic commits on the same branch (we used `fix(core)`, `style`, `fix(app)`), not as a single mega-commit — the PR review benefits from per-issue diffs.
+
+A future "introduce CI" plan template should include a pre-flight task: "run all the checks the workflow will run, locally, before writing the workflow YAML. Land any fixes as separate commits."
+
+### 4. Stack commits, don't amend
+
+During the toolchain cascade I amended the same commit twice (1.81→1.85→1.95). Force-pushed twice on the draft PR. That's against the system guidance ("prefer to create a new commit rather than amending") and lost the per-step intent in commit history.
+
+**Lesson:** even on a draft PR, each iteration of a CI fix should be its own `fix(ci):` commit. The rebase-merge that lands the work can collapse them later if desired, but having the history during iteration is valuable when reviewing logs or bisecting. Save `git commit --amend` for genuine "fix immediately before push" cases (typo in commit message, missed `git add`).
+
+### 5. AGENTS.md is a redirect, not a duplicate
+
+CLAUDE.md states: "A duplicate `AGENTS.md` exists for non-Claude agents; both files point to the same content — keep them in sync." This is wrong as of 2026-05-18 — AGENTS.md is an 11-line pointer that redirects to CLAUDE.md. The Task 4 subagent caught this when asked to "mirror" the changes.
+
+**Lessons:**
+- Task instructions that say "also update X to mirror Y" must verify the mirror actually exists; otherwise the instruction is a no-op that masquerades as work.
+- CLAUDE.md's own self-description should be fixed in a follow-up (out of scope for Phase 2.5).
+
+### 6. Empty smoke commits get dropped by rebase
+
+Task 6 used `git commit --allow-empty` to create the smoke commit. When the smoke PR was rebase-merged, the empty commit was dropped (default `git rebase` behavior, no `--keep-empty`). The PR shows MERGED on GitHub, but `main` HEAD didn't advance.
+
+This was fine — the smoke test had already validated everything it needed to (CI fires on fresh PR, protection blocks, protection unblocks on green). But the literal Task 6 Step 8 ("Verify CI runs on the resulting main push") was moot for an empty PR.
+
+**Lesson:** if a smoke test should land a commit on main, give it a real (even trivial) change — e.g., bump a comment, append a line to a sandbox file. Or accept that the smoke PR exists for CI/protection validation only and remove the post-merge verification step.
+
+### 7. Node 20 action deprecation looming
+
+Every CI run logged this annotation:
+> Node.js 20 actions are deprecated. The following actions are running on Node.js 20: `actions/checkout@v4`, `actions/setup-node@v4`, `pnpm/action-setup@v4`. Forced to Node.js 24 by 2026-06-02; removed 2026-09-16.
+
+Non-blocking now, becomes blocking June 2026.
+
+**Follow-up:** before 2026-06-01, check for newer major versions of those three actions (`actions/checkout@v5`?, `actions/setup-node@v5`?, `pnpm/action-setup@v5`?). If they exist, bump. If not, set `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` in the workflow env.
+
+### 8. Final task ordering that worked
+
+For copy-paste reuse in future "introduce CI on an existing project" plans:
+
+1. Pre-flight: run every check the workflow will run, locally. Land any fixes as atomic commits.
+2. Make any source-level adaptations needed for CI (e.g., the env-gated Keychain test).
+3. Write the workflow YAML.
+4. Open a draft PR. Iterate to green with `fix(ci):` commits (one per attempt, no amend).
+5. Capture cold + warm timings via `gh run rerun`.
+6. Update docs to reflect new workflow + new gotchas (with the actual versions, not the planned ones).
+7. Mark PR ready, merge to main via rebase.
+8. **Configure branch protection on main** (the `build` check name only exists in GitHub's UI after a workflow run has happened, so this naturally can't be earlier).
+9. Verify protection rejects direct push to main.
+10. Smoke test from a fresh branch off updated main — observe `BLOCKED` → `CLEAN` state transition. Merge.
+11. Tag the milestone.
+
+Steps 8 and 9 can swap with step 7 if you want the merge itself to be the first under-protection event. We did step 7 → 8 → 9 (protection after merge) and it worked fine; doing 8 → 9 → 7 would have been very slightly more rigorous but no functional difference for a solo repo.
