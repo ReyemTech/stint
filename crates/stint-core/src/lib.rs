@@ -3,6 +3,7 @@
 //! All business logic lives here. Both the CLI and the Tauri GUI link to this
 //! crate; neither contains domain code of its own.
 
+pub mod calendar;
 pub mod config;
 pub mod error;
 pub mod ids;
