@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Cancel in-progress runs on the same PR when a new commit lands; let pushes
+# to main run to completion so the badge / required-check status stays stable.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    name: build
+    runs-on: macos-14
+    timeout-minutes: 30
+    env:
+      # See crates/stint-core/tests/config.rs — gates the one Keychain test.
+      STINT_SKIP_KEYCHAIN_TESTS: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust 1.81
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.81"
+          components: rustfmt, clippy
+
+      - name: Cache cargo registry, git db, and target/
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install Node 20 (enables pnpm store cache)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: '**/pnpm-lock.yaml'
+
+      - name: cargo fmt --check
+        run: cargo fmt --all -- --check
+
+      - name: cargo clippy (deny warnings)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: cargo test
+        run: cargo test --workspace -- --test-threads=1
+
+      - name: pnpm install (root workspace)
+        run: pnpm install --frozen-lockfile
+
+      - name: pnpm install (ui)
+        run: pnpm -C ui install --frozen-lockfile
+
+      - name: pnpm typecheck
+        run: pnpm -C ui typecheck
+
+      - name: pnpm build
+        run: pnpm -C ui build
