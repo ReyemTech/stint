@@ -43,3 +43,18 @@ export const api = {
 
   syncNow: () => invoke<number>("sync_now"),
 };
+
+export type SolidtimeAuthStatus = {
+  mode: "api_token" | "oauth";
+  signed_in: boolean;
+  scope: string | null;
+};
+
+export const oauthSolidtimeStatus = () =>
+  invoke<SolidtimeAuthStatus>("oauth_solidtime_status");
+
+export const oauthSolidtimeStart = () =>
+  invoke<void>("oauth_solidtime_start");
+
+export const oauthSolidtimeLogout = () =>
+  invoke<void>("oauth_solidtime_logout");
