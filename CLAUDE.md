@@ -160,7 +160,7 @@ git checkout -b phase-2.5
 |---|---|---|
 | 1 | CLI + sync + crash recovery | ✅ shipped (`phase-1-complete`) |
 | 2 | Tauri GUI + SolidJS UI | ✅ shipped (`phase-2-complete`) |
-| 2.5 | CI baseline (lint / test / typecheck on PR) | planned |
+| 2.5 | CI baseline (lint / test / typecheck on PR) | ✅ shipped (`phase-2.5-complete`) |
 | 3 | Calendar (Google + MS + CalDAV) + Solidtime OAuth | planned |
 | 4 | Distribution (Homebrew cask + signing + release CD) | planned |
 | 5 | Documentation site (GitHub Pages) | planned |
@@ -191,6 +191,15 @@ git checkout -b phase-2.5
   422 without it. We pull it from `solidtime.member_id` in the settings
   table; it's auto-backfilled from the user's memberships when the org is
   picked from the Settings dropdown.
+- **Keychain test is env-gated in CI.** `set_get_delete_round_trip` in
+  `crates/stint-core/tests/config.rs` honors `STINT_SKIP_KEYCHAIN_TESTS=1`
+  and returns early. CI sets it; local dev does not. If you add a new
+  test that hits the real Keychain, copy the same three-line guard.
+- **Rust toolchain pinned in two places.** `rust-toolchain.toml` pins
+  `1.95.0` for local dev; `.github/workflows/ci.yml` pins `1.95.0` for
+  CI. Bump both together. (The pin only takes effect locally if you
+  invoke cargo via rustup, not via Homebrew-installed rustc, which
+  bypasses rustup entirely.)
 
 ## When you start work on a phase
 
@@ -202,6 +211,9 @@ git checkout -b phase-2.5
    messages.
 5. Run the full test suite (`cargo test --workspace -- --test-threads=1`)
    and `pnpm typecheck` before tagging.
-6. Fast-forward `main` to the branch and push, then tag `phase-N-complete`.
+6. Open a PR from your phase branch to `main`. Wait for CI to go green.
+   Merge via "Rebase and merge" in the GitHub UI (preserves linear
+   history equivalent to a fast-forward). Then locally fetch, pull
+   `main`, and tag `phase-N-complete` and push the tag.
 
 When in doubt about scope, push back rather than build extra.
