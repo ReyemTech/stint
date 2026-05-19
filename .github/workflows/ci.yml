@@ -24,10 +24,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Rust 1.81
+      - name: Install Rust 1.95.0
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: "1.81"
+          toolchain: "1.95.0"
           components: rustfmt, clippy
 
       - name: Cache cargo registry, git db, and target/
