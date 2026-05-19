@@ -1,4 +1,4 @@
-import { Show, createResource, createSignal } from "solid-js";
+import { Show, createResource, createSignal, onCleanup } from "solid-js";
 import { api } from "~/api";
 import EntryList from "~/components/EntryList";
 import TimerCard from "~/components/TimerCard";
@@ -7,6 +7,12 @@ export default function Today() {
   const [entries, { refetch }] = createResource(() => api.listToday());
   const [syncing, setSyncing] = createSignal(false);
   const [syncMsg, setSyncMsg] = createSignal<string | null>(null);
+
+  // Poll entries every 3s while the route is visible. Cheap local-SQLite
+  // query that catches background sync state transitions (pending_create
+  // → synced) without requiring an event channel from Rust.
+  const id = window.setInterval(() => refetch(), 3000);
+  onCleanup(() => window.clearInterval(id));
 
   // Count unsynced entries for the badge.
   const pending = () =>

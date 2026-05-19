@@ -1,4 +1,4 @@
-import { For, Show, createResource, createSignal } from "solid-js";
+import { For, Show, createResource, createSignal, onCleanup } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
 import { api } from "~/api";
 import Duration from "~/components/Duration";
@@ -9,9 +9,12 @@ export default function Popover() {
   const [description, setDescription] = createSignal("");
   const [projectId, setProjectId] = createSignal<string>("");
   const [billable, setBillable] = createSignal(false);
-  const [entries] = createResource(() => api.listToday(), {
-    initialValue: [],
-  });
+  const [entries, { refetch: refetchEntries }] = createResource(
+    () => api.listToday(),
+    { initialValue: [] },
+  );
+  const refetchId = window.setInterval(() => refetchEntries(), 3000);
+  onCleanup(() => window.clearInterval(refetchId));
   const [projects] = createResource(() => api.listProjects(), {
     initialValue: [],
   });
