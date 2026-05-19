@@ -8,6 +8,9 @@ authors.workspace = true
 repository.workspace = true
 
 [dependencies]
+base64 = "0.22"
+rand = "0.8"
+sha2 = "0.10"
 tokio.workspace = true
 async-trait.workspace = true
 thiserror.workspace = true
