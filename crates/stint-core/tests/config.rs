@@ -13,6 +13,15 @@ fn unique_secrets() -> (Secrets, String) {
 
 #[test]
 fn set_get_delete_round_trip() {
+    // CI does not have a usable macOS Keychain (the login keychain on
+    // GitHub-hosted runners is locked by default and prompts differ from
+    // end-user behaviour). Local developers run this test; CI sets
+    // STINT_SKIP_KEYCHAIN_TESTS=1 so the suite still passes without it.
+    if std::env::var("STINT_SKIP_KEYCHAIN_TESTS").is_ok() {
+        eprintln!("skipping: STINT_SKIP_KEYCHAIN_TESTS is set");
+        return;
+    }
+
     let (secrets, _suffix) = unique_secrets();
 
     assert!(secrets.get("k").unwrap().is_none());
