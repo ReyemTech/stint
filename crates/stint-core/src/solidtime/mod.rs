@@ -1,22 +1,24 @@
 pub mod auth;
 pub mod dto;
 
+use crate::solidtime::auth::{ApiTokenProvider, TokenProvider};
 use crate::{Error, Result};
 use dto::*;
-use reqwest::{Client, StatusCode};
+use reqwest::{Client, RequestBuilder, StatusCode};
+use std::sync::Arc;
 
 pub struct SolidtimeClient {
     base_url: String,
-    token: String,
+    tokens: Arc<dyn TokenProvider>,
     http: Client,
     org_id: Option<String>,
 }
 
 impl SolidtimeClient {
-    pub fn new(base_url: &str, token: &str) -> Self {
+    pub fn new(base_url: &str, tokens: Arc<dyn TokenProvider>) -> Self {
         Self {
             base_url: base_url.trim_end_matches('/').to_string(),
-            token: token.to_string(),
+            tokens,
             http: Client::builder()
                 .timeout(std::time::Duration::from_secs(15))
                 .build()
@@ -25,14 +27,31 @@ impl SolidtimeClient {
         }
     }
 
+    /// Convenience constructor for the common case of a static API token.
+    /// Keeps call sites short and preserves the old behaviour.
+    pub fn with_api_token(base_url: &str, token: &str) -> Self {
+        Self::new(base_url, Arc::new(ApiTokenProvider::new(token.to_string())))
+    }
+
     pub fn with_org(mut self, org_id: impl Into<String>) -> Self {
         self.org_id = Some(org_id.into());
         self
     }
 
+    pub(crate) fn org(&self) -> Result<&str> {
+        self.org_id
+            .as_deref()
+            .ok_or(Error::MissingConfig("solidtime.org_id"))
+    }
+
+    async fn authed(&self, builder: RequestBuilder) -> Result<RequestBuilder> {
+        let token = self.tokens.access_token().await?;
+        Ok(builder.bearer_auth(token))
+    }
+
     pub async fn test_connection(&self) -> Result<UserMe> {
         let url = format!("{}/api/v1/users/me", self.base_url);
-        let resp = self.http.get(&url).bearer_auth(&self.token).send().await?;
+        let resp = self.authed(self.http.get(&url)).await?.send().await?;
         let status = resp.status();
         if status == StatusCode::UNAUTHORIZED {
             return Err(Error::SolidtimeAuth);
@@ -46,12 +65,6 @@ impl SolidtimeClient {
         }
         let wrapper: Wrapper<UserMe> = resp.json().await?;
         Ok(wrapper.data)
-    }
-
-    pub(crate) fn org(&self) -> Result<&str> {
-        self.org_id
-            .as_deref()
-            .ok_or(Error::MissingConfig("solidtime.org_id"))
     }
 
     pub async fn list_projects(&self) -> Result<Vec<RemoteProject>> {
@@ -78,7 +91,7 @@ impl SolidtimeClient {
     }
 
     async fn get_list<T: for<'de> serde::Deserialize<'de>>(&self, url: &str) -> Result<Vec<T>> {
-        let resp = self.http.get(url).bearer_auth(&self.token).send().await?;
+        let resp = self.authed(self.http.get(url)).await?.send().await?;
         let status = resp.status();
         if status == StatusCode::UNAUTHORIZED {
             return Err(Error::SolidtimeAuth);
@@ -98,9 +111,8 @@ impl SolidtimeClient {
         let org = self.org()?;
         let url = format!("{}/api/v1/organizations/{org}/time-entries", self.base_url);
         let resp = self
-            .http
-            .post(&url)
-            .bearer_auth(&self.token)
+            .authed(self.http.post(&url))
+            .await?
             .json(req)
             .send()
             .await?;
@@ -130,9 +142,8 @@ impl SolidtimeClient {
             self.base_url
         );
         let resp = self
-            .http
-            .put(&url)
-            .bearer_auth(&self.token)
+            .authed(self.http.put(&url))
+            .await?
             .json(req)
             .send()
             .await?;
@@ -157,12 +168,7 @@ impl SolidtimeClient {
             "{}/api/v1/organizations/{org}/time-entries/{id}",
             self.base_url
         );
-        let resp = self
-            .http
-            .delete(&url)
-            .bearer_auth(&self.token)
-            .send()
-            .await?;
+        let resp = self.authed(self.http.delete(&url)).await?.send().await?;
         let status = resp.status();
         if status == StatusCode::UNAUTHORIZED {
             return Err(Error::SolidtimeAuth);

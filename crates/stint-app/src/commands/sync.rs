@@ -25,7 +25,7 @@ pub async fn sync_now(
         .get("solidtime.org")
         .await?
         .ok_or(stint_core::Error::MissingConfig("solidtime.org"))?;
-    let client = SolidtimeClient::new(&url, &token).with_org(org);
+    let client = SolidtimeClient::with_api_token(&url, &token).with_org(org);
     let n = drain_once(&store, &client).await?;
     if n > 0 {
         let _ = app.emit(EVENT_ENTRIES_CHANGED, n);

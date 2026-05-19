@@ -21,7 +21,7 @@ async fn test_connection_calls_users_me_with_bearer_token() {
         .mount(&server)
         .await;
 
-    let client = SolidtimeClient::new(&server.uri(), "test-token");
+    let client = SolidtimeClient::with_api_token(&server.uri(), "test-token");
     let me = client.test_connection().await.unwrap();
     assert_eq!(me.id, "user-1");
 }
@@ -36,7 +36,7 @@ async fn test_connection_maps_401_to_auth_error() {
         .mount(&server)
         .await;
 
-    let client = SolidtimeClient::new(&server.uri(), "bad-token");
+    let client = SolidtimeClient::with_api_token(&server.uri(), "bad-token");
     let err = client.test_connection().await.unwrap_err();
     assert!(matches!(err, stint_core::Error::SolidtimeAuth));
 }
@@ -56,7 +56,7 @@ async fn list_projects_returns_remote_rows() {
         .mount(&server)
         .await;
 
-    let client = SolidtimeClient::new(&server.uri(), "t").with_org("org-1");
+    let client = SolidtimeClient::with_api_token(&server.uri(), "t").with_org("org-1");
     let projects = client.list_projects().await.unwrap();
     assert_eq!(projects.len(), 2);
     assert_eq!(projects[0].id, "p1");
@@ -65,7 +65,7 @@ async fn list_projects_returns_remote_rows() {
 #[tokio::test]
 async fn list_projects_requires_org() {
     let server = fake_server().await;
-    let client = SolidtimeClient::new(&server.uri(), "t"); // no org
+    let client = SolidtimeClient::with_api_token(&server.uri(), "t"); // no org
     let err = client.list_projects().await.unwrap_err();
     assert!(matches!(err, stint_core::Error::MissingConfig(_)));
 }
@@ -88,7 +88,7 @@ async fn create_time_entry_posts_and_returns_id() {
         .mount(&server)
         .await;
 
-    let client = SolidtimeClient::new(&server.uri(), "t").with_org("org-1");
+    let client = SolidtimeClient::with_api_token(&server.uri(), "t").with_org("org-1");
     let req = CreateEntryRequest {
         member_id: "m-1",
         description: "test",
@@ -111,6 +111,6 @@ async fn delete_time_entry_handles_204() {
         .mount(&server)
         .await;
 
-    let client = SolidtimeClient::new(&server.uri(), "t").with_org("org-1");
+    let client = SolidtimeClient::with_api_token(&server.uri(), "t").with_org("org-1");
     client.delete_time_entry("remote-1").await.unwrap();
 }

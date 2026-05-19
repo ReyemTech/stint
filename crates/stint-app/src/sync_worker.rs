@@ -77,5 +77,7 @@ async fn build_client(store: &Store) -> stint_core::Result<Option<SolidtimeClien
     let Some(org) = settings.get("solidtime.org").await? else {
         return Ok(None);
     };
-    Ok(Some(SolidtimeClient::new(&url, &token).with_org(org)))
+    Ok(Some(
+        SolidtimeClient::with_api_token(&url, &token).with_org(org),
+    ))
 }
