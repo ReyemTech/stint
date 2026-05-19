@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use clap::Subcommand;
 use stint_core::config::{secrets::Secrets, Settings};
+use stint_core::solidtime::auth::build_token_provider;
 use stint_core::solidtime::SolidtimeClient;
 use stint_core::store::reference::Reference;
 use stint_core::sync::refresh::refresh_reference_data;
@@ -41,12 +42,10 @@ async fn build_client(store: &stint_core::store::Store) -> Result<SolidtimeClien
         .get("solidtime.url")
         .await?
         .ok_or_else(|| anyhow!("solidtime.url not set"))?;
-    let token = secrets
-        .get("solidtime.token")?
-        .ok_or_else(|| anyhow!("solidtime.token not set"))?;
     let org = settings
         .get("solidtime.org")
         .await?
         .ok_or_else(|| anyhow!("solidtime.org not set"))?;
-    Ok(SolidtimeClient::with_api_token(&url, &token).with_org(org))
+    let (provider, _oauth_client) = build_token_provider(&settings, &secrets, &url).await?;
+    Ok(SolidtimeClient::new(&url, provider).with_org(org))
 }

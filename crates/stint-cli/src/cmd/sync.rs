@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use stint_core::config::{secrets::Secrets, Settings};
+use stint_core::solidtime::auth::build_token_provider;
 use stint_core::solidtime::SolidtimeClient;
 use stint_core::sync::drain_once;
 
@@ -14,15 +15,12 @@ pub async fn run() -> Result<()> {
         .get("solidtime.url")
         .await?
         .ok_or_else(|| anyhow!("solidtime.url not set"))?;
-    let token = secrets
-        .get("solidtime.token")?
-        .ok_or_else(|| anyhow!("solidtime.token not set"))?;
     let org = settings
         .get("solidtime.org")
         .await?
         .ok_or_else(|| anyhow!("solidtime.org not set"))?;
-
-    let client = SolidtimeClient::with_api_token(&url, &token).with_org(org);
+    let (provider, _oauth_client) = build_token_provider(&settings, &secrets, &url).await?;
+    let client = SolidtimeClient::new(&url, provider).with_org(org);
     let n = drain_once(&store, &client).await?;
     println!("Drained {n} item(s) from the sync queue.");
     Ok(())
