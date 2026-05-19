@@ -168,10 +168,17 @@ git checkout -b phase-2.5
 
 ## Gotchas / dev-environment notes
 
-- **Keychain prompts in dev.** macOS binds Keychain ACL to the binary
-  signature. `cargo tauri dev` rebuilds an unsigned binary on every change,
-  so "Always Allow" gets invalidated and you get prompted again. A
-  stable-signed dev cert would fix it; we haven't wired that yet.
+- **Keychain prompts in dev — use `scripts/dev-cli.sh` for CLI.** macOS
+  binds Keychain ACL to the binary signature. Plain `cargo build` produces
+  a different signature on every rebuild, so "Always Allow" never sticks.
+  Fix: run `scripts/setup-dev-cert.sh` once to create a stable self-signed
+  cert named `stint-dev` in your login keychain. Then run CLI dev work via
+  `scripts/dev-cli.sh <subcommand> <args>` instead of `cargo run -p stint-cli`.
+  The wrapper builds, codesigns with `stint-dev`, then execs the binary —
+  same signature every time, so "Always Allow" persists.
+  GUI (`cargo tauri dev`) is NOT yet covered by this; Tauri spawns the
+  binary itself outside of cargo run, so wrapping it requires a custom
+  file-watcher. Left as a follow-up.
 - **Hot reload is flaky.** Vite reliably HMRs the UI. Cargo rebuilds the
   Rust side on save but the Tauri runtime needs to relaunch — sometimes the
   watcher misses changes when many files are touched. When in doubt,
