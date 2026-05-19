@@ -14,7 +14,10 @@ fn from_response_computes_expires_at_from_expires_in() {
     assert_eq!(t.access_token, "access-1");
     assert_eq!(t.refresh_token.as_deref(), Some("refresh-1"));
     assert!(
-        (t.expires_at - now - Duration::seconds(3600)).num_milliseconds().abs() < 10,
+        (t.expires_at - now - Duration::seconds(3600))
+            .num_milliseconds()
+            .abs()
+            < 10,
         "expires_at should be now + 3600s"
     );
     assert_eq!(t.scope.as_deref(), Some("read"));

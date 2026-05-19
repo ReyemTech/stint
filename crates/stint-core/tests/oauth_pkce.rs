@@ -4,7 +4,10 @@ use stint_core::oauth::pkce::{code_challenge_for, generate_verifier};
 fn verifier_is_43_to_128_chars_of_allowed_alphabet() {
     let v = generate_verifier();
     let len = v.len();
-    assert!((43..=128).contains(&len), "verifier length {len} out of range");
+    assert!(
+        (43..=128).contains(&len),
+        "verifier length {len} out of range"
+    );
     assert!(
         v.chars()
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '.' | '_' | '~')),
@@ -16,7 +19,10 @@ fn verifier_is_43_to_128_chars_of_allowed_alphabet() {
 fn two_verifiers_in_a_row_are_distinct() {
     let a = generate_verifier();
     let b = generate_verifier();
-    assert_ne!(a, b, "PRNG produced two identical verifiers — high entropy lost?");
+    assert_ne!(
+        a, b,
+        "PRNG produced two identical verifiers — high entropy lost?"
+    );
 }
 
 #[test]
