@@ -5,5 +5,6 @@
 
 pub mod app_state;
 pub mod commands;
+pub mod sync_worker;
 pub mod tray;
 pub mod windows;

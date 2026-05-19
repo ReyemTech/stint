@@ -1,10 +1,13 @@
 use tauri::{
     image::Image,
-    menu::{Menu, MenuItem},
+    menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent},
     AppHandle, Manager,
 };
+use tokio::sync::RwLock;
 
+use crate::app_state::AppState;
+use crate::sync_worker;
 use crate::windows;
 
 pub fn build(app: &AppHandle) -> tauri::Result<TrayIcon> {
@@ -15,6 +18,8 @@ pub fn build(app: &AppHandle) -> tauri::Result<TrayIcon> {
         app,
         &[
             &MenuItem::with_id(app, "open", "Open Stint", true, None::<&str>)?,
+            &MenuItem::with_id(app, "sync", "Sync now", true, None::<&str>)?,
+            &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?,
         ],
     )?;
@@ -27,6 +32,14 @@ pub fn build(app: &AppHandle) -> tauri::Result<TrayIcon> {
         .on_menu_event(|app, event| match event.id.as_ref() {
             "open" => {
                 let _ = windows::show_main(app);
+            }
+            "sync" => {
+                let app_handle = app.clone();
+                tokio::spawn(async move {
+                    let state = app_handle.state::<RwLock<AppState>>();
+                    let store = state.read().await.store.clone();
+                    sync_worker::nudge(store);
+                });
             }
             "quit" => {
                 app.exit(0);

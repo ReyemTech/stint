@@ -1,5 +1,6 @@
 mod app_state;
 mod commands;
+mod sync_worker;
 mod tray;
 mod windows;
 
@@ -19,6 +20,7 @@ async fn main() -> Result<()> {
         .init();
 
     let app_state = AppState::init().await?;
+    let store_for_worker = app_state.store.clone();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_positioner::init())
@@ -42,8 +44,11 @@ async fn main() -> Result<()> {
             commands::sync::sync_now,
             commands::ui::show_main_window,
         ])
-        .setup(|app| {
+        .setup(move |app| {
             tray::build(app.handle())?;
+
+            // Periodic background sync (drains queue every 30s while running).
+            sync_worker::spawn(store_for_worker.clone());
 
             // Hide dock icon on startup (menu-bar app behavior).
             windows::hide_dock(app.handle());
