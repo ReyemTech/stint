@@ -8,6 +8,7 @@ import {
 } from "solid-js";
 import { api, calendarApi, oauthSolidtimeLogout, oauthSolidtimeStart, oauthSolidtimeStatus } from "~/api";
 import MainNav from "~/components/MainNav";
+import Accordion from "~/components/ui/Accordion";
 import Button from "~/components/ui/Button";
 import Pill from "~/components/ui/Pill";
 import type { CalendarAccount, CalendarRow, OrgChoice, Project } from "~/types";
@@ -213,15 +214,11 @@ export default function Settings() {
         </div>
       </Show>
 
-      <section class="rounded-2xl border border-black/[0.06] bg-white p-6 dark:border-white/[0.06] dark:bg-zinc-900">
-        <h2 class="mb-1 text-sm font-semibold uppercase tracking-wide text-zinc-500">
-          Solidtime connection
-        </h2>
-        <p class="mb-5 text-xs text-zinc-500">
-          Saved values apply to both the CLI and this app — they share the same
-          database and Keychain.
-        </p>
-
+      <div class="space-y-6">
+      <Accordion
+        title="Solidtime connection"
+        hint="Saved values apply to both the CLI and this app — they share the same database and Keychain."
+      >
         <div class="space-y-5">
           <TextField
             label="Solidtime URL"
@@ -375,16 +372,12 @@ export default function Settings() {
           <Button onClick={testConnection}>Test connection</Button>
           <Button variant="secondary" onClick={syncNow}>Sync now</Button>
         </div>
-      </section>
+      </Accordion>
 
-      <section class="mt-6 rounded-2xl border border-black/[0.06] bg-white p-6 dark:border-white/[0.06] dark:bg-zinc-900">
-        <h2 class="mb-1 text-sm font-semibold uppercase tracking-wide text-zinc-500">
-          Calendar accounts
-        </h2>
-        <p class="mb-5 text-xs text-zinc-500">
-          Read-only — events appear on the Today view with a "Log this" action.
-        </p>
-
+      <Accordion
+        title="Calendar accounts"
+        hint='Read-only — events appear on the Today view with a "Log this" action.'
+      >
         <Show
           when={(accounts() ?? []).length > 0}
           fallback={
@@ -409,7 +402,8 @@ export default function Settings() {
         <div class="mt-4 border-t border-black/[0.05] pt-4 dark:border-white/[0.04]">
           <Button onClick={handleAddGoogle}>Add Google account</Button>
         </div>
-      </section>
+      </Accordion>
+      </div>
       </div>
     </div>
   );

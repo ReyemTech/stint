@@ -1,9 +1,9 @@
 import { For, Show, createMemo, createResource, onCleanup } from "solid-js";
 import { listen } from "@tauri-apps/api/event";
 import { calendarApi } from "~/api";
+import Accordion from "~/components/ui/Accordion";
 import Button from "~/components/ui/Button";
 import Pill from "~/components/ui/Pill";
-import SectionLabel from "~/components/ui/SectionLabel";
 import type {
   CalendarAccount,
   CalendarEventWithDecision,
@@ -78,30 +78,32 @@ export default function CalendarSection(props: { onEntriesChanged: () => void })
 
   return (
     <Show when={total() > 0}>
-      <section class="mt-8">
-        <div class="mb-3 flex items-baseline justify-between">
-          <SectionLabel>Calendar</SectionLabel>
-          <span class="text-xs text-zinc-400 dark:text-zinc-500">
-            {total()} event{total() === 1 ? "" : "s"} today
-          </span>
-        </div>
-
-        <div class="space-y-2">
-          <For each={groups() ?? []}>
-            {(g) => (
-              <For each={g.events}>
-                {(e) => (
-                  <EventRow
-                    event={e}
-                    onLog={() => handleLog(g, e)}
-                    onIgnore={() => handleIgnore(g, e)}
-                  />
-                )}
-              </For>
-            )}
-          </For>
-        </div>
-      </section>
+      <div class="mt-8">
+        <Accordion
+          title="Calendar"
+          right={
+            <span class="text-xs text-zinc-400 dark:text-zinc-500">
+              {total()} event{total() === 1 ? "" : "s"} today
+            </span>
+          }
+        >
+          <div class="space-y-2">
+            <For each={groups() ?? []}>
+              {(g) => (
+                <For each={g.events}>
+                  {(e) => (
+                    <EventRow
+                      event={e}
+                      onLog={() => handleLog(g, e)}
+                      onIgnore={() => handleIgnore(g, e)}
+                    />
+                  )}
+                </For>
+              )}
+            </For>
+          </div>
+        </Accordion>
+      </div>
     </Show>
   );
 }
