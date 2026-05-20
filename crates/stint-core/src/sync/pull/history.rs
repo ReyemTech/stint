@@ -1,7 +1,7 @@
 use crate::{
     solidtime::dto::RemoteTimeEntry,
-    store::entries::{Entries, RemoteEntryUpsert},
-    Result,
+    store::entries::{Entries, RemoteEntryUpsert, TimeEntryRow},
+    time, Result,
 };
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -11,12 +11,15 @@ pub struct HistoryOutcome {
 }
 
 /// Reconcile completed entries (entries whose `end` is set). Inserts new
-/// remote-only rows; updates existing `synced` rows when remote is newer;
-/// skips local rows with pending mutations. See spec §8.
+/// remote-only rows; updates existing `synced` rows when any field differs
+/// from the remote; skips local rows with pending mutations. See spec §8.
 ///
-/// Runs on a borrowed sqlx connection (typically a transaction handle)
-/// so reads and writes share one connection and roll back together on
-/// failure.
+/// Note on `updated_at`: Solidtime's list endpoint does not include
+/// `updated_at` on time-entry rows, so we can't compare timestamps
+/// reliably. Instead we field-compare local against remote and only
+/// update when something actually changed — that's idempotent and
+/// catches the "stopped externally" case (local end_at None, remote
+/// end_at set).
 pub async fn reconcile_history(
     conn: &mut sqlx::SqliteConnection,
     remote_entries: &[RemoteTimeEntry],
@@ -33,10 +36,7 @@ pub async fn reconcile_history(
             start_at: remote.start.clone(),
             end_at: remote.end.clone(),
             billable: remote.billable,
-            updated_at: remote
-                .updated_at
-                .clone()
-                .unwrap_or_else(|| remote.start.clone()),
+            updated_at: remote.updated_at.clone().unwrap_or_else(time::now_utc),
         };
 
         match existing {
@@ -48,7 +48,7 @@ pub async fn reconcile_history(
                 if local.sync_state != "synced" {
                     continue;
                 }
-                if !is_remote_newer(&local.updated_at, &upsert.updated_at) {
+                if !fields_differ(&local, remote) {
                     continue;
                 }
                 if Entries::update_from_remote_with(&mut *conn, &remote.id, upsert).await? {
@@ -60,6 +60,14 @@ pub async fn reconcile_history(
     Ok(out)
 }
 
-fn is_remote_newer(local_updated_at: &str, remote_updated_at: &str) -> bool {
-    remote_updated_at > local_updated_at
+/// Compare the user-observable fields between a local row and the remote
+/// payload. Used in place of an `updated_at` comparison because Solidtime
+/// omits `updated_at` from the list endpoint.
+fn fields_differ(local: &TimeEntryRow, remote: &RemoteTimeEntry) -> bool {
+    local.description != remote.description
+        || local.project_id != remote.project_id
+        || local.task_id != remote.task_id
+        || local.start_at != remote.start
+        || local.end_at != remote.end
+        || (local.billable != 0) != remote.billable
 }
