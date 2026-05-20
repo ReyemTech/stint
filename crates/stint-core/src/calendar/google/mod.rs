@@ -7,9 +7,12 @@ pub mod dto;
 
 use crate::calendar::google::client::GoogleClient;
 use crate::calendar::provider::{CalendarProvider, RemoteCalendar, RemoteEvent};
+use crate::calendar::store::{calendar_blob_load, calendar_blob_save, CalendarOAuthBlob};
 use crate::calendar::types::{ProviderKind, TimeRange};
-use crate::solidtime::auth::TokenProvider;
-use crate::Result;
+use crate::config::secrets::Secrets;
+use crate::oauth::client::OAuthClient;
+use crate::solidtime::auth::{OAuthTokenProvider, PersistFn, TokenProvider};
+use crate::{Error, Result};
 use async_trait::async_trait;
 use std::sync::Arc;
 
@@ -42,4 +45,47 @@ impl CalendarProvider for GoogleProvider {
         let token = self.tokens.access_token().await?;
         self.http.list_events(&token, calendar_id, range).await
     }
+}
+
+/// Build a fully-configured `GoogleProvider` for an account whose OAuth
+/// credentials are stored in Keychain. This is the single shared entry
+/// point for the Tauri command layer, the CLI subcommand, and the
+/// background worker — they all need exactly this assembly:
+/// load blob → construct OAuthClient with the blob's client_id/secret →
+/// wire an OAuthTokenProvider whose `PersistFn` writes refreshed tokens
+/// back to the same blob → wrap in a GoogleProvider with a fresh HTTP
+/// client.
+///
+/// Returns `Error::MissingConfig("calendar.oauth")` when no blob exists
+/// for the account.
+pub fn build_provider_from_blob(
+    secrets: &Secrets,
+    account_id: &str,
+) -> Result<Box<dyn CalendarProvider>> {
+    let blob =
+        calendar_blob_load(secrets, account_id)?.ok_or(Error::MissingConfig("calendar.oauth"))?;
+
+    let mut cfg = config::google_oauth_config();
+    cfg.client_id = blob.client_id.clone();
+    if let Some(secret) = &blob.client_secret {
+        cfg.client_secret = Some(secret.clone());
+    }
+    let oauth_client = OAuthClient::new(cfg);
+
+    let secrets_clone = secrets.clone();
+    let account_owned = account_id.to_string();
+    let client_id_owned = blob.client_id.clone();
+    let client_secret_owned = blob.client_secret.clone();
+    let persist: PersistFn = Box::new(move |tokens| {
+        let updated = CalendarOAuthBlob {
+            client_id: client_id_owned.clone(),
+            client_secret: client_secret_owned.clone(),
+            tokens: tokens.clone(),
+        };
+        calendar_blob_save(&secrets_clone, &account_owned, &updated)
+    });
+
+    let tokens: Arc<dyn TokenProvider> =
+        Arc::new(OAuthTokenProvider::new(oauth_client, blob.tokens, persist));
+    Ok(Box::new(GoogleProvider::new(tokens, GoogleClient::new())))
 }

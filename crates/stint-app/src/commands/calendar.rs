@@ -7,11 +7,9 @@
 use crate::app_state::AppState;
 use crate::commands::{store, AppError};
 use serde::Serialize;
-use std::sync::Arc;
 use std::time::Duration;
 use stint_core::calendar::google::client::GoogleClient;
-use stint_core::calendar::google::config::google_oauth_config;
-use stint_core::calendar::google::GoogleProvider;
+use stint_core::calendar::google::config::{google_oauth_config, is_configured};
 use stint_core::calendar::store::{
     calendar_blob_delete, calendar_blob_load, calendar_blob_save, CalendarOAuthBlob, CalendarStore,
 };
@@ -22,9 +20,7 @@ use stint_core::calendar::types::{
 use stint_core::config::secrets::Secrets;
 use stint_core::ids;
 use stint_core::oauth::client::OAuthClient;
-use stint_core::solidtime::auth::{
-    login_interactive, OAuthTokenProvider, PersistFn, TokenProvider,
-};
+use stint_core::solidtime::auth::login_interactive;
 use stint_core::store::entries::{Entries, NewCompletedEntry};
 use stint_core::time;
 use tauri::{Emitter, State};
@@ -70,6 +66,13 @@ pub async fn calendar_add_google(
     state: State<'_, RwLock<AppState>>,
     app: tauri::AppHandle,
 ) -> Result<CalendarAccount, AppError> {
+    if !is_configured() {
+        return Err(AppError::msg(
+            "Google OAuth credentials are not configured in this build. \
+             Set STINT_GOOGLE_CLIENT_ID and STINT_GOOGLE_CLIENT_SECRET at build time.",
+        ));
+    }
+
     let store = store(&state).await;
     let cs = CalendarStore::new((*store).clone());
     let secrets = Secrets::default();
@@ -77,6 +80,7 @@ pub async fn calendar_add_google(
     // 1) Run the OAuth PKCE flow against accounts.google.com.
     let cfg = google_oauth_config();
     let client_id = cfg.client_id.clone();
+    let cfg_client_secret = cfg.client_secret.clone();
     let oauth_client = OAuthClient::new(cfg);
     let tokens = login_interactive(&oauth_client, Duration::from_secs(300), "Google", |url| {
         if let Err(e) = open_url(&url) {
@@ -92,6 +96,7 @@ pub async fn calendar_add_google(
         &account_uuid,
         &CalendarOAuthBlob {
             client_id: client_id.clone(),
+            client_secret: cfg_client_secret.clone(),
             tokens: tokens.clone(),
         },
     )?;
@@ -118,7 +123,7 @@ pub async fn calendar_add_google(
     cs.add_account(&account).await?;
 
     // 4) Initial refresh: on_add window, persist calendars + events.
-    let provider = build_google_provider(&secrets, &account_uuid)?;
+    let provider = stint_core::calendar::google::build_provider_from_blob(&secrets, &account_uuid)?;
     let _ = refresh_account(&cs, &account_uuid, &*provider, Ranges::on_add()).await?;
 
     // 5) Notify the UI.
@@ -173,7 +178,7 @@ pub async fn calendar_refresh_account(
     let store = store(&state).await;
     let cs = CalendarStore::new((*store).clone());
     let secrets = Secrets::default();
-    let provider = build_google_provider(&secrets, &account_id)?;
+    let provider = stint_core::calendar::google::build_provider_from_blob(&secrets, &account_id)?;
     let n = refresh_account(&cs, &account_id, &*provider, Ranges::on_focus()).await?;
     let _ = app.emit(EVENT_CALENDAR_CHANGED, &account_id);
     Ok(n)
@@ -275,35 +280,6 @@ pub async fn calendar_ignore_event(
     .await?;
     let _ = app.emit(EVENT_CALENDAR_CHANGED, &account_id);
     Ok(())
-}
-
-/// Builds a `GoogleProvider` for an account. Wraps the `OAuthTokenProvider`
-/// so 401/refresh handling is reused from 3a.
-fn build_google_provider(
-    secrets: &Secrets,
-    account_id: &str,
-) -> Result<Box<dyn stint_core::calendar::provider::CalendarProvider>, AppError> {
-    let blob = calendar_blob_load(secrets, account_id)?
-        .ok_or_else(|| AppError::msg(format!("no OAuth credentials for account {account_id}")))?;
-    let mut cfg = google_oauth_config();
-    cfg.client_id = blob.client_id.clone();
-    let oauth_client = OAuthClient::new(cfg);
-
-    let secrets_clone = secrets.clone();
-    let account_owned = account_id.to_string();
-    let client_id_owned = blob.client_id.clone();
-    let persist: PersistFn = Box::new(move |tokens| {
-        let updated = CalendarOAuthBlob {
-            client_id: client_id_owned.clone(),
-            tokens: tokens.clone(),
-        };
-        calendar_blob_save(&secrets_clone, &account_owned, &updated)
-    });
-
-    let provider: Arc<dyn TokenProvider> =
-        Arc::new(OAuthTokenProvider::new(oauth_client, blob.tokens, persist));
-    let http = GoogleClient::new();
-    Ok(Box::new(GoogleProvider::new(provider, http)))
 }
 
 /// Adds one second to an RFC 3339 timestamp so `list_events_in_range` can

@@ -186,6 +186,7 @@ pub async fn build_token_provider(
         ),
         token_url: format!("{}/oauth/token", solidtime_base_url.trim_end_matches('/')),
         client_id,
+        client_secret: None,
         redirect_uri: DEFAULT_REDIRECT_URI_HOST.into(),
         scopes: DEFAULT_SCOPES.iter().map(|s| s.to_string()).collect(),
         extra_authorize_params: vec![],

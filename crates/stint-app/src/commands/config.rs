@@ -140,6 +140,7 @@ pub async fn oauth_solidtime_start(state: State<'_, RwLock<AppState>>) -> Result
         authorize_url: format!("{}/oauth/authorize", base_url.trim_end_matches('/')),
         token_url: format!("{}/oauth/token", base_url.trim_end_matches('/')),
         client_id: client_id.clone(),
+        client_secret: None,
         redirect_uri: "http://127.0.0.1:0/callback".into(),
         // Empty by default — see DEFAULT_SCOPES doc in solidtime/auth.rs.
         scopes: vec![],

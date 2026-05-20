@@ -236,13 +236,20 @@ git checkout -b phase-2.5
   passport:client --public --name=stint --redirect_uri=http://127.0.0.1/callback`
   on their Solidtime host. See the README "Signing in with Solidtime OAuth"
   section for the full setup.
-- **Google OAuth client ID is baked in.** `crates/stint-core/src/calendar/google/config.rs::GOOGLE_OAUTH_CLIENT_ID`
-  holds the production value registered against the stint Google Cloud
-  project. `STINT_GOOGLE_CLIENT_ID` env var overrides it for tests and
-  local dev. If you need to rotate the client (revoked credentials,
-  consent-screen reset, etc.), update the constant and ship a new
-  release; existing user accounts must re-sign-in because Google scopes
-  refresh tokens to the client_id.
+- **Google OAuth credentials are baked at compile time.**
+  `crates/stint-core/src/calendar/google/config.rs` reads
+  `STINT_GOOGLE_CLIENT_ID` and `STINT_GOOGLE_CLIENT_SECRET` via
+  `option_env!`. Set both in the build environment for release builds:
+
+      STINT_GOOGLE_CLIENT_ID=... STINT_GOOGLE_CLIENT_SECRET=... \
+        cargo build --release
+
+  Forks that don't set these compile cleanly but Google OAuth fails at
+  runtime with `invalid_client`; `is_configured()` returns false and
+  the Tauri + CLI surfaces show a clearer error before initiating the
+  flow. Credentials live in the build environment (not git) so forkers
+  register their own Google Cloud project rather than abusing stint's
+  quota.
 - **Calendar OAuth blobs are per-account.** Each Google account has its
   own Keychain entry at `tech.reyem.stint.calendar.<account-uuid>` —
   the lookup is by `calendar_accounts.id`, not by email. If you delete
