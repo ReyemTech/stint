@@ -53,6 +53,7 @@ pub async fn pull(store: &Store, client: &SolidtimeClient, trigger: Trigger) -> 
     let deletes_outcome =
         deletes::reconcile_deletes(&mut tx, client, &remote_entries, window.from, window.to)
             .await?;
+    reconcile_running_pointer(&mut tx).await?;
     tx.commit().await?;
 
     Ok(PullReport {
@@ -62,6 +63,23 @@ pub async fn pull(store: &Store, client: &SolidtimeClient, trigger: Trigger) -> 
         updated: history_outcome.updated,
         deleted: deletes_outcome.deleted,
     })
+}
+
+/// Clear `running_timer` if it points to a row that has been completed
+/// (end_at set) or hard-deleted by the reconcile pipeline. Without this,
+/// stopping a timer in Solidtime updates the local row's end_at via
+/// `reconcile_history` but leaves `running_timer` pointing at it — the UI
+/// keeps showing a ticking timer for a row that's been ended.
+async fn reconcile_running_pointer(conn: &mut sqlx::SqliteConnection) -> Result<()> {
+    let Some(running) = crate::store::running::RunningTimer::get_with(&mut *conn).await? else {
+        return Ok(());
+    };
+    let row = crate::store::entries::Entries::get_with(&mut *conn, &running.local_uuid).await?;
+    let still_running = row.as_ref().is_some_and(|r| r.end_at.is_none());
+    if !still_running {
+        crate::store::running::RunningTimer::clear_with(&mut *conn).await?;
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Copy)]

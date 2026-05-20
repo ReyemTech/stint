@@ -261,3 +261,68 @@ async fn ignores_completed_remote_entries_when_picking_running() {
         .unwrap()
         .is_none());
 }
+
+#[tokio::test]
+async fn clears_running_when_local_timer_was_stopped_remotely() {
+    // Scenario: user started a timer in stint, it pushed to Solidtime, then
+    // the user stopped that same timer from the Solidtime web UI. The pull
+    // pipeline must (a) update the local row's end_at via reconcile_history
+    // AND (b) clear the running_timer pointer so the UI stops showing it.
+    let env = common::setup().await;
+    let server = MockServer::start().await;
+    configure(&env, &server.uri()).await;
+
+    // Local synced row mirroring a remote that's now been completed.
+    let entries = Entries::new(env.store.clone());
+    let local_uuid = entries
+        .create(NewTimeEntry {
+            description: "my task".into(),
+            project_id: None,
+            task_id: None,
+            start_at: "2026-05-20T16:00:00Z".into(),
+            billable: false,
+            source: "cli".into(),
+        })
+        .await
+        .unwrap();
+    entries
+        .mark_synced(&local_uuid, "remote-stopped")
+        .await
+        .unwrap();
+    RunningTimer::new(env.store.clone())
+        .set(&local_uuid)
+        .await
+        .unwrap();
+
+    // Solidtime returns the same entry — now with end_at set (user stopped
+    // it remotely). updated_at is newer than the local's so reconcile_history
+    // will apply the update.
+    Mock::given(method("GET"))
+        .and(path("/api/v1/organizations/org-1/time-entries"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "data": [{
+                "id": "remote-stopped",
+                "description": "my task",
+                "start": "2026-05-20T16:00:00Z",
+                "end": "2026-05-20T16:30:00Z",
+                "billable": false,
+                "updated_at": "2030-01-01T00:00:00Z"
+            }]
+        })))
+        .mount(&server)
+        .await;
+
+    let client = SolidtimeClient::with_api_token(&server.uri(), "t").with_org("org-1");
+    pull(&env.store, &client, Trigger::Manual).await.unwrap();
+
+    // The local row's end_at was updated by reconcile_history.
+    let row = entries.get(&local_uuid).await.unwrap().unwrap();
+    assert_eq!(row.end_at.as_deref(), Some("2026-05-20T16:30:00Z"));
+
+    // running_timer was cleared.
+    assert!(RunningTimer::new(env.store.clone())
+        .get()
+        .await
+        .unwrap()
+        .is_none());
+}

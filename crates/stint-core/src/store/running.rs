@@ -55,8 +55,16 @@ impl RunningTimer {
     }
 
     pub async fn clear(&self) -> Result<()> {
+        Self::clear_with(self.store.pool()).await
+    }
+
+    /// Executor-generic variant of [`clear`].
+    pub async fn clear_with<'e, E>(executor: E) -> Result<()>
+    where
+        E: sqlx::SqliteExecutor<'e>,
+    {
         sqlx::query("DELETE FROM running_timer WHERE id = 1")
-            .execute(self.store.pool())
+            .execute(executor)
             .await?;
         Ok(())
     }
