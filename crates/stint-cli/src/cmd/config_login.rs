@@ -39,6 +39,7 @@ pub async fn run_login(store: Store) -> Result<()> {
         // implemented). Send an empty scope list — the server falls back to
         // whatever default it has configured.
         scopes: vec![],
+        extra_authorize_params: vec![],
     });
 
     println!("Opening browser to sign in to {base_url}.");

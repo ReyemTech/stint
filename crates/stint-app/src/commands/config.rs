@@ -143,6 +143,7 @@ pub async fn oauth_solidtime_start(state: State<'_, RwLock<AppState>>) -> Result
         redirect_uri: "http://127.0.0.1:0/callback".into(),
         // Empty by default — see DEFAULT_SCOPES doc in solidtime/auth.rs.
         scopes: vec![],
+        extra_authorize_params: vec![],
     });
 
     let tokens = login_interactive(&client, Duration::from_secs(300), |url| {

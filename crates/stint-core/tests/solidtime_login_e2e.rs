@@ -30,6 +30,7 @@ async fn interactive_login_completes_against_mock_authz_server() {
             "update".into(),
             "delete".into(),
         ],
+        extra_authorize_params: vec![],
     });
 
     // Simulate the browser hitting the callback in the background.

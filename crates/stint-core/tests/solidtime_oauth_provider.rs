@@ -14,6 +14,7 @@ fn oauth_client_for(server: &MockServer) -> OAuthClient {
         client_id: "stint-desktop".into(),
         redirect_uri: "http://127.0.0.1:0/callback".into(),
         scopes: vec!["read".into()],
+        extra_authorize_params: vec![],
     })
 }
 

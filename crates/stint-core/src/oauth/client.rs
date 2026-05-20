@@ -23,6 +23,10 @@ pub struct OAuthConfig {
     pub client_id: String,
     pub redirect_uri: String,
     pub scopes: Vec<String>,
+    /// Provider-specific query params appended to the authorize URL.
+    /// Empty for Solidtime; Google needs `access_type=offline` and
+    /// `prompt=consent` to consistently issue a refresh_token.
+    pub extra_authorize_params: Vec<(String, String)>,
 }
 
 pub struct OAuthClient {
@@ -61,6 +65,10 @@ impl OAuthClient {
             .append_pair("state", &state)
             .append_pair("code_challenge", &code_challenge)
             .append_pair("code_challenge_method", "S256");
+
+        for (k, v) in &self.config.extra_authorize_params {
+            url.query_pairs_mut().append_pair(k, v);
+        }
 
         PreparedAuthorize {
             authorize_url: url,
