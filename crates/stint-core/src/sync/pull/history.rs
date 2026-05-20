@@ -1,9 +1,6 @@
 use crate::{
     solidtime::dto::RemoteTimeEntry,
-    store::{
-        entries::{Entries, RemoteEntryUpsert},
-        Store,
-    },
+    store::entries::{Entries, RemoteEntryUpsert},
     Result,
 };
 
@@ -16,15 +13,18 @@ pub struct HistoryOutcome {
 /// Reconcile completed entries (entries whose `end` is set). Inserts new
 /// remote-only rows; updates existing `synced` rows when remote is newer;
 /// skips local rows with pending mutations. See spec §8.
+///
+/// Runs on a borrowed sqlx connection (typically a transaction handle)
+/// so reads and writes share one connection and roll back together on
+/// failure.
 pub async fn reconcile_history(
-    store: &Store,
+    conn: &mut sqlx::SqliteConnection,
     remote_entries: &[RemoteTimeEntry],
 ) -> Result<HistoryOutcome> {
-    let entries = Entries::new(store.clone());
     let mut out = HistoryOutcome::default();
 
     for remote in remote_entries.iter().filter(|e| e.end.is_some()) {
-        let existing = entries.get_by_solidtime_id(&remote.id).await?;
+        let existing = Entries::get_by_solidtime_id_with(&mut *conn, &remote.id).await?;
         let upsert = RemoteEntryUpsert {
             solidtime_id: remote.id.clone(),
             description: remote.description.clone(),
@@ -41,7 +41,7 @@ pub async fn reconcile_history(
 
         match existing {
             None => {
-                entries.create_from_remote(upsert).await?;
+                Entries::create_from_remote_with(&mut *conn, upsert).await?;
                 out.inserted += 1;
             }
             Some(local) => {
@@ -51,7 +51,7 @@ pub async fn reconcile_history(
                 if !is_remote_newer(&local.updated_at, &upsert.updated_at) {
                     continue;
                 }
-                if entries.update_from_remote(&remote.id, upsert).await? {
+                if Entries::update_from_remote_with(&mut *conn, &remote.id, upsert).await? {
                     out.updated += 1;
                 }
             }

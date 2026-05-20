@@ -52,8 +52,14 @@ pub async fn pull(
 
     let remote_entries = client.list_time_entries(&member_id, &from, &to).await?;
 
-    let running_outcome = running::reconcile_running(store, client, &remote_entries).await?;
-    let history_outcome = history::reconcile_history(store, &remote_entries).await?;
+    // Wrap reconciliation in a single transaction so a partial failure
+    // (e.g. UNIQUE violation on a duplicated remote id, network drop mid-way)
+    // rolls back cleanly. The HTTP call has already completed above.
+    let mut tx = store.pool().begin().await?;
+    let running_outcome =
+        running::reconcile_running(&mut tx, client, &remote_entries).await?;
+    let history_outcome = history::reconcile_history(&mut tx, &remote_entries).await?;
+    tx.commit().await?;
 
     Ok(PullReport {
         adopted: running_outcome.adopted,
