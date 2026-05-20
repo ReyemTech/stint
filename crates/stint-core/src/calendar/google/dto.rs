@@ -18,6 +18,8 @@ pub(crate) struct CalendarListEntry {
     pub summary: Option<String>,
     #[serde(default, rename = "backgroundColor")]
     pub background_color: Option<String>,
+    #[serde(default)]
+    pub primary: bool,
 }
 
 impl CalendarListEntry {
@@ -26,6 +28,7 @@ impl CalendarListEntry {
             id: self.id,
             name: self.summary.unwrap_or_default(),
             color: self.background_color,
+            primary: self.primary,
         }
     }
 }

@@ -47,6 +47,31 @@ impl CalendarProvider for GoogleProvider {
     }
 }
 
+/// Picks the user-facing identifier from a list of calendars returned by
+/// `list_calendars`. Prefers the calendar with `primary == true` (Google's
+/// primary calendar id is the user's email). Falls back to the first
+/// calendar's name then id, and finally to a provided default.
+pub fn resolve_account_identifier(
+    cals: &[crate::calendar::provider::RemoteCalendar],
+    default: &str,
+) -> String {
+    if let Some(p) = cals.iter().find(|c| c.primary) {
+        // For Google, the primary entry's `id` is the user's email; `name`
+        // is usually the email too. Prefer the id since it's the
+        // canonical address.
+        return p.id.clone();
+    }
+    cals.first()
+        .map(|c| {
+            if c.name.is_empty() {
+                c.id.clone()
+            } else {
+                c.name.clone()
+            }
+        })
+        .unwrap_or_else(|| default.to_string())
+}
+
 /// Build a fully-configured `GoogleProvider` for an account whose OAuth
 /// credentials are stored in Keychain. This is the single shared entry
 /// point for the Tauri command layer, the CLI subcommand, and the
