@@ -37,6 +37,9 @@ enum Command {
     Projects(cmd::projects::ProjectsCmd),
     /// Drain the sync queue once
     Sync,
+    /// Connect, list, and manage calendar accounts.
+    #[command(subcommand)]
+    Calendar(cmd::calendar::CalendarCmd),
 }
 
 #[tokio::main]
@@ -52,8 +55,9 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     // Run startup recovery once, before any command. Skip for `Sync` to avoid
-    // recursion when the GUI is also running concurrently.
-    if !matches!(cli.command, Command::Sync) {
+    // recursion when the GUI is also running concurrently. Skip for `Calendar`
+    // because calendar commands open their own store and recovery is irrelevant.
+    if !matches!(cli.command, Command::Sync | Command::Calendar(_)) {
         let store = cmd::open_store().await?;
         cmd::maybe_recover(&store).await?;
     }
@@ -68,5 +72,9 @@ async fn main() -> Result<()> {
         Command::Config(c) => cmd::config::run(c).await,
         Command::Projects(p) => cmd::projects::run(p).await,
         Command::Sync => cmd::sync::run().await,
+        Command::Calendar(c) => {
+            let store = cmd::open_store().await?;
+            cmd::calendar::run(c, store).await
+        }
     }
 }
