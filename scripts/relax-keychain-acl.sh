@@ -10,10 +10,18 @@
 # This script applies a partition-list relaxation that whitelists
 # codesigned binaries (matching the cert) regardless of cdhash.
 #
+# Covered entries:
+#   - tech.reyem.stint.solidtime.token  (PAT auth)
+#   - tech.reyem.stint.solidtime.oauth  (OAuth blob)
+#   - tech.reyem.stint.calendar.<uuid>  (per-account calendar OAuth blobs;
+#     discovered automatically by querying calendar_accounts in the local
+#     SQLite DB — no manual update needed when accounts are added)
+#
 # Run this AFTER:
 #   1. scripts/setup-dev-cert.sh (creates stint-dev cert)
 #   2. The keychain entries exist (e.g. you've run `stint config set
-#      solidtime.token <PAT>` or `scripts/dev-cli.sh config login`)
+#      solidtime.token <PAT>`, `scripts/dev-cli.sh config login`, and/or
+#      `stint calendar add google` to create calendar account entries)
 #
 # You'll be asked for your login keychain password once.
 set -euo pipefail
@@ -24,6 +32,18 @@ SERVICES=(
   "tech.reyem.stint.solidtime.token"
   "tech.reyem.stint.solidtime.oauth"
 )
+
+# Discover per-account calendar Keychain entries (Phase 3b). Each
+# row in calendar_accounts has a UUID; the matching Keychain entry
+# is tech.reyem.stint.calendar.<uuid>. We read the DB rather than
+# scraping the keychain itself because security(1) doesn't support
+# globbing service names.
+STINT_DB="$HOME/Library/Application Support/stint/stint.db"
+if [[ -f "$STINT_DB" ]] && command -v sqlite3 >/dev/null 2>&1; then
+  while IFS= read -r account_uuid; do
+    [[ -n "$account_uuid" ]] && SERVICES+=("tech.reyem.stint.calendar.${account_uuid}")
+  done < <(sqlite3 "$STINT_DB" "SELECT id FROM calendar_accounts" 2>/dev/null || true)
+fi
 PARTITIONS="apple-tool:,apple:,codesign:"
 
 echo "Relaxing ACL on tech.reyem.stint.* keychain entries so codesigned"

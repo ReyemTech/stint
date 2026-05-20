@@ -12,6 +12,11 @@ set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
 
+if [[ -f .env.local ]]; then
+  # shellcheck disable=SC1091
+  source .env.local
+fi
+
 if ! security find-identity -v -p codesigning | grep -q '"stint-dev"'; then
   echo "stint-dev code-signing identity not found." >&2
   echo "Run scripts/setup-dev-cert.sh once to create it." >&2

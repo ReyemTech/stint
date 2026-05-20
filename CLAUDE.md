@@ -179,12 +179,13 @@ git checkout -b phase-2.5
      `cargo run -p stint-cli -- <args>`. The wrapper codesigns with
      `stint-dev` so all rebuilds share the same cert chain.
   3. After the keychain entries exist (you've run `stint config set
-     solidtime.token <PAT>` and/or `scripts/dev-cli.sh config login`),
-     run `scripts/relax-keychain-acl.sh` once. It asks for your login
-     keychain password and applies a partition-list relaxation
-     (`codesign:`) to the `tech.reyem.stint.solidtime.token` and
-     `tech.reyem.stint.solidtime.oauth` entries so any binary signed
-     by `stint-dev` reads them without re-prompting after rebuilds.
+     solidtime.token <PAT>`, `scripts/dev-cli.sh config login`, and/or
+     `stint calendar add google` to create calendar account entries),
+     run `scripts/relax-keychain-acl.sh` once. It enumerates the
+     Solidtime entries and any calendar account entries (discovered
+     automatically via the local SQLite DB) and applies the
+     partition-list relaxation to all of them. Re-run after adding
+     new calendar accounts.
   For the GUI, use `scripts/dev-app.sh` instead of `cargo tauri dev`.
   Same idea as `dev-cli.sh`: it runs `cargo build -p stint-app`,
   codesigns the binary with `stint-dev`, then launches it directly.
@@ -250,6 +251,15 @@ git checkout -b phase-2.5
   flow. Credentials live in the build environment (not git) so forkers
   register their own Google Cloud project rather than abusing stint's
   quota.
+- **Build-time secrets (Google OAuth) for dev — use `.env.local`.**
+  Copy `.env.local.example` to `.env.local` and fill in
+  `STINT_GOOGLE_CLIENT_ID` and `STINT_GOOGLE_CLIENT_SECRET`.
+  `scripts/dev-app.sh` and `scripts/dev-cli.sh` source `.env.local`
+  before invoking cargo so `option_env!` in `stint-core` picks them up.
+  `crates/stint-core/build.rs` emits `rerun-if-env-changed` directives
+  so changing a value triggers a recompile automatically. Forks without
+  `.env.local` build fine but get a "Google OAuth not configured" error
+  at runtime when trying to add an account.
 - **Calendar OAuth blobs are per-account.** Each Google account has its
   own Keychain entry at `tech.reyem.stint.calendar.<account-uuid>` —
   the lookup is by `calendar_accounts.id`, not by email. If you delete
