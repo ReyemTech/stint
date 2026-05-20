@@ -1,6 +1,6 @@
 use crate::app_state::AppState;
 use crate::commands::{store, AppError};
-use crate::sync_worker::{EVENT_ENTRIES_CHANGED, EVENT_PULL_CONFLICT};
+use crate::sync_worker::{self, EVENT_ENTRIES_CHANGED, EVENT_PULL_CONFLICT};
 use serde::{Deserialize, Serialize};
 use stint_core::config::{secrets::Secrets, Settings};
 use stint_core::solidtime::auth::build_token_provider;
@@ -120,7 +120,11 @@ pub async fn conflict_resolve(
     let (provider, _oauth_client) = build_token_provider(&settings, &secrets, &url).await?;
     let client = SolidtimeClient::new(&url, provider).with_org(org);
 
+    let is_dismiss = matches!(args.action, ConflictActionDto::Dismiss);
     resolve_conflict(&store, &client, args.action.into(), &args.remote_id).await?;
-    let _ = app.emit(EVENT_ENTRIES_CHANGED, 0u32);
+    if !is_dismiss {
+        let _ = app.emit(EVENT_ENTRIES_CHANGED, 0u32);
+        sync_worker::nudge(app.clone(), store);
+    }
     Ok(())
 }
