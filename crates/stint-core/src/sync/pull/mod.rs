@@ -61,3 +61,68 @@ pub async fn pull(
         deleted: 0,
     })
 }
+
+#[derive(Debug, Clone, Copy)]
+pub enum ConflictAction {
+    StopRemote,
+    Switch,
+    Dismiss,
+}
+
+/// Resolve a running-timer conflict surfaced by an earlier `pull` call.
+///
+/// - `Dismiss` — no-op (caller is acknowledging the conflict; banner closes).
+/// - `StopRemote` — fetches the remote running entry, mirrors it locally as
+///   `synced`, sets its end_at to now, and enqueues an UpdateEntry so the
+///   sync queue pushes the end to Solidtime. Local timer is untouched.
+/// - `Switch` — stops the local timer (normal flow), then runs another pull
+///   so the now-empty local-running slot adopts the remote.
+pub async fn resolve_conflict(
+    store: &Store,
+    client: &SolidtimeClient,
+    action: ConflictAction,
+    remote_id: &str,
+) -> Result<()> {
+    match action {
+        ConflictAction::Dismiss => Ok(()),
+        ConflictAction::StopRemote => {
+            let remote = client
+                .get_time_entry(remote_id)
+                .await?
+                .ok_or_else(|| Error::NotFound(format!("remote entry {remote_id}")))?;
+
+            let entries = crate::store::entries::Entries::new(store.clone());
+            let local_uuid = entries
+                .create_from_remote(crate::store::entries::RemoteEntryUpsert {
+                    solidtime_id: remote.id.clone(),
+                    description: remote.description.clone(),
+                    project_id: remote.project_id.clone(),
+                    task_id: remote.task_id.clone(),
+                    start_at: remote.start.clone(),
+                    end_at: None,
+                    billable: remote.billable,
+                    updated_at: remote
+                        .updated_at
+                        .clone()
+                        .unwrap_or_else(|| remote.start.clone()),
+                })
+                .await?;
+            let now = crate::time::now_utc();
+            entries.set_end(&local_uuid, &now).await?;
+
+            let queue = crate::store::queue::Queue::new(store.clone());
+            queue
+                .enqueue(
+                    crate::store::queue::QueueOp::UpdateEntry,
+                    &serde_json::json!({ "local_uuid": local_uuid }).to_string(),
+                    Some(&local_uuid),
+                )
+                .await?;
+            Ok(())
+        }
+        ConflictAction::Switch => {
+            crate::timer::TimerService::new(store.clone()).stop().await?;
+            pull(store, client, Trigger::Manual).await.map(|_| ())
+        }
+    }
+}

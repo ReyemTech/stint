@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use stint_core::config::{secrets::Secrets, Settings};
 use stint_core::solidtime::auth::build_token_provider;
 use stint_core::solidtime::SolidtimeClient;
-use stint_core::sync::pull::{pull, Trigger};
+use stint_core::sync::pull::{pull, resolve_conflict, ConflictAction, Trigger};
 
 use super::open_store;
 
@@ -49,9 +49,13 @@ pub async fn run(args: Args) -> Result<()> {
             c.remote_description, c.remote_start_at, c.local_description
         );
         if args.stop_remote {
-            eprintln!("(--stop-remote requested; resolution support lands in Task 10)");
+            resolve_conflict(&store, &client, ConflictAction::StopRemote, &c.remote_id).await?;
+            eprintln!("Stopped remote timer; local timer continues.");
         } else if args.switch {
-            eprintln!("(--switch requested; resolution support lands in Task 10)");
+            resolve_conflict(&store, &client, ConflictAction::Switch, &c.remote_id).await?;
+            eprintln!("Switched: local timer stopped, remote timer adopted.");
+        } else if args.dismiss {
+            eprintln!("Dismissed. Re-run later to resolve.");
         } else {
             eprintln!("Re-run with --stop-remote, --switch, or --dismiss.");
         }
