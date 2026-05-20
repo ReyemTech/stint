@@ -1,6 +1,7 @@
 import { Show, createMemo, createResource, createSignal, onCleanup } from "solid-js";
 import { listen } from "@tauri-apps/api/event";
 import { api } from "~/api";
+import CalendarSection from "~/components/CalendarSection";
 import Duration from "~/components/Duration";
 import EntryList from "~/components/EntryList";
 import MainNav from "~/components/MainNav";
@@ -104,6 +105,8 @@ export default function Today() {
         </div>
 
         <TimerCard />
+
+        <CalendarSection onEntriesChanged={() => refetch()} />
 
         <section class="mt-8">
           <div class="mb-3 flex items-baseline justify-between">
