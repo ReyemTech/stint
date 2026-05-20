@@ -83,7 +83,11 @@ async fn update_from_remote_overwrites_fields_for_synced_row() {
         .await
         .unwrap();
     assert!(changed);
-    let row = entries.get_by_solidtime_id("remote-3").await.unwrap().unwrap();
+    let row = entries
+        .get_by_solidtime_id("remote-3")
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(row.description, "new");
     assert_eq!(row.project_id.as_deref(), Some("p-1"));
     assert_eq!(row.end_at.as_deref(), Some("2026-05-20T11:30:00Z"));
@@ -153,9 +157,16 @@ async fn hard_delete_by_solidtime_id_removes_row() {
         })
         .await
         .unwrap();
-    let removed = entries.hard_delete_by_solidtime_id("remote-5").await.unwrap();
+    let removed = entries
+        .hard_delete_by_solidtime_id("remote-5")
+        .await
+        .unwrap();
     assert!(removed);
-    assert!(entries.get_by_solidtime_id("remote-5").await.unwrap().is_none());
+    assert!(entries
+        .get_by_solidtime_id("remote-5")
+        .await
+        .unwrap()
+        .is_none());
 }
 
 #[tokio::test]

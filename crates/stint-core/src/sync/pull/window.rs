@@ -23,6 +23,9 @@ impl Window {
             Trigger::BackgroundPoll => Duration::hours(1),
             Trigger::Manual => Duration::days(30),
         };
-        Self { from: now - span, to: now }
+        Self {
+            from: now - span,
+            to: now,
+        }
     }
 }

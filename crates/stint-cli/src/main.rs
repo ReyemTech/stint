@@ -59,7 +59,10 @@ async fn main() -> Result<()> {
     // Run startup recovery once, before any command. Skip for `Sync` to avoid
     // recursion when the GUI is also running concurrently. Skip for `Calendar`
     // because calendar commands open their own store and recovery is irrelevant.
-    if !matches!(cli.command, Command::Sync | Command::Pull(_) | Command::Calendar(_)) {
+    if !matches!(
+        cli.command,
+        Command::Sync | Command::Pull(_) | Command::Calendar(_)
+    ) {
         let store = cmd::open_store().await?;
         cmd::maybe_recover(&store).await?;
     }

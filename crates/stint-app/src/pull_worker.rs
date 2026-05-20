@@ -38,11 +38,7 @@ pub fn nudge(app: AppHandle, store: Arc<Store>, trigger: Trigger) {
     });
 }
 
-async fn tick(
-    app: &AppHandle,
-    store: &Store,
-    trigger: Trigger,
-) -> stint_core::Result<()> {
+async fn tick(app: &AppHandle, store: &Store, trigger: Trigger) -> stint_core::Result<()> {
     let Some(client) = build_client(store).await? else {
         debug!("pull worker: config incomplete, skipping tick");
         return Ok(());

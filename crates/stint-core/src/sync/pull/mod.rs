@@ -10,12 +10,7 @@ pub mod window;
 
 pub use window::{Trigger, Window};
 
-use crate::{
-    config::Settings,
-    solidtime::SolidtimeClient,
-    store::Store,
-    Error, Result,
-};
+use crate::{config::Settings, solidtime::SolidtimeClient, store::Store, Error, Result};
 use chrono::Utc;
 
 #[derive(Debug, Default, Clone)]
@@ -36,11 +31,7 @@ pub struct ConflictInfo {
     pub local_description: String,
 }
 
-pub async fn pull(
-    store: &Store,
-    client: &SolidtimeClient,
-    trigger: Trigger,
-) -> Result<PullReport> {
+pub async fn pull(store: &Store, client: &SolidtimeClient, trigger: Trigger) -> Result<PullReport> {
     let settings = Settings::new(store.clone());
     let member_id = settings
         .get("solidtime.member_id")
@@ -57,8 +48,7 @@ pub async fn pull(
     // (e.g. UNIQUE violation on a duplicated remote id, network drop mid-way)
     // rolls back cleanly. The HTTP call has already completed above.
     let mut tx = store.pool().begin().await?;
-    let running_outcome =
-        running::reconcile_running(&mut tx, client, &remote_entries).await?;
+    let running_outcome = running::reconcile_running(&mut tx, client, &remote_entries).await?;
     let history_outcome = history::reconcile_history(&mut tx, &remote_entries).await?;
     let deletes_outcome =
         deletes::reconcile_deletes(&mut tx, client, &remote_entries, window.from, window.to)
@@ -133,7 +123,9 @@ pub async fn resolve_conflict(
             Ok(())
         }
         ConflictAction::Switch => {
-            crate::timer::TimerService::new(store.clone()).stop().await?;
+            crate::timer::TimerService::new(store.clone())
+                .stop()
+                .await?;
             pull(store, client, Trigger::Manual).await.map(|_| ())
         }
     }

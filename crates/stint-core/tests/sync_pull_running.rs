@@ -3,8 +3,8 @@ mod common;
 use stint_core::config::Settings;
 use stint_core::solidtime::SolidtimeClient;
 use stint_core::store::entries::Entries;
-use stint_core::store::running::RunningTimer;
 use stint_core::store::entries::NewTimeEntry;
+use stint_core::store::running::RunningTimer;
 use stint_core::sync::pull::{pull, Trigger};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -114,7 +114,11 @@ async fn does_nothing_when_remote_idle_but_local_running() {
     assert!(report.conflict.is_none());
 
     // Local timer remained intact.
-    let running = RunningTimer::new(env.store.clone()).get().await.unwrap().unwrap();
+    let running = RunningTimer::new(env.store.clone())
+        .get()
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(running.local_uuid, local_uuid);
 }
 
@@ -205,14 +209,21 @@ async fn surfaces_conflict_when_local_and_remote_differ() {
 
     let client = SolidtimeClient::with_api_token(&server.uri(), "t").with_org("org-1");
     let report = pull(&env.store, &client, Trigger::OnStartup).await.unwrap();
-    assert!(report.adopted.is_none(), "must not silently overwrite local");
+    assert!(
+        report.adopted.is_none(),
+        "must not silently overwrite local"
+    );
     let conflict = report.conflict.expect("conflict should be surfaced");
     assert_eq!(conflict.remote_id, "remote-other");
     assert_eq!(conflict.local_local_uuid, local_uuid);
     assert_eq!(conflict.local_description, "local task");
 
     // Local timer still ticking; no new entry inserted.
-    let running = RunningTimer::new(env.store.clone()).get().await.unwrap().unwrap();
+    let running = RunningTimer::new(env.store.clone())
+        .get()
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(running.local_uuid, local_uuid);
 }
 
@@ -244,5 +255,9 @@ async fn ignores_completed_remote_entries_when_picking_running() {
     // No running timer to adopt — only a completed entry was returned.
     assert!(report.adopted.is_none());
     assert!(report.conflict.is_none());
-    assert!(RunningTimer::new(env.store.clone()).get().await.unwrap().is_none());
+    assert!(RunningTimer::new(env.store.clone())
+        .get()
+        .await
+        .unwrap()
+        .is_none());
 }

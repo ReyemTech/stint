@@ -87,8 +87,12 @@ async fn main() -> Result<()> {
                     use stint_core::sync::pull::{pull, Trigger};
                     use tauri::Emitter;
                     let settings = Settings::new((*store_for_pull).clone());
-                    let Ok(Some(url)) = settings.get("solidtime.url").await else { return };
-                    let Ok(Some(org)) = settings.get("solidtime.org").await else { return };
+                    let Ok(Some(url)) = settings.get("solidtime.url").await else {
+                        return;
+                    };
+                    let Ok(Some(org)) = settings.get("solidtime.org").await else {
+                        return;
+                    };
                     let secrets = Secrets::default();
                     let Ok((provider, _oauth_client)) =
                         build_token_provider(&settings, &secrets, &url).await

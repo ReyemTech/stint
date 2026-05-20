@@ -23,7 +23,11 @@ async fn dismiss_is_a_noop() {
     configure(&env, &server.uri()).await;
 
     // Pre-state: nothing.
-    assert!(RunningTimer::new(env.store.clone()).get().await.unwrap().is_none());
+    assert!(RunningTimer::new(env.store.clone())
+        .get()
+        .await
+        .unwrap()
+        .is_none());
 
     let client = SolidtimeClient::with_api_token(&server.uri(), "t").with_org("org-1");
     resolve_conflict(&env.store, &client, ConflictAction::Dismiss, "remote-x")
@@ -31,8 +35,16 @@ async fn dismiss_is_a_noop() {
         .unwrap();
 
     // Post-state: still nothing — no rows written, no queue ops.
-    assert!(RunningTimer::new(env.store.clone()).get().await.unwrap().is_none());
-    assert!(Queue::new(env.store.clone()).take_due(10).await.unwrap().is_empty());
+    assert!(RunningTimer::new(env.store.clone())
+        .get()
+        .await
+        .unwrap()
+        .is_none());
+    assert!(Queue::new(env.store.clone())
+        .take_due(10)
+        .await
+        .unwrap()
+        .is_empty());
 }
 
 #[tokio::test]
@@ -58,13 +70,22 @@ async fn stop_remote_mirrors_remote_then_marks_dirty_and_enqueues_update() {
         .await;
 
     let client = SolidtimeClient::with_api_token(&server.uri(), "t").with_org("org-1");
-    resolve_conflict(&env.store, &client, ConflictAction::StopRemote, "remote-stop")
-        .await
-        .unwrap();
+    resolve_conflict(
+        &env.store,
+        &client,
+        ConflictAction::StopRemote,
+        "remote-stop",
+    )
+    .await
+    .unwrap();
 
     // Local row created from remote + end_at set + flipped to dirty.
     let entries = Entries::new(env.store.clone());
-    let row = entries.get_by_solidtime_id("remote-stop").await.unwrap().unwrap();
+    let row = entries
+        .get_by_solidtime_id("remote-stop")
+        .await
+        .unwrap()
+        .unwrap();
     assert!(row.end_at.is_some(), "end_at should be set");
     assert_eq!(row.sync_state, "dirty");
 
@@ -82,7 +103,9 @@ async fn stop_remote_errors_when_remote_already_gone() {
     configure(&env, &server.uri()).await;
 
     Mock::given(method("GET"))
-        .and(path("/api/v1/organizations/org-1/time-entries/remote-vanished"))
+        .and(path(
+            "/api/v1/organizations/org-1/time-entries/remote-vanished",
+        ))
         .respond_with(ResponseTemplate::new(404))
         .mount(&server)
         .await;
@@ -149,7 +172,10 @@ async fn switch_stops_local_then_adopts_remote() {
 
     // Local timer was stopped (end_at set, dirty).
     let local_row = entries.get(&local_uuid).await.unwrap().unwrap();
-    assert!(local_row.end_at.is_some(), "local timer should have been stopped");
+    assert!(
+        local_row.end_at.is_some(),
+        "local timer should have been stopped"
+    );
 
     // Remote was adopted.
     let adopted = entries
@@ -157,6 +183,10 @@ async fn switch_stops_local_then_adopts_remote() {
         .await
         .unwrap()
         .unwrap();
-    let running = RunningTimer::new(env.store.clone()).get().await.unwrap().unwrap();
+    let running = RunningTimer::new(env.store.clone())
+        .get()
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(running.local_uuid, adopted.local_uuid);
 }
