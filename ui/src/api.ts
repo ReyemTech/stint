@@ -69,6 +69,31 @@ export const oauthSolidtimeStart = () =>
 export const oauthSolidtimeLogout = () =>
   invoke<void>("oauth_solidtime_logout");
 
+export type ConflictInfo = {
+  remote_id: string;
+  remote_description: string;
+  remote_start_at: string;
+  local_local_uuid: string;
+  local_description: string;
+};
+
+export type PullReport = {
+  adopted: string | null;
+  conflict: ConflictInfo | null;
+  inserted: number;
+  updated: number;
+  deleted: number;
+};
+
+export const pullNow = () => invoke<PullReport>("pull_now");
+
+export type ConflictAction = "stop_remote" | "switch" | "dismiss";
+
+export const conflictResolve = (action: ConflictAction, remoteId: string) =>
+  invoke<void>("conflict_resolve", {
+    args: { action, remote_id: remoteId },
+  });
+
 export const calendarApi = {
   listAccounts: () => invoke<CalendarAccount[]>("calendar_list_accounts"),
   oauthStatus: (accountId: string) =>

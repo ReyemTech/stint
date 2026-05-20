@@ -1,11 +1,11 @@
 use crate::app_state::AppState;
 use crate::commands::{store, AppError};
 use crate::sync_worker::{EVENT_ENTRIES_CHANGED, EVENT_PULL_CONFLICT};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use stint_core::config::{secrets::Secrets, Settings};
 use stint_core::solidtime::auth::build_token_provider;
 use stint_core::solidtime::SolidtimeClient;
-use stint_core::sync::pull::{pull, ConflictInfo, PullReport, Trigger};
+use stint_core::sync::pull::{pull, resolve_conflict, ConflictAction, ConflictInfo, PullReport, Trigger};
 use tauri::{AppHandle, Emitter, State};
 use tokio::sync::RwLock;
 
@@ -76,4 +76,51 @@ pub async fn pull_now(
         let _ = app.emit(EVENT_PULL_CONFLICT, ConflictDto::from(conflict.clone()));
     }
     Ok(PullReportDto::from(report))
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConflictActionDto {
+    StopRemote,
+    Switch,
+    Dismiss,
+}
+
+impl From<ConflictActionDto> for ConflictAction {
+    fn from(a: ConflictActionDto) -> Self {
+        match a {
+            ConflictActionDto::StopRemote => Self::StopRemote,
+            ConflictActionDto::Switch => Self::Switch,
+            ConflictActionDto::Dismiss => Self::Dismiss,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ConflictResolveArgs {
+    pub action: ConflictActionDto,
+    pub remote_id: String,
+}
+
+#[tauri::command]
+pub async fn conflict_resolve(
+    app: AppHandle,
+    state: State<'_, RwLock<AppState>>,
+    args: ConflictResolveArgs,
+) -> Result<(), AppError> {
+    let store = store(&state).await;
+    let settings = Settings::new((*store).clone());
+    let Some(url) = settings.get("solidtime.url").await? else {
+        return Err(AppError::msg("solidtime.url not set"));
+    };
+    let Some(org) = settings.get("solidtime.org").await? else {
+        return Err(AppError::msg("solidtime.org not set"));
+    };
+    let secrets = Secrets::default();
+    let (provider, _oauth_client) = build_token_provider(&settings, &secrets, &url).await?;
+    let client = SolidtimeClient::new(&url, provider).with_org(org);
+
+    resolve_conflict(&store, &client, args.action.into(), &args.remote_id).await?;
+    let _ = app.emit(EVENT_ENTRIES_CHANGED, 0u32);
+    Ok(())
 }

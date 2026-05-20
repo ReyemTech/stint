@@ -44,6 +44,7 @@ async fn main() -> Result<()> {
             commands::projects::refresh_projects,
             commands::projects::list_organizations,
             commands::pull::pull_now,
+            commands::pull::conflict_resolve,
             commands::config::config_show,
             commands::config::config_set,
             commands::config::config_test,

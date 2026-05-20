@@ -2,6 +2,7 @@ import { Show, createMemo, createResource, createSignal, onCleanup } from "solid
 import { listen } from "@tauri-apps/api/event";
 import { api } from "~/api";
 import CalendarSection from "~/components/CalendarSection";
+import ConflictBanner from "~/components/ConflictBanner";
 import Duration from "~/components/Duration";
 import EntryList from "~/components/EntryList";
 import MainNav from "~/components/MainNav";
@@ -88,6 +89,8 @@ export default function Today() {
             }
           />
         </header>
+
+        <ConflictBanner />
 
         <Show when={syncMsg()}>
           <div class="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
