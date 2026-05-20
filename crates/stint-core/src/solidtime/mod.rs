@@ -182,4 +182,33 @@ impl SolidtimeClient {
         }
         Ok(())
     }
+
+    pub async fn list_time_entries(
+        &self,
+        member_id: &str,
+        from: &str,
+        to: &str,
+    ) -> Result<Vec<RemoteTimeEntry>> {
+        let org = self.org()?;
+        let url = format!("{}/api/v1/organizations/{org}/time-entries", self.base_url);
+        let resp = self
+            .authed(self.http.get(&url))
+            .await?
+            .query(&[("member_ids[]", member_id), ("start", from), ("end", to)])
+            .send()
+            .await?;
+        let status = resp.status();
+        if status == StatusCode::UNAUTHORIZED {
+            return Err(Error::SolidtimeAuth);
+        }
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            return Err(Error::Solidtime {
+                status: status.as_u16(),
+                body,
+            });
+        }
+        let wrapper: Wrapper<Vec<RemoteTimeEntry>> = resp.json().await?;
+        Ok(wrapper.data)
+    }
 }
