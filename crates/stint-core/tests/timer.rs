@@ -142,3 +142,76 @@ async fn delete_synced_entry_enqueues_delete_op() {
     let delete_ops: Vec<_> = due.iter().filter(|r| r.op == "delete_entry").collect();
     assert_eq!(delete_ops.len(), 1);
 }
+
+#[tokio::test]
+async fn start_rolls_back_entry_if_running_timer_already_claimed() {
+    // Reproduce the TOCTOU race: another writer claims running_timer
+    // between TimerService::start's check and its set. With the atomic
+    // try_claim_with + transaction, the just-inserted entry must roll
+    // back and no orphan time_entries row should remain.
+    let env = common::setup().await;
+
+    // Pre-seed running_timer pointing at a synthetic entry (mimics what
+    // a concurrent pull adoption would have left behind).
+    let entries = Entries::new(env.store.clone());
+    let adopted_uuid = entries
+        .create(stint_core::store::entries::NewTimeEntry {
+            description: "remote-adopted".into(),
+            project_id: None,
+            task_id: None,
+            start_at: "2026-05-20T20:00:00Z".into(),
+            billable: false,
+            source: "solidtime".into(),
+        })
+        .await
+        .unwrap();
+    RunningTimer::new(env.store.clone())
+        .set(&adopted_uuid)
+        .await
+        .unwrap();
+
+    let before = entries
+        .list_between("2026-01-01T00:00:00Z", "2099-01-01T00:00:00Z")
+        .await
+        .unwrap()
+        .len();
+
+    let timer = TimerService::new(env.store.clone());
+    let err = timer
+        .start(StartArgs {
+            description: "user's typed entry".into(),
+            project_id: None,
+            task_id: None,
+            billable: false,
+            source: "cli".into(),
+        })
+        .await
+        .expect_err("expected `already running` error");
+    assert!(
+        err.to_string().contains("a timer is already running"),
+        "wrong error: {err}"
+    );
+
+    // No new time_entries row leaked.
+    let after = entries
+        .list_between("2026-01-01T00:00:00Z", "2099-01-01T00:00:00Z")
+        .await
+        .unwrap()
+        .len();
+    assert_eq!(after, before, "tx should have rolled back the inserted row");
+
+    // running_timer still points at the originally-adopted entry.
+    let r = RunningTimer::new(env.store.clone())
+        .get()
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(r.local_uuid, adopted_uuid);
+
+    // No stray queue ops.
+    assert!(Queue::new(env.store.clone())
+        .take_due(10)
+        .await
+        .unwrap()
+        .is_empty());
+}

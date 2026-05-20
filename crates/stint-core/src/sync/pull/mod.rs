@@ -141,9 +141,35 @@ pub async fn resolve_conflict(
             Ok(())
         }
         ConflictAction::Switch => {
-            crate::timer::TimerService::new(store.clone())
-                .stop()
+            // Stop the local timer at the moment the remote one started,
+            // not at `now`. Otherwise the local interval [start, now]
+            // overlaps the still-running remote [remote.start, ...] and
+            // Solidtime rejects the push with 400 overlapping_time_entry.
+            let remote = client
+                .get_time_entry(remote_id)
+                .await?
+                .ok_or_else(|| Error::NotFound(format!("remote entry {remote_id}")))?;
+
+            let running = crate::store::running::RunningTimer::new(store.clone());
+            let local = running
+                .get()
+                .await?
+                .ok_or_else(|| Error::Invariant("no local running timer to switch from".into()))?;
+
+            let entries = crate::store::entries::Entries::new(store.clone());
+            entries.set_end(&local.local_uuid, &remote.start).await?;
+            running.clear().await?;
+
+            let queue = crate::store::queue::Queue::new(store.clone());
+            queue
+                .enqueue(
+                    crate::store::queue::QueueOp::UpdateEntry,
+                    &serde_json::json!({ "local_uuid": local.local_uuid }).to_string(),
+                    Some(&local.local_uuid),
+                )
                 .await?;
+
+            // Now adopt the remote running timer via the normal pull path.
             pull(store, client, Trigger::Manual).await.map(|_| ())
         }
     }
