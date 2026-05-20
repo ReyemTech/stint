@@ -136,3 +136,149 @@ async fn push_one_handles_delete_entry() {
     let client = SolidtimeClient::with_api_token(&server.uri(), "t").with_org("org-1");
     push_one(&env.store, &client, &delete_row).await.unwrap();
 }
+
+#[tokio::test]
+async fn push_update_handles_remote_404_by_deleting_local_and_succeeding() {
+    let env = common::setup().await;
+    Settings::new(env.store.clone())
+        .set("solidtime.member_id", "m-1")
+        .await
+        .unwrap();
+
+    // Seed a synced local row that has a pending update queued.
+    let entries = Entries::new(env.store.clone());
+    let local_uuid = entries
+        .create(stint_core::store::entries::NewTimeEntry {
+            description: "test 2".into(),
+            project_id: None,
+            task_id: None,
+            start_at: "2026-05-20T16:00:00Z".into(),
+            billable: false,
+            source: "cli".into(),
+        })
+        .await
+        .unwrap();
+    entries
+        .mark_synced(&local_uuid, "remote-gone")
+        .await
+        .unwrap();
+    entries
+        .update_description(&local_uuid, "test 2 edited")
+        .await
+        .unwrap();
+
+    let queue = Queue::new(env.store.clone());
+    queue
+        .enqueue(
+            stint_core::store::queue::QueueOp::UpdateEntry,
+            &serde_json::json!({ "local_uuid": local_uuid }).to_string(),
+            Some(&local_uuid),
+        )
+        .await
+        .unwrap();
+
+    let server = MockServer::start().await;
+    Mock::given(method("PUT"))
+        .and(path("/api/v1/organizations/org-1/time-entries/remote-gone"))
+        .respond_with(ResponseTemplate::new(404))
+        .mount(&server)
+        .await;
+
+    let client = SolidtimeClient::with_api_token(&server.uri(), "t").with_org("org-1");
+    let due = queue.take_due(10).await.unwrap();
+    assert_eq!(due.len(), 1);
+
+    push_one(&env.store, &client, &due[0]).await.unwrap();
+
+    // Queue op succeeded — row is gone.
+    assert!(queue.take_due(10).await.unwrap().is_empty());
+    // Local row is hard-deleted.
+    assert!(entries.get(&local_uuid).await.unwrap().is_none());
+}
+
+#[tokio::test]
+async fn push_update_404_clears_running_timer_when_running_row_disappears() {
+    let env = common::setup().await;
+    Settings::new(env.store.clone())
+        .set("solidtime.member_id", "m-1")
+        .await
+        .unwrap();
+
+    // Build the running-row state directly (skip TimerService::start so we
+    // don't have to drain the create_entry op it enqueues).
+    let entries = Entries::new(env.store.clone());
+    let local_uuid = entries
+        .create(stint_core::store::entries::NewTimeEntry {
+            description: "running task".into(),
+            project_id: None,
+            task_id: None,
+            start_at: "2026-05-20T16:00:00Z".into(),
+            billable: false,
+            source: "cli".into(),
+        })
+        .await
+        .unwrap();
+    entries
+        .mark_synced(&local_uuid, "remote-gone")
+        .await
+        .unwrap();
+    stint_core::store::running::RunningTimer::new(env.store.clone())
+        .set(&local_uuid)
+        .await
+        .unwrap();
+    // Edit flips synced → dirty.
+    entries
+        .update_description(&local_uuid, "renamed")
+        .await
+        .unwrap();
+    let queue = Queue::new(env.store.clone());
+    queue
+        .enqueue(
+            stint_core::store::queue::QueueOp::UpdateEntry,
+            &serde_json::json!({ "local_uuid": local_uuid }).to_string(),
+            Some(&local_uuid),
+        )
+        .await
+        .unwrap();
+
+    let server = MockServer::start().await;
+    Mock::given(method("PUT"))
+        .and(path("/api/v1/organizations/org-1/time-entries/remote-gone"))
+        .respond_with(ResponseTemplate::new(404))
+        .mount(&server)
+        .await;
+
+    let client = SolidtimeClient::with_api_token(&server.uri(), "t").with_org("org-1");
+    let due = queue.take_due(10).await.unwrap();
+    push_one(&env.store, &client, &due[0]).await.unwrap();
+
+    // Local row gone, running_timer cleared.
+    assert!(entries.get(&local_uuid).await.unwrap().is_none());
+    assert!(
+        stint_core::store::running::RunningTimer::new(env.store.clone())
+            .get()
+            .await
+            .unwrap()
+            .is_none()
+    );
+}
+
+#[tokio::test]
+async fn delete_time_entry_treats_404_as_success() {
+    // The solidtime client should NOT error on DELETE 404 — the entry is
+    // already gone, which is what the caller wanted.
+    let server = MockServer::start().await;
+    Mock::given(method("DELETE"))
+        .and(path(
+            "/api/v1/organizations/org-1/time-entries/already-gone",
+        ))
+        .respond_with(ResponseTemplate::new(404))
+        .mount(&server)
+        .await;
+
+    let client = SolidtimeClient::with_api_token(&server.uri(), "t").with_org("org-1");
+    client
+        .delete_time_entry("already-gone")
+        .await
+        .expect("404 on DELETE should be treated as success");
+}

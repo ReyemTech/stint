@@ -173,7 +173,14 @@ impl SolidtimeClient {
         if status == StatusCode::UNAUTHORIZED {
             return Err(Error::SolidtimeAuth);
         }
-        if !status.is_success() && status != StatusCode::NO_CONTENT {
+        // 404 is a success: the entry is gone either way. Treating it as
+        // an error here would cause the queue to retry forever when a user
+        // deletes an entry directly in Solidtime web after stint had
+        // queued a delete.
+        if !status.is_success()
+            && status != StatusCode::NO_CONTENT
+            && status != StatusCode::NOT_FOUND
+        {
             let body = resp.text().await.unwrap_or_default();
             return Err(Error::Solidtime {
                 status: status.as_u16(),
