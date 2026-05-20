@@ -5,8 +5,11 @@
 use crate::calendar::types::{
     AttendeeStatus, Calendar, CalendarAccount, CalendarEvent, EventDecision, ProviderKind,
 };
+use crate::config::secrets::Secrets;
+use crate::oauth::tokens::TokenSet;
 use crate::store::Store;
 use crate::{time, Result};
+use serde::{Deserialize, Serialize};
 
 /// Row shape returned by the `calendar_accounts` SELECT queries.
 type AccountRow = (String, String, String, String, Option<String>, i64, String);
@@ -342,4 +345,46 @@ fn event_from_row(
         recurring_root,
         fetched_at,
     }
+}
+
+// ── Per-account Keychain blob helpers ────────────────────────────────────────
+
+/// Per-account OAuth credentials stored in Keychain as one JSON blob.
+/// Same shape as the Solidtime OAuth blob (3a) for consistency.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CalendarOAuthBlob {
+    pub client_id: String,
+    pub tokens: TokenSet,
+}
+
+fn calendar_blob_key(account_uuid: &str) -> String {
+    format!("calendar.{account_uuid}")
+}
+
+pub fn calendar_blob_load(
+    secrets: &Secrets,
+    account_uuid: &str,
+) -> crate::Result<Option<CalendarOAuthBlob>> {
+    let Some(raw) = secrets.get(&calendar_blob_key(account_uuid))? else {
+        return Ok(None);
+    };
+    let blob: CalendarOAuthBlob = serde_json::from_str(&raw).map_err(|e| {
+        crate::Error::OAuthServer(format!(
+            "Calendar Keychain blob malformed for {account_uuid}: {e}"
+        ))
+    })?;
+    Ok(Some(blob))
+}
+
+pub fn calendar_blob_save(
+    secrets: &Secrets,
+    account_uuid: &str,
+    blob: &CalendarOAuthBlob,
+) -> crate::Result<()> {
+    let raw = serde_json::to_string(blob).expect("CalendarOAuthBlob is JSON-serializable");
+    secrets.set(&calendar_blob_key(account_uuid), &raw)
+}
+
+pub fn calendar_blob_delete(secrets: &Secrets, account_uuid: &str) -> crate::Result<()> {
+    secrets.delete(&calendar_blob_key(account_uuid))
 }
