@@ -1,12 +1,11 @@
 import { Show, createMemo, createResource, createSignal, onCleanup } from "solid-js";
 import { listen } from "@tauri-apps/api/event";
-import { api } from "~/api";
+import { api, pullNow } from "~/api";
 import CalendarSection from "~/components/CalendarSection";
 import ConflictBanner from "~/components/ConflictBanner";
 import Duration from "~/components/Duration";
 import EntryList from "~/components/EntryList";
 import MainNav from "~/components/MainNav";
-import PullStatus from "~/components/PullStatus";
 import TimerCard from "~/components/TimerCard";
 import SectionLabel from "~/components/ui/SectionLabel";
 import StatusDot from "~/components/ui/StatusDot";
@@ -54,8 +53,10 @@ export default function Today() {
     setSyncing(true);
     setSyncMsg(null);
     try {
+      // Push first so local edits hit Solidtime before pull observes its state.
       const n = await api.syncNow();
-      setSyncMsg(n > 0 ? `Synced ${n} item${n === 1 ? "" : "s"}` : "All synced");
+      await pullNow();
+      setSyncMsg(n > 0 ? `Synced ${n} item${n === 1 ? "" : "s"}` : "Synced");
       refetch();
     } catch (e) {
       setSyncMsg(`Sync failed: ${(e as { message: string }).message}`);
@@ -91,7 +92,6 @@ export default function Today() {
           />
         </header>
 
-        <PullStatus />
         <ConflictBanner />
 
         <Show when={syncMsg()}>
@@ -178,7 +178,7 @@ function SyncBadge(props: {
       }}
       disabled={props.syncing}
       onClick={props.onClick}
-      title="Push pending entries to Solidtime"
+      title="Sync with Solidtime (push pending, pull remote changes)"
     >
       <StatusDot tone={tone()} ping={props.syncing} />
       {props.syncing
