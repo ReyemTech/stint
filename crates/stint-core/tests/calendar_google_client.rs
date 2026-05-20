@@ -4,6 +4,37 @@ use stint_core::calendar::types::TimeRange;
 use wiremock::matchers::{header, method, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
+#[tokio::test]
+async fn get_primary_calendar_returns_email_id() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/calendar/v3/calendars/primary"))
+        .and(header("Authorization", "Bearer access-1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "id": "me@example.com",
+            "summary": "me@example.com"
+        })))
+        .mount(&server)
+        .await;
+
+    let client = GoogleClient::with_base_url(&server.uri());
+    let id = client.get_primary_calendar("access-1").await.unwrap();
+    assert_eq!(id, "me@example.com");
+}
+
+#[tokio::test]
+async fn get_primary_calendar_maps_401_to_auth_error() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/calendar/v3/calendars/primary"))
+        .respond_with(ResponseTemplate::new(401))
+        .mount(&server)
+        .await;
+    let client = GoogleClient::with_base_url(&server.uri());
+    let err = client.get_primary_calendar("access-1").await.unwrap_err();
+    assert!(matches!(err, stint_core::Error::OAuthRefreshFailed));
+}
+
 fn range_today() -> TimeRange {
     TimeRange {
         start: Utc.with_ymd_and_hms(2026, 5, 19, 0, 0, 0).unwrap(),

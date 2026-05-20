@@ -175,12 +175,12 @@ export default function Settings() {
   }
 
   async function handleRemoveAccount(id: string) {
-    if (!confirm("Remove this calendar account?")) return;
     try {
       await calendarApi.removeAccount(id);
       flash("ok", "Account removed.");
       refetchAccounts();
     } catch (e) {
+      console.error("calendar removeAccount failed:", e);
       flash("err", `Failed: ${(e as { message: string }).message}`);
     }
   }
