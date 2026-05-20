@@ -43,6 +43,7 @@ async fn main() -> Result<()> {
             commands::projects::list_projects,
             commands::projects::refresh_projects,
             commands::projects::list_organizations,
+            commands::pull::pull_now,
             commands::config::config_show,
             commands::config::config_set,
             commands::config::config_test,
@@ -68,6 +69,46 @@ async fn main() -> Result<()> {
 
             // Periodic background sync (drains queue every 30s while running).
             sync_worker::spawn(app.handle().clone(), store_for_worker.clone());
+
+            // One-shot pull on startup: surfaces a remote-side running timer
+            // or recent edits within ~1s of launch, without waiting for the
+            // 5-min background poll worker.
+            {
+                let app_handle = app.handle().clone();
+                let store_for_pull = store_for_worker.clone();
+                tokio::spawn(async move {
+                    use stint_core::config::{secrets::Secrets, Settings};
+                    use stint_core::solidtime::{auth::build_token_provider, SolidtimeClient};
+                    use stint_core::sync::pull::{pull, Trigger};
+                    use tauri::Emitter;
+                    let settings = Settings::new((*store_for_pull).clone());
+                    let Ok(Some(url)) = settings.get("solidtime.url").await else { return };
+                    let Ok(Some(org)) = settings.get("solidtime.org").await else { return };
+                    let secrets = Secrets::default();
+                    let Ok((provider, _oauth_client)) =
+                        build_token_provider(&settings, &secrets, &url).await
+                    else {
+                        return;
+                    };
+                    let client = SolidtimeClient::new(&url, provider).with_org(org);
+                    match pull(&store_for_pull, &client, Trigger::OnStartup).await {
+                        Ok(report) => {
+                            if report.adopted.is_some()
+                                || report.inserted + report.updated + report.deleted > 0
+                            {
+                                let _ = app_handle.emit(sync_worker::EVENT_ENTRIES_CHANGED, 0u32);
+                            }
+                            if let Some(conflict) = report.conflict {
+                                let _ = app_handle.emit(
+                                    sync_worker::EVENT_PULL_CONFLICT,
+                                    commands::pull::ConflictDto::from(conflict),
+                                );
+                            }
+                        }
+                        Err(e) => tracing::warn!(error = %e, "startup pull failed"),
+                    }
+                });
+            }
 
             // Periodic calendar refresh (polls every 15 min while running).
             calendar_worker::spawn(app.handle().clone(), store_for_worker.clone());

@@ -19,6 +19,7 @@ use tokio::time::sleep;
 use tracing::{debug, info, warn};
 
 pub const EVENT_ENTRIES_CHANGED: &str = "entries:changed";
+pub const EVENT_PULL_CONFLICT: &str = "pull:conflict";
 
 const TICK: Duration = Duration::from_secs(30);
 

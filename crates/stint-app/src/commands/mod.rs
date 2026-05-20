@@ -2,6 +2,7 @@ pub mod calendar;
 pub mod config;
 pub mod entries;
 pub mod projects;
+pub mod pull;
 pub mod sync;
 pub mod timer;
 pub mod ui;
