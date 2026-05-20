@@ -4,6 +4,7 @@ use crate::{
     store::{
         entries::Entries,
         queue::{Queue, QueueRow},
+        running::RunningTimer,
         Store,
     },
     Error, Result,
@@ -93,9 +94,40 @@ async fn push_update(store: &Store, client: &SolidtimeClient, row: &QueueRow) ->
         billable: current.billable != 0,
     };
     debug!(?req, remote = %remote_id, "update_time_entry request");
-    client.update_time_entry(&remote_id, &req).await?;
-    info!(local = %payload.local_uuid, remote = %remote_id, "update_entry synced");
-    entries.mark_synced(&payload.local_uuid, &remote_id).await?;
+    match client.update_time_entry(&remote_id, &req).await {
+        Ok(_) => {
+            info!(local = %payload.local_uuid, remote = %remote_id, "update_entry synced");
+            entries.mark_synced(&payload.local_uuid, &remote_id).await?;
+            Ok(())
+        }
+        Err(Error::Solidtime { status: 404, .. }) => {
+            // Remote was deleted out from under us (e.g. user deleted the
+            // entry directly in Solidtime). Mirror the deletion locally
+            // instead of retrying forever.
+            info!(
+                local = %payload.local_uuid, remote = %remote_id,
+                "update_entry: remote gone (404), deleting local row",
+            );
+            handle_remote_gone(store, &payload.local_uuid).await
+        }
+        Err(e) => Err(e),
+    }
+}
+
+/// Mirror a server-side deletion locally: drop the time_entries row and
+/// clear running_timer if it pointed at this row. Used when push observes
+/// a 404 from PUT/DELETE — the queue op succeeds, no retry.
+async fn handle_remote_gone(store: &Store, local_uuid: &str) -> Result<()> {
+    let running = RunningTimer::new(store.clone());
+    if let Some(r) = running.get().await? {
+        if r.local_uuid == local_uuid {
+            running.clear().await?;
+        }
+    }
+    sqlx::query("DELETE FROM time_entries WHERE local_uuid = ?")
+        .bind(local_uuid)
+        .execute(store.pool())
+        .await?;
     Ok(())
 }
 
