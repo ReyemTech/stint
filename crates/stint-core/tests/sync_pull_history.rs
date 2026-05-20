@@ -171,7 +171,10 @@ async fn skips_when_local_is_pending() {
 }
 
 #[tokio::test]
-async fn noop_when_local_is_newer() {
+async fn noop_when_local_matches_remote_exactly() {
+    // Same fields → no update, regardless of timestamps. Previously this
+    // relied on an updated_at comparison, but Solidtime omits updated_at
+    // on the list endpoint so we field-compare instead.
     let env = common::setup().await;
     let server = MockServer::start().await;
     configure(&env, &server.uri()).await;
@@ -179,13 +182,13 @@ async fn noop_when_local_is_newer() {
     Entries::new(env.store.clone())
         .create_from_remote(RemoteEntryUpsert {
             solidtime_id: "remote-e".into(),
-            description: "local-most-recent".into(),
+            description: "same".into(),
             project_id: None,
             task_id: None,
             start_at: "2026-05-20T10:00:00Z".into(),
             end_at: Some("2026-05-20T11:00:00Z".into()),
             billable: false,
-            updated_at: "2026-05-20T13:00:00Z".into(),
+            updated_at: "2026-05-20T11:00:00Z".into(),
         })
         .await
         .unwrap();
@@ -195,11 +198,10 @@ async fn noop_when_local_is_newer() {
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "data": [{
                 "id": "remote-e",
-                "description": "remote-older",
+                "description": "same",
                 "start": "2026-05-20T10:00:00Z",
                 "end": "2026-05-20T11:00:00Z",
-                "billable": false,
-                "updated_at": "2026-05-20T12:00:00Z"
+                "billable": false
             }]
         })))
         .mount(&server)
@@ -208,12 +210,60 @@ async fn noop_when_local_is_newer() {
     let client = SolidtimeClient::with_api_token(&server.uri(), "t").with_org("org-1");
     let report = pull(&env.store, &client, Trigger::Manual).await.unwrap();
     assert_eq!(report.updated, 0);
+}
+
+#[tokio::test]
+async fn updates_when_remote_omits_updated_at_but_end_at_differs() {
+    // Regression: Solidtime's list endpoint does not include `updated_at`.
+    // The previous comparison (remote.updated_at > local.updated_at, with
+    // a fallback to remote.start) made this skip → local timer kept
+    // showing "running" even after the entry was stopped on Solidtime.
+    let env = common::setup().await;
+    let server = MockServer::start().await;
+    configure(&env, &server.uri()).await;
+
+    // Local synced row mirrors a remote that's still "running" — end_at None.
+    Entries::new(env.store.clone())
+        .create_from_remote(RemoteEntryUpsert {
+            solidtime_id: "stopped-externally".into(),
+            description: "test 3".into(),
+            project_id: None,
+            task_id: None,
+            start_at: "2026-05-20T20:48:00Z".into(),
+            end_at: None,
+            billable: false,
+            // local updated_at AFTER remote.start — the old comparison
+            // (with start as fallback) would say "remote is older" → skip.
+            updated_at: "2026-05-20T20:48:46Z".into(),
+        })
+        .await
+        .unwrap();
+
+    // Remote response: same id, end_at now set, NO updated_at field.
+    Mock::given(method("GET"))
+        .and(path("/api/v1/organizations/org-1/time-entries"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "data": [{
+                "id": "stopped-externally",
+                "description": "test 3",
+                "start": "2026-05-20T20:48:00Z",
+                "end": "2026-05-20T20:55:00Z",
+                "billable": false
+            }]
+        })))
+        .mount(&server)
+        .await;
+
+    let client = SolidtimeClient::with_api_token(&server.uri(), "t").with_org("org-1");
+    let report = pull(&env.store, &client, Trigger::Manual).await.unwrap();
+    assert_eq!(report.updated, 1);
+
     let row = Entries::new(env.store.clone())
-        .get_by_solidtime_id("remote-e")
+        .get_by_solidtime_id("stopped-externally")
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(row.description, "local-most-recent");
+    assert_eq!(row.end_at.as_deref(), Some("2026-05-20T20:55:00Z"));
 }
 
 #[tokio::test]
