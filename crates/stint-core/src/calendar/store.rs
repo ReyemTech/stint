@@ -14,6 +14,20 @@ type AccountRow = (String, String, String, String, Option<String>, i64, String);
 /// Row shape returned by the `calendars` SELECT queries.
 type CalendarRow = (String, String, String, Option<String>, i64);
 
+/// Row shape returned by the `calendar_events` SELECT queries.
+type EventRow = (
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    i64,
+    Option<String>,
+    Option<String>,
+    String,
+);
+
 pub struct CalendarStore {
     store: Store,
 }
@@ -134,6 +148,68 @@ impl CalendarStore {
             .await?;
         Ok(())
     }
+
+    pub async fn upsert_events(&self, events: &[CalendarEvent]) -> Result<()> {
+        let mut tx = self.store.pool().begin().await?;
+        for e in events {
+            sqlx::query(
+                r#"INSERT INTO calendar_events
+                   (id, account_id, calendar_id, title, start_at, end_at,
+                    is_all_day, attendee_status, recurring_root, fetched_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(account_id, id, start_at) DO UPDATE SET
+                     calendar_id = excluded.calendar_id,
+                     title = excluded.title,
+                     end_at = excluded.end_at,
+                     is_all_day = excluded.is_all_day,
+                     attendee_status = excluded.attendee_status,
+                     recurring_root = excluded.recurring_root,
+                     fetched_at = excluded.fetched_at"#,
+            )
+            .bind(&e.id)
+            .bind(&e.account_id)
+            .bind(&e.calendar_id)
+            .bind(&e.title)
+            .bind(&e.start_at)
+            .bind(&e.end_at)
+            .bind(if e.is_all_day { 1i64 } else { 0i64 })
+            .bind(e.attendee_status.map(|s| s.as_wire().to_string()))
+            .bind(&e.recurring_root)
+            .bind(&e.fetched_at)
+            .execute(&mut *tx)
+            .await?;
+        }
+        tx.commit().await?;
+        Ok(())
+    }
+
+    /// Range is half-open `[from, to)` on `start_at`. Joins against
+    /// `calendars` so events on excluded calendars are filtered out.
+    pub async fn list_events_in_range(
+        &self,
+        account_id: &str,
+        from: &str,
+        to: &str,
+    ) -> Result<Vec<CalendarEvent>> {
+        let rows: Vec<EventRow> = sqlx::query_as(
+            r#"SELECT e.id, e.account_id, e.calendar_id, e.title, e.start_at, e.end_at,
+                       e.is_all_day, e.attendee_status, e.recurring_root, e.fetched_at
+                 FROM calendar_events e
+                 JOIN calendars c ON c.id = e.calendar_id
+                WHERE e.account_id = ?
+                  AND c.included = 1
+                  AND e.start_at >= ?
+                  AND e.start_at < ?
+                ORDER BY e.start_at"#,
+        )
+        .bind(account_id)
+        .bind(from)
+        .bind(to)
+        .fetch_all(self.store.pool())
+        .await?;
+
+        Ok(rows.into_iter().map(event_from_row).collect())
+    }
 }
 
 fn provider_wire(p: ProviderKind) -> &'static str {
@@ -162,6 +238,36 @@ fn account_from_row(
         caldav_url,
         enabled: enabled != 0,
         created_at,
+    }
+}
+
+fn event_from_row(
+    (
+        id,
+        account_id,
+        calendar_id,
+        title,
+        start_at,
+        end_at,
+        is_all_day,
+        attendee_status,
+        recurring_root,
+        fetched_at,
+    ): EventRow,
+) -> CalendarEvent {
+    CalendarEvent {
+        id,
+        account_id,
+        calendar_id,
+        title,
+        start_at,
+        end_at,
+        is_all_day: is_all_day != 0,
+        attendee_status: attendee_status
+            .as_deref()
+            .and_then(AttendeeStatus::from_wire),
+        recurring_root,
+        fetched_at,
     }
 }
 
