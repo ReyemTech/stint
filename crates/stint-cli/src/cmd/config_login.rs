@@ -44,7 +44,7 @@ pub async fn run_login(store: Store) -> Result<()> {
 
     println!("Opening browser to sign in to {base_url}.");
     println!("If the browser does not open, visit this URL manually:");
-    let tokens = login_interactive(&client, FLOW_TIMEOUT, |url| {
+    let tokens = login_interactive(&client, FLOW_TIMEOUT, "Solidtime", |url| {
         println!("  {url}");
         if let Err(e) = webbrowser::open(&url) {
             eprintln!("(Could not auto-open browser: {e})");

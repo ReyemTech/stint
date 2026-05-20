@@ -146,7 +146,7 @@ pub async fn oauth_solidtime_start(state: State<'_, RwLock<AppState>>) -> Result
         extra_authorize_params: vec![],
     });
 
-    let tokens = login_interactive(&client, Duration::from_secs(300), |url| {
+    let tokens = login_interactive(&client, Duration::from_secs(300), "Solidtime", |url| {
         if let Err(e) = open_url(&url) {
             tracing::warn!("could not open browser: {e}; user must paste URL manually: {url}");
         }
