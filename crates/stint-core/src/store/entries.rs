@@ -62,6 +62,14 @@ impl Entries {
     }
 
     pub async fn create(&self, new: NewTimeEntry) -> Result<String> {
+        Self::create_with(self.store.pool(), new).await
+    }
+
+    /// Executor-generic variant of [`create`].
+    pub async fn create_with<'e, E>(executor: E, new: NewTimeEntry) -> Result<String>
+    where
+        E: sqlx::SqliteExecutor<'e>,
+    {
         let local_uuid = ids::new_local_uuid();
         let now = time::now_utc();
         sqlx::query(
@@ -79,7 +87,7 @@ impl Entries {
         .bind(new.source)
         .bind(&now)
         .bind(&now)
-        .execute(self.store.pool())
+        .execute(executor)
         .await?;
         Ok(local_uuid)
     }

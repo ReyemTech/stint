@@ -38,29 +38,31 @@ impl TimerService {
     }
 
     pub async fn start(&self, args: StartArgs) -> Result<String> {
-        let running = RunningTimer::new(self.store.clone());
-        if running.get().await?.is_some() {
-            return Err(Error::Invariant(
-                "a timer is already running; stop it first".into(),
-            ));
-        }
-
-        let entries = Entries::new(self.store.clone());
-        let queue = Queue::new(self.store.clone());
-
+        // All three writes share one transaction so an "already running"
+        // failure rolls back the just-inserted time_entries row, and a
+        // concurrent pull adoption can't slip between the existence check
+        // and the running_timer set.
+        let mut tx = self.store.pool().begin().await?;
         let start_at = time::now_utc();
-        let local_uuid = entries
-            .create(NewTimeEntry {
+        let local_uuid = Entries::create_with(
+            &mut *tx,
+            NewTimeEntry {
                 description: args.description.clone(),
                 project_id: args.project_id.clone(),
                 task_id: args.task_id.clone(),
                 start_at: start_at.clone(),
                 billable: args.billable,
                 source: args.source.clone(),
-            })
-            .await?;
+            },
+        )
+        .await?;
 
-        running.set(&local_uuid).await?;
+        if !RunningTimer::try_claim_with(&mut *tx, &local_uuid).await? {
+            // tx drops without commit → INSERT into time_entries rolls back.
+            return Err(Error::Invariant(
+                "a timer is already running; stop it first".into(),
+            ));
+        }
 
         let payload = serde_json::to_string(&CreatePayload {
             local_uuid: &local_uuid,
@@ -70,10 +72,9 @@ impl TimerService {
             start_at: &start_at,
             billable: args.billable,
         })?;
-        queue
-            .enqueue(QueueOp::CreateEntry, &payload, Some(&local_uuid))
-            .await?;
+        Queue::enqueue_with(&mut *tx, QueueOp::CreateEntry, &payload, Some(&local_uuid)).await?;
 
+        tx.commit().await?;
         Ok(local_uuid)
     }
 

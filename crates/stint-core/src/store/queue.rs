@@ -46,6 +46,19 @@ impl Queue {
         payload: &str,
         entry_uuid: Option<&str>,
     ) -> Result<i64> {
+        Self::enqueue_with(self.store.pool(), op, payload, entry_uuid).await
+    }
+
+    /// Executor-generic variant of [`enqueue`].
+    pub async fn enqueue_with<'e, E>(
+        executor: E,
+        op: QueueOp,
+        payload: &str,
+        entry_uuid: Option<&str>,
+    ) -> Result<i64>
+    where
+        E: sqlx::SqliteExecutor<'e>,
+    {
         let now = time::now_utc();
         let id: i64 = sqlx::query_scalar(
             r#"INSERT INTO sync_queue (op, payload, attempts, enqueued_at, next_try_at, entry_uuid)
@@ -56,7 +69,7 @@ impl Queue {
         .bind(&now)
         .bind(&now)
         .bind(entry_uuid)
-        .fetch_one(self.store.pool())
+        .fetch_one(executor)
         .await?;
         Ok(id)
     }

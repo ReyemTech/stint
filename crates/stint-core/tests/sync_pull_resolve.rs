@@ -149,7 +149,23 @@ async fn switch_stops_local_then_adopts_remote() {
         .await
         .unwrap();
 
-    // List call inside the inner pull returns the remote running entry.
+    // The Switch flow fetches the remote entry to get its start_at.
+    Mock::given(method("GET"))
+        .and(path(
+            "/api/v1/organizations/org-1/time-entries/remote-target",
+        ))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "data": {
+                "id": "remote-target",
+                "description": "remote task",
+                "start": "2026-05-20T16:30:00Z",
+                "end": null,
+                "billable": false
+            }
+        })))
+        .mount(&server)
+        .await;
+    // The inner pull's list call also returns the remote running entry.
     Mock::given(method("GET"))
         .and(path("/api/v1/organizations/org-1/time-entries"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
@@ -170,11 +186,13 @@ async fn switch_stops_local_then_adopts_remote() {
         .await
         .unwrap();
 
-    // Local timer was stopped (end_at set, dirty).
+    // Local timer was stopped at the remote's start time — not `now` —
+    // so the two intervals don't overlap and Solidtime accepts the push.
     let local_row = entries.get(&local_uuid).await.unwrap().unwrap();
-    assert!(
-        local_row.end_at.is_some(),
-        "local timer should have been stopped"
+    assert_eq!(
+        local_row.end_at.as_deref(),
+        Some("2026-05-20T16:30:00Z"),
+        "local end_at must equal remote start to avoid overlap"
     );
 
     // Remote was adopted.
