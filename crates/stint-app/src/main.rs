@@ -2,6 +2,7 @@ mod app_state;
 mod calendar_worker;
 mod commands;
 mod menu;
+mod pull_worker;
 mod sync_worker;
 mod tray;
 mod windows;
@@ -71,6 +72,9 @@ async fn main() -> Result<()> {
             // Periodic background sync (drains queue every 30s while running).
             sync_worker::spawn(app.handle().clone(), store_for_worker.clone());
 
+            // Periodic Solidtime → stint pull (5-min tick).
+            pull_worker::spawn(app.handle().clone(), store_for_worker.clone());
+
             // One-shot pull on startup: surfaces a remote-side running timer
             // or recent edits within ~1s of launch, without waiting for the
             // 5-min background poll worker.
@@ -122,12 +126,30 @@ async fn main() -> Result<()> {
             if let Some(main) = app.get_webview_window("main") {
                 let app_handle = app.handle().clone();
                 let main_clone = main.clone();
-                main.on_window_event(move |event| {
-                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                let app_handle_focus = app.handle().clone();
+                let store_for_focus = store_for_worker.clone();
+                let last_focus_pull = std::sync::Arc::new(std::sync::Mutex::new(
+                    std::time::Instant::now() - std::time::Duration::from_secs(60),
+                ));
+                main.on_window_event(move |event| match event {
+                    tauri::WindowEvent::CloseRequested { api, .. } => {
                         api.prevent_close();
                         let _ = main_clone.hide();
                         windows::hide_dock(&app_handle);
                     }
+                    tauri::WindowEvent::Focused(true) => {
+                        let mut guard = last_focus_pull.lock().unwrap();
+                        if guard.elapsed() < std::time::Duration::from_secs(30) {
+                            return;
+                        }
+                        *guard = std::time::Instant::now();
+                        pull_worker::nudge(
+                            app_handle_focus.clone(),
+                            store_for_focus.clone(),
+                            stint_core::sync::pull::Trigger::OnFocus,
+                        );
+                    }
+                    _ => {}
                 });
             }
 
