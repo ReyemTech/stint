@@ -30,6 +30,17 @@ set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
 
+# Load build-time secrets (STINT_GOOGLE_CLIENT_ID + SECRET) so option_env!
+# in stint-core picks them up. The .env.local file is gitignored; copy
+# .env.local.example to get started.
+if [[ -f .env.local ]]; then
+  # shellcheck disable=SC1091
+  source .env.local
+else
+  echo "Warning: .env.local not found. Google OAuth will be disabled in this build."
+  echo "         See .env.local.example to enable it."
+fi
+
 if ! security find-identity -v -p codesigning | grep -q '"stint-dev"'; then
   echo "stint-dev code-signing identity not found." >&2
   echo "Run scripts/setup-dev-cert.sh once to create it." >&2
