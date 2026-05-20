@@ -6,6 +6,7 @@ import ConflictBanner from "~/components/ConflictBanner";
 import Duration from "~/components/Duration";
 import EntryList from "~/components/EntryList";
 import MainNav from "~/components/MainNav";
+import PullStatus from "~/components/PullStatus";
 import TimerCard from "~/components/TimerCard";
 import SectionLabel from "~/components/ui/SectionLabel";
 import StatusDot from "~/components/ui/StatusDot";
@@ -90,6 +91,7 @@ export default function Today() {
           />
         </header>
 
+        <PullStatus />
         <ConflictBanner />
 
         <Show when={syncMsg()}>
