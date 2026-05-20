@@ -56,7 +56,7 @@ async fn interactive_login_completes_against_mock_authz_server() {
         });
     };
 
-    let tokens = login_interactive(&client, Duration::from_secs(10), browser_simulator)
+    let tokens = login_interactive(&client, Duration::from_secs(10), "Solidtime", browser_simulator)
         .await
         .unwrap();
     assert_eq!(tokens.access_token, "first-access");

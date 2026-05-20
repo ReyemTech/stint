@@ -113,12 +113,13 @@ pub fn oauth_blob_delete(secrets: &Secrets) -> Result<()> {
 pub async fn login_interactive<F>(
     client: &OAuthClient,
     flow_timeout: Duration,
+    provider_label: &str,
     open_browser: F,
 ) -> Result<TokenSet>
 where
     F: FnOnce(String),
 {
-    let server = listen_for_callback(flow_timeout).await?;
+    let server = listen_for_callback(flow_timeout, provider_label).await?;
     let port = server.port();
     let mut config = client.config().clone();
     config.redirect_uri = format!("http://127.0.0.1:{port}/callback");

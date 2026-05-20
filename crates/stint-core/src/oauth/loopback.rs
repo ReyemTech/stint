@@ -7,15 +7,37 @@ use tokio::net::TcpListener;
 use tokio::sync::oneshot;
 use tokio::time::timeout;
 
-const SUCCESS_HTML: &str = "<!doctype html><meta charset=utf-8><title>stint — signed in</title>\
-<style>body{font:16px system-ui;padding:48px;max-width:520px;color:#1a1a1a}</style>\
-<h1>Signed in to Solidtime</h1>\
-<p>You can close this tab and return to stint.</p>";
+fn success_html(provider_label: &str) -> String {
+    format!(
+        "<!doctype html><meta charset=utf-8>\
+<title>stint — signed in</title>\
+<style>body{{font:16px system-ui;padding:48px;max-width:520px;color:#1a1a1a}}</style>\
+<h1>Signed in to {label}</h1>\
+<p>You can close this tab and return to stint.</p>",
+        label = html_escape(provider_label),
+    )
+}
 
-const ERROR_HTML: &str = "<!doctype html><meta charset=utf-8><title>stint — sign-in failed</title>\
-<style>body{font:16px system-ui;padding:48px;max-width:520px;color:#1a1a1a}</style>\
-<h1>Sign-in failed</h1>\
-<p>Return to stint for details.</p>";
+fn error_html(provider_label: &str) -> String {
+    format!(
+        "<!doctype html><meta charset=utf-8>\
+<title>stint — sign-in failed</title>\
+<style>body{{font:16px system-ui;padding:48px;max-width:520px;color:#1a1a1a}}</style>\
+<h1>Sign-in to {label} failed</h1>\
+<p>Return to stint for details.</p>",
+        label = html_escape(provider_label),
+    )
+}
+
+/// Minimal HTML-attribute-safe escape — provider_label values come from
+/// our own code ("Solidtime", "Google"), but escape defensively so a
+/// future caller can pass any string without HTML injection.
+fn html_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+}
 
 #[derive(Debug)]
 pub struct CapturedCallback {
@@ -43,7 +65,10 @@ impl LoopbackServer {
     }
 }
 
-pub async fn listen_for_callback(server_timeout: Duration) -> Result<LoopbackServer> {
+pub async fn listen_for_callback(
+    server_timeout: Duration,
+    provider_label: &str,
+) -> Result<LoopbackServer> {
     let listener = TcpListener::bind("127.0.0.1:0")
         .await
         .map_err(|e| Error::OAuthLoopback(e.to_string()))?;
@@ -52,6 +77,7 @@ pub async fn listen_for_callback(server_timeout: Duration) -> Result<LoopbackSer
         .map_err(|e| Error::OAuthLoopback(e.to_string()))?
         .port();
     let (tx, rx) = oneshot::channel();
+    let provider_label = provider_label.to_string();
 
     tokio::spawn(async move {
         let Ok((mut socket, _)) = listener.accept().await else {
@@ -69,8 +95,8 @@ pub async fn listen_for_callback(server_timeout: Duration) -> Result<LoopbackSer
 
         let parse_result = parse_callback_query(&request_line);
         let (body, response) = match &parse_result {
-            Ok(_) => (SUCCESS_HTML, "HTTP/1.1 200 OK"),
-            Err(_) => (ERROR_HTML, "HTTP/1.1 400 Bad Request"),
+            Ok(_) => (success_html(&provider_label), "HTTP/1.1 200 OK"),
+            Err(_) => (error_html(&provider_label), "HTTP/1.1 400 Bad Request"),
         };
 
         let payload = format!(
