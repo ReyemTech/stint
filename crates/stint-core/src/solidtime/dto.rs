@@ -53,6 +53,8 @@ pub struct RemoteTimeEntry {
     pub end: Option<String>,
     #[serde(default)]
     pub billable: bool,
+    #[serde(default)]
+    pub updated_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
