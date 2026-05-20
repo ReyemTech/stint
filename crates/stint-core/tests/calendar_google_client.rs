@@ -189,3 +189,33 @@ async fn list_events_paginates_with_next_page_token() {
     assert_eq!(evs[0].id, "evt-1");
     assert_eq!(evs[1].id, "evt-2");
 }
+
+#[tokio::test]
+async fn list_events_normalizes_offset_timestamps_to_utc_z() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/calendar/v3/calendars/primary/events"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "items": [
+                {
+                    "id": "evt-1",
+                    "summary": "Standup",
+                    "start": { "dateTime": "2026-05-20T13:00:00-04:00" },
+                    "end":   { "dateTime": "2026-05-20T13:15:00-04:00" }
+                }
+            ]
+        })))
+        .mount(&server)
+        .await;
+
+    let client = GoogleClient::with_base_url(&server.uri());
+    let evs = client
+        .list_events("access-1", "primary", range_today())
+        .await
+        .unwrap();
+    assert_eq!(evs.len(), 1);
+    // Solidtime requires Y-m-d\TH:i:s\Z (UTC + literal Z). Google sometimes
+    // returns offset form (e.g. -04:00); normalize at DTO mapping time.
+    assert_eq!(evs[0].start_at, "2026-05-20T17:00:00Z");
+    assert_eq!(evs[0].end_at, "2026-05-20T17:15:00Z");
+}
