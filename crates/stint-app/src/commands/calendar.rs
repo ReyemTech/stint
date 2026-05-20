@@ -101,10 +101,20 @@ pub async fn calendar_add_google(
         },
     )?;
 
-    // 3) Resolve the identifier (email) via GoogleClient::list_calendars.
+    // 3) Resolve the identifier (email) via the canonical primary-calendar endpoint.
     let http = GoogleClient::new();
-    let cals = http.list_calendars(&tokens.access_token).await?;
-    let identifier = stint_core::calendar::google::resolve_account_identifier(&cals, &account_uuid);
+    let identifier = match http.get_primary_calendar(&tokens.access_token).await {
+        Ok(id) => id,
+        Err(e) => {
+            // Falls back to the list-based heuristic if the primary endpoint
+            // fails (network blip, unusual permissions, etc.). Always
+            // graceful — we'd rather show a slightly-wrong identifier than
+            // refuse to add the account.
+            tracing::warn!(error = %e, "calendars/primary failed; falling back to list");
+            let cals = http.list_calendars(&tokens.access_token).await?;
+            stint_core::calendar::google::resolve_account_identifier(&cals, &account_uuid)
+        }
+    };
 
     let account = CalendarAccount {
         id: account_uuid.clone(),

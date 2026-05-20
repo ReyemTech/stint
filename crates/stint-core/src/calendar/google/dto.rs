@@ -34,6 +34,14 @@ impl CalendarListEntry {
 }
 
 #[derive(Debug, Deserialize)]
+pub(crate) struct CalendarResource {
+    pub id: String,
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub summary: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 pub(crate) struct EventsResponse {
     #[serde(default)]
     pub items: Vec<EventEntry>,

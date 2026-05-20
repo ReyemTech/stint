@@ -4,7 +4,7 @@
 //! `calendarList` and per-calendar `events` (with `singleEvents=true`
 //! server-side expansion of recurrences and `pageToken` paging).
 
-use crate::calendar::google::dto::{CalendarListResponse, EventsResponse};
+use crate::calendar::google::dto::{CalendarListResponse, CalendarResource, EventsResponse};
 use crate::calendar::provider::{RemoteCalendar, RemoteEvent};
 use crate::calendar::types::TimeRange;
 use crate::{Error, Result};
@@ -53,6 +53,35 @@ impl GoogleClient {
         }
         let parsed: CalendarListResponse = resp.json().await?;
         Ok(parsed.items.into_iter().map(|c| c.into_remote()).collect())
+    }
+
+    /// Fetches the user's primary calendar via Google's `primary` alias.
+    /// The returned `id` is the user's email address (or the Workspace
+    /// equivalent). Used by the sign-in flow to resolve the account's
+    /// human-readable identifier without depending on whether the
+    /// calendarList response includes a `primary: true` entry (which is
+    /// not always the case on Workspace accounts).
+    pub async fn get_primary_calendar(&self, access_token: &str) -> Result<String> {
+        let url = format!("{}/calendar/v3/calendars/primary", self.base_url);
+        let resp = self
+            .http
+            .get(&url)
+            .bearer_auth(access_token)
+            .send()
+            .await
+            .map_err(Error::from)?;
+        let status = resp.status();
+        if status == StatusCode::UNAUTHORIZED {
+            return Err(Error::OAuthRefreshFailed);
+        }
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            return Err(Error::OAuthServer(format!(
+                "google calendars/primary HTTP {status}: {body}"
+            )));
+        }
+        let parsed: CalendarResource = resp.json().await?;
+        Ok(parsed.id)
     }
 
     pub async fn list_events(
