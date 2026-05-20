@@ -185,9 +185,15 @@ git checkout -b phase-2.5
      (`codesign:`) to the `tech.reyem.stint.solidtime.token` and
      `tech.reyem.stint.solidtime.oauth` entries so any binary signed
      by `stint-dev` reads them without re-prompting after rebuilds.
-  GUI (`cargo tauri dev`) is NOT yet covered. Tauri spawns the binary
-  outside of `cargo run`, so wrapping it requires a custom file-watcher.
-  Tracked as a follow-up.
+  For the GUI, use `scripts/dev-app.sh` instead of `cargo tauri dev`.
+  Same idea as `dev-cli.sh`: it runs `cargo build -p stint-app`,
+  codesigns the binary with `stint-dev`, then launches it directly.
+  Vite is started in the background on :5173 if it isn't already
+  running, so UI HMR still works. The trade-off is Tauri's Rust HMR is
+  dropped — for Rust changes, Ctrl+C and re-run. `cargo tauri dev`
+  itself can't be wrapped cleanly because it re-invokes `cargo build`
+  internally after any pre-launch codesign, undoing the signature
+  before launch.
 - **Hot reload is flaky.** Vite reliably HMRs the UI. Cargo rebuilds the
   Rust side on save but the Tauri runtime needs to relaunch — sometimes the
   watcher misses changes when many files are touched. When in doubt,
