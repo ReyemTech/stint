@@ -239,13 +239,20 @@ pub async fn calendar_log_event(
         .find(|e| e.id == event_id && e.start_at == event_start)
         .ok_or_else(|| AppError::msg("calendar event not found in store"))?;
 
+    // Defense in depth: even if `calendar_events` has a stale row in offset
+    // form (rows synced before the Google→Solidtime Z normalizer landed),
+    // normalize here so the push to Solidtime always matches its `Y-m-d\TH:i:s\Z`
+    // contract. All-day events pass through unchanged.
+    let start_at = stint_core::time::to_solidtime_z(&event.start_at);
+    let end_at = stint_core::time::to_solidtime_z(&event.end_at);
+
     let local_uuid = entries
         .create_completed(NewCompletedEntry {
             description: event.title,
             project_id: None,
             task_id: None,
-            start_at: event.start_at.clone(),
-            end_at: event.end_at.clone(),
+            start_at,
+            end_at,
             billable: false,
             source: "calendar".into(),
             source_event_id: Some(format!("{}:{}:{}", account_id, event.id, event.start_at)),
