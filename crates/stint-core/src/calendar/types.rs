@@ -43,18 +43,18 @@ impl AttendeeStatus {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CalendarAccount {
-    pub id: String,                  // local uuid
+    pub id: String, // local uuid
     pub provider: ProviderKind,
     pub display_name: String,
-    pub identifier: String,          // email for OAuth providers
+    pub identifier: String, // email for OAuth providers
     pub caldav_url: Option<String>,
     pub enabled: bool,
-    pub created_at: String,          // RFC 3339
+    pub created_at: String, // RFC 3339
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Calendar {
-    pub id: String,                  // provider-native id
+    pub id: String, // provider-native id
     pub account_id: String,
     pub name: String,
     pub color: Option<String>,
@@ -63,11 +63,11 @@ pub struct Calendar {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CalendarEvent {
-    pub id: String,                  // provider-native id
+    pub id: String, // provider-native id
     pub account_id: String,
     pub calendar_id: String,
     pub title: String,
-    pub start_at: String,            // RFC 3339 (or YYYY-MM-DD for all-day)
+    pub start_at: String, // RFC 3339 (or YYYY-MM-DD for all-day)
     pub end_at: String,
     pub is_all_day: bool,
     pub attendee_status: Option<AttendeeStatus>,
@@ -106,8 +106,12 @@ impl EventDecision {
     pub fn decoded(wire: &str, linked_local_uuid: Option<String>) -> Option<Self> {
         match (wire, linked_local_uuid) {
             ("ignored", _) => Some(Self::Ignored),
-            ("logged_manual", Some(uuid)) => Some(Self::LoggedManual { linked_local_uuid: uuid }),
-            ("logged_auto", Some(uuid)) => Some(Self::LoggedAuto { linked_local_uuid: uuid }),
+            ("logged_manual", Some(uuid)) => Some(Self::LoggedManual {
+                linked_local_uuid: uuid,
+            }),
+            ("logged_auto", Some(uuid)) => Some(Self::LoggedAuto {
+                linked_local_uuid: uuid,
+            }),
             _ => None,
         }
     }

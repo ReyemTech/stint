@@ -55,8 +55,8 @@ async fn times_out_with_oauth_cancelled() {
 
 #[tokio::test]
 async fn success_html_includes_provider_label() {
-    use stint_core::oauth::loopback::listen_for_callback;
     use std::time::Duration;
+    use stint_core::oauth::loopback::listen_for_callback;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpStream;
 
