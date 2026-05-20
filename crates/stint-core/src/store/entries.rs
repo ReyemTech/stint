@@ -11,6 +11,18 @@ pub struct NewTimeEntry {
     pub source: String,
 }
 
+#[derive(Debug, Clone)]
+pub struct NewCompletedEntry {
+    pub description: String,
+    pub project_id: Option<String>,
+    pub task_id: Option<String>,
+    pub start_at: String,
+    pub end_at: String,
+    pub billable: bool,
+    pub source: String,
+    pub source_event_id: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct TimeEntryRow {
     pub local_uuid: String,
@@ -53,6 +65,35 @@ impl Entries {
         .bind(new.start_at)
         .bind(if new.billable { 1 } else { 0 })
         .bind(new.source)
+        .bind(&now)
+        .bind(&now)
+        .execute(self.store.pool())
+        .await?;
+        Ok(local_uuid)
+    }
+
+    /// Insert a finalised time entry (both start_at and end_at set), used by
+    /// the calendar "Log this" path and any future bulk-import flow. The
+    /// entry begins in `pending_create` so the regular sync queue picks it
+    /// up exactly like a CLI/GUI-created entry.
+    pub async fn create_completed(&self, new: NewCompletedEntry) -> Result<String> {
+        let local_uuid = ids::new_local_uuid();
+        let now = time::now_utc();
+        sqlx::query(
+            r#"INSERT INTO time_entries
+               (local_uuid, description, project_id, task_id, start_at, end_at,
+                billable, source, source_event_id, sync_state, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending_create', ?, ?)"#,
+        )
+        .bind(&local_uuid)
+        .bind(new.description)
+        .bind(new.project_id)
+        .bind(new.task_id)
+        .bind(new.start_at)
+        .bind(new.end_at)
+        .bind(if new.billable { 1 } else { 0 })
+        .bind(new.source)
+        .bind(new.source_event_id)
         .bind(&now)
         .bind(&now)
         .execute(self.store.pool())
