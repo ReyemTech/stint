@@ -53,9 +53,10 @@ export default function Today() {
     setSyncing(true);
     setSyncMsg(null);
     try {
-      // Push first so local edits hit Solidtime before pull observes its state.
-      const n = await api.syncNow();
+      // Pull first so the UI reflects remote state even if push fails
+      // (e.g. validation error on a queued op). Then drain the push queue.
       await pullNow();
+      const n = await api.syncNow();
       setSyncMsg(n > 0 ? `Synced ${n} item${n === 1 ? "" : "s"}` : "Synced");
       refetch();
     } catch (e) {
