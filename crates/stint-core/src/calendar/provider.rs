@@ -10,11 +10,7 @@ use async_trait::async_trait;
 pub trait CalendarProvider: Send + Sync {
     fn kind(&self) -> ProviderKind;
     async fn list_calendars(&self) -> Result<Vec<RemoteCalendar>>;
-    async fn list_events(
-        &self,
-        calendar_id: &str,
-        range: TimeRange,
-    ) -> Result<Vec<RemoteEvent>>;
+    async fn list_events(&self, calendar_id: &str, range: TimeRange) -> Result<Vec<RemoteEvent>>;
 }
 
 /// Provider-shaped calendar — same fields as the domain `Calendar`, minus

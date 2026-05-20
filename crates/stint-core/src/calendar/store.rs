@@ -40,22 +40,22 @@ impl CalendarStore {
 
     pub async fn get_account(&self, id: &str) -> Result<Option<CalendarAccount>> {
         let row: Option<AccountRow> = sqlx::query_as(
-                "SELECT id, provider, display_name, identifier, caldav_url, enabled, created_at
+            "SELECT id, provider, display_name, identifier, caldav_url, enabled, created_at
                  FROM calendar_accounts WHERE id = ?",
-            )
-            .bind(id)
-            .fetch_optional(self.store.pool())
-            .await?;
+        )
+        .bind(id)
+        .fetch_optional(self.store.pool())
+        .await?;
         Ok(row.map(account_from_row))
     }
 
     pub async fn list_accounts(&self) -> Result<Vec<CalendarAccount>> {
         let rows: Vec<AccountRow> = sqlx::query_as(
-                "SELECT id, provider, display_name, identifier, caldav_url, enabled, created_at
+            "SELECT id, provider, display_name, identifier, caldav_url, enabled, created_at
                  FROM calendar_accounts ORDER BY created_at",
-            )
-            .fetch_all(self.store.pool())
-            .await?;
+        )
+        .fetch_all(self.store.pool())
+        .await?;
         Ok(rows.into_iter().map(account_from_row).collect())
     }
 
@@ -108,6 +108,12 @@ fn account_from_row(
 
 // Suppress dead-code warnings on imports the later tasks will actually use.
 #[allow(dead_code)]
-fn _phantom_imports(_: AttendeeStatus, _: Calendar, _: CalendarEvent, _: EventDecision, _: &dyn FnOnce() -> String) {
+fn _phantom_imports(
+    _: AttendeeStatus,
+    _: Calendar,
+    _: CalendarEvent,
+    _: EventDecision,
+    _: &dyn FnOnce() -> String,
+) {
     let _ = time::now_utc;
 }

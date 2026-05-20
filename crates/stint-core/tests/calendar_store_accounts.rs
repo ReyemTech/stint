@@ -20,7 +20,9 @@ async fn add_then_list_returns_one_account() {
     let env = common::setup().await;
     let s = CalendarStore::new(env.store.clone());
 
-    s.add_account(&sample_account("acc-1", "me@example.com")).await.unwrap();
+    s.add_account(&sample_account("acc-1", "me@example.com"))
+        .await
+        .unwrap();
     let list = s.list_accounts().await.unwrap();
     assert_eq!(list.len(), 1);
     assert_eq!(list[0].id, "acc-1");
@@ -39,7 +41,9 @@ async fn get_account_returns_none_for_missing() {
 async fn delete_account_removes_it() {
     let env = common::setup().await;
     let s = CalendarStore::new(env.store.clone());
-    s.add_account(&sample_account("acc-1", "me@example.com")).await.unwrap();
+    s.add_account(&sample_account("acc-1", "me@example.com"))
+        .await
+        .unwrap();
     s.delete_account("acc-1").await.unwrap();
     assert!(s.list_accounts().await.unwrap().is_empty());
 }
@@ -48,8 +52,13 @@ async fn delete_account_removes_it() {
 async fn add_account_with_duplicate_id_returns_error() {
     let env = common::setup().await;
     let s = CalendarStore::new(env.store.clone());
-    s.add_account(&sample_account("acc-1", "me@example.com")).await.unwrap();
-    let err = s.add_account(&sample_account("acc-1", "other@example.com")).await.unwrap_err();
+    s.add_account(&sample_account("acc-1", "me@example.com"))
+        .await
+        .unwrap();
+    let err = s
+        .add_account(&sample_account("acc-1", "other@example.com"))
+        .await
+        .unwrap_err();
     // sqlx returns a UNIQUE-constraint violation; surfaces as Error::Sqlite.
     assert!(matches!(err, stint_core::Error::Sqlite(_)));
 }
@@ -58,7 +67,9 @@ async fn add_account_with_duplicate_id_returns_error() {
 async fn set_enabled_toggles() {
     let env = common::setup().await;
     let s = CalendarStore::new(env.store.clone());
-    s.add_account(&sample_account("acc-1", "me@example.com")).await.unwrap();
+    s.add_account(&sample_account("acc-1", "me@example.com"))
+        .await
+        .unwrap();
     s.set_account_enabled("acc-1", false).await.unwrap();
     let a = s.get_account("acc-1").await.unwrap().unwrap();
     assert!(!a.enabled);
