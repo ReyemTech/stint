@@ -17,9 +17,6 @@ pub struct RunningOutcome {
 
 /// Reconcile the local running timer against the (at most one) remote
 /// running entry. See spec §6.
-///
-/// Task 6 implements only the (Some(remote), None) → ADOPT branch.
-/// Other (Some, Some) cases land in Task 7.
 pub async fn reconcile_running(
     store: &Store,
     _client: &SolidtimeClient,
@@ -27,9 +24,14 @@ pub async fn reconcile_running(
 ) -> Result<RunningOutcome> {
     let remote_running = remote_entries.iter().find(|e| e.end.is_none());
     let running = RunningTimer::new(store.clone());
-    let local_running = running.get().await?;
+    let local_running_row = running.get().await?;
 
-    match (remote_running, local_running) {
+    let local = match local_running_row {
+        Some(r) => Entries::new(store.clone()).get(&r.local_uuid).await?,
+        None => None,
+    };
+
+    match (remote_running, local) {
         (None, _) => Ok(RunningOutcome::default()),
         (Some(remote), None) => {
             let entries = Entries::new(store.clone());
@@ -54,9 +56,21 @@ pub async fn reconcile_running(
                 conflict: None,
             })
         }
-        (Some(_), Some(_)) => {
-            // Handled in Task 7.
-            Ok(RunningOutcome::default())
+        (Some(remote), Some(local_row)) => {
+            if local_row.solidtime_id.as_deref() == Some(remote.id.as_str()) {
+                Ok(RunningOutcome::default())
+            } else {
+                Ok(RunningOutcome {
+                    adopted: None,
+                    conflict: Some(ConflictInfo {
+                        remote_id: remote.id.clone(),
+                        remote_description: remote.description.clone(),
+                        remote_start_at: remote.start.clone(),
+                        local_local_uuid: local_row.local_uuid,
+                        local_description: local_row.description,
+                    }),
+                })
+            }
         }
     }
 }
