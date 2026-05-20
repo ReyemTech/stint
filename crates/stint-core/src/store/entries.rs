@@ -23,6 +23,18 @@ pub struct NewCompletedEntry {
     pub source_event_id: Option<String>,
 }
 
+#[derive(Debug, Clone)]
+pub struct RemoteEntryUpsert {
+    pub solidtime_id: String,
+    pub description: String,
+    pub project_id: Option<String>,
+    pub task_id: Option<String>,
+    pub start_at: String,
+    pub end_at: Option<String>,
+    pub billable: bool,
+    pub updated_at: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct TimeEntryRow {
     pub local_uuid: String,
@@ -216,6 +228,91 @@ impl Entries {
             }
         }
         Ok(())
+    }
+
+    pub async fn create_from_remote(&self, e: RemoteEntryUpsert) -> Result<String> {
+        let local_uuid = ids::new_local_uuid();
+        sqlx::query(
+            r#"INSERT INTO time_entries
+               (local_uuid, solidtime_id, description, project_id, task_id,
+                start_at, end_at, billable, source, sync_state,
+                created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'solidtime', 'synced', ?, ?)"#,
+        )
+        .bind(&local_uuid)
+        .bind(&e.solidtime_id)
+        .bind(&e.description)
+        .bind(&e.project_id)
+        .bind(&e.task_id)
+        .bind(&e.start_at)
+        .bind(&e.end_at)
+        .bind(if e.billable { 1 } else { 0 })
+        .bind(&e.updated_at)
+        .bind(&e.updated_at)
+        .execute(self.store.pool())
+        .await?;
+        Ok(local_uuid)
+    }
+
+    pub async fn get_by_solidtime_id(&self, solidtime_id: &str) -> Result<Option<TimeEntryRow>> {
+        let row = sqlx::query_as::<_, TimeEntryRow>(
+            "SELECT * FROM time_entries WHERE solidtime_id = ?",
+        )
+        .bind(solidtime_id)
+        .fetch_optional(self.store.pool())
+        .await?;
+        Ok(row)
+    }
+
+    pub async fn update_from_remote(
+        &self,
+        solidtime_id: &str,
+        e: RemoteEntryUpsert,
+    ) -> Result<bool> {
+        let res = sqlx::query(
+            r#"UPDATE time_entries
+               SET description = ?, project_id = ?, task_id = ?,
+                   start_at = ?, end_at = ?, billable = ?, updated_at = ?
+               WHERE solidtime_id = ? AND sync_state = 'synced'"#,
+        )
+        .bind(&e.description)
+        .bind(&e.project_id)
+        .bind(&e.task_id)
+        .bind(&e.start_at)
+        .bind(&e.end_at)
+        .bind(if e.billable { 1 } else { 0 })
+        .bind(&e.updated_at)
+        .bind(solidtime_id)
+        .execute(self.store.pool())
+        .await?;
+        Ok(res.rows_affected() > 0)
+    }
+
+    pub async fn hard_delete_by_solidtime_id(&self, solidtime_id: &str) -> Result<bool> {
+        let res = sqlx::query("DELETE FROM time_entries WHERE solidtime_id = ?")
+            .bind(solidtime_id)
+            .execute(self.store.pool())
+            .await?;
+        Ok(res.rows_affected() > 0)
+    }
+
+    pub async fn list_synced_in_window(
+        &self,
+        from: &str,
+        to: &str,
+    ) -> Result<Vec<TimeEntryRow>> {
+        let rows = sqlx::query_as::<_, TimeEntryRow>(
+            r#"SELECT * FROM time_entries
+               WHERE sync_state = 'synced'
+                 AND solidtime_id IS NOT NULL
+                 AND start_at >= ? AND start_at <= ?
+               ORDER BY start_at"#,
+        )
+        .bind(from)
+        .bind(to)
+        .fetch_all(self.store.pool())
+        .await?;
+        Ok(rows)
     }
 
     async fn current_state(&self, local_uuid: &str) -> Result<String> {
