@@ -74,5 +74,13 @@ fi
 
 cargo build -p stint-app --quiet
 codesign -f -s stint-dev target/debug/stint-app 2>/dev/null
+
+# Re-apply allow-all-apps ACL to stint Keychain entries before launch.
+# Idempotent and cheap. Covers the case where a previous stint-app run
+# (or any keyring::Entry::set_password call) reset the ACL.
+if [[ -x scripts/relax-keychain-acl.sh ]]; then
+  scripts/relax-keychain-acl.sh || true
+fi
+
 echo "Launching stint-app (signed by stint-dev)..."
 target/debug/stint-app
