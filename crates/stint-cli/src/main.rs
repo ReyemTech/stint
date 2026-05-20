@@ -37,6 +37,8 @@ enum Command {
     Projects(cmd::projects::ProjectsCmd),
     /// Drain the sync queue once
     Sync,
+    /// Pull running-timer and recent state from Solidtime
+    Pull(cmd::pull::Args),
     /// Connect, list, and manage calendar accounts.
     #[command(subcommand)]
     Calendar(cmd::calendar::CalendarCmd),
@@ -57,7 +59,7 @@ async fn main() -> Result<()> {
     // Run startup recovery once, before any command. Skip for `Sync` to avoid
     // recursion when the GUI is also running concurrently. Skip for `Calendar`
     // because calendar commands open their own store and recovery is irrelevant.
-    if !matches!(cli.command, Command::Sync | Command::Calendar(_)) {
+    if !matches!(cli.command, Command::Sync | Command::Pull(_) | Command::Calendar(_)) {
         let store = cmd::open_store().await?;
         cmd::maybe_recover(&store).await?;
     }
@@ -72,6 +74,7 @@ async fn main() -> Result<()> {
         Command::Config(c) => cmd::config::run(c).await,
         Command::Projects(p) => cmd::projects::run(p).await,
         Command::Sync => cmd::sync::run().await,
+        Command::Pull(args) => cmd::pull::run(args).await,
         Command::Calendar(c) => {
             let store = cmd::open_store().await?;
             cmd::calendar::run(c, store).await
