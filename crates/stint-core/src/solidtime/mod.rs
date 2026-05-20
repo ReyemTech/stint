@@ -211,4 +211,29 @@ impl SolidtimeClient {
         let wrapper: Wrapper<Vec<RemoteTimeEntry>> = resp.json().await?;
         Ok(wrapper.data)
     }
+
+    pub async fn get_time_entry(&self, id: &str) -> Result<Option<RemoteTimeEntry>> {
+        let org = self.org()?;
+        let url = format!(
+            "{}/api/v1/organizations/{org}/time-entries/{id}",
+            self.base_url
+        );
+        let resp = self.authed(self.http.get(&url)).await?.send().await?;
+        let status = resp.status();
+        if status == StatusCode::NOT_FOUND {
+            return Ok(None);
+        }
+        if status == StatusCode::UNAUTHORIZED {
+            return Err(Error::SolidtimeAuth);
+        }
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            return Err(Error::Solidtime {
+                status: status.as_u16(),
+                body,
+            });
+        }
+        let wrapper: Wrapper<RemoteTimeEntry> = resp.json().await?;
+        Ok(Some(wrapper.data))
+    }
 }

@@ -52,3 +52,40 @@ async fn list_time_entries_unauth_maps_to_solidtime_auth_error() {
         .unwrap_err();
     assert!(matches!(err, stint_core::Error::SolidtimeAuth), "got: {err:?}");
 }
+
+#[tokio::test]
+async fn get_time_entry_returns_some_on_200() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v1/organizations/org-1/time-entries/remote-1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "data": {
+                "id": "remote-1",
+                "description": "still here",
+                "start": "2026-05-20T10:00:00Z",
+                "end": "2026-05-20T11:00:00Z",
+                "billable": true
+            }
+        })))
+        .mount(&server)
+        .await;
+
+    let client = SolidtimeClient::with_api_token(&server.uri(), "t").with_org("org-1");
+    let entry = client.get_time_entry("remote-1").await.unwrap();
+    assert!(entry.is_some());
+    assert_eq!(entry.unwrap().id, "remote-1");
+}
+
+#[tokio::test]
+async fn get_time_entry_returns_none_on_404() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v1/organizations/org-1/time-entries/gone"))
+        .respond_with(ResponseTemplate::new(404))
+        .mount(&server)
+        .await;
+
+    let client = SolidtimeClient::with_api_token(&server.uri(), "t").with_org("org-1");
+    let entry = client.get_time_entry("gone").await.unwrap();
+    assert!(entry.is_none());
+}
