@@ -244,10 +244,7 @@ impl Entries {
     }
 
     /// Executor-generic variant of [`create_from_remote`].
-    pub async fn create_from_remote_with<'e, E>(
-        executor: E,
-        e: RemoteEntryUpsert,
-    ) -> Result<String>
+    pub async fn create_from_remote_with<'e, E>(executor: E, e: RemoteEntryUpsert) -> Result<String>
     where
         E: sqlx::SqliteExecutor<'e>,
     {
@@ -286,12 +283,11 @@ impl Entries {
     where
         E: sqlx::SqliteExecutor<'e>,
     {
-        let row = sqlx::query_as::<_, TimeEntryRow>(
-            "SELECT * FROM time_entries WHERE solidtime_id = ?",
-        )
-        .bind(solidtime_id)
-        .fetch_optional(executor)
-        .await?;
+        let row =
+            sqlx::query_as::<_, TimeEntryRow>("SELECT * FROM time_entries WHERE solidtime_id = ?")
+                .bind(solidtime_id)
+                .fetch_optional(executor)
+                .await?;
         Ok(row)
     }
 
@@ -352,11 +348,7 @@ impl Entries {
         Ok(res.rows_affected() > 0)
     }
 
-    pub async fn list_synced_in_window(
-        &self,
-        from: &str,
-        to: &str,
-    ) -> Result<Vec<TimeEntryRow>> {
+    pub async fn list_synced_in_window(&self, from: &str, to: &str) -> Result<Vec<TimeEntryRow>> {
         Self::list_synced_in_window_with(self.store.pool(), from, to).await
     }
 

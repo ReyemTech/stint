@@ -5,7 +5,9 @@ use serde::{Deserialize, Serialize};
 use stint_core::config::{secrets::Secrets, Settings};
 use stint_core::solidtime::auth::build_token_provider;
 use stint_core::solidtime::SolidtimeClient;
-use stint_core::sync::pull::{pull, resolve_conflict, ConflictAction, ConflictInfo, PullReport, Trigger};
+use stint_core::sync::pull::{
+    pull, resolve_conflict, ConflictAction, ConflictInfo, PullReport, Trigger,
+};
 use tauri::{AppHandle, Emitter, State};
 use tokio::sync::RwLock;
 

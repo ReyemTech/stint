@@ -46,11 +46,11 @@ async fn list_time_entries_unauth_maps_to_solidtime_auth_error() {
         .await;
 
     let client = SolidtimeClient::with_api_token(&server.uri(), "t").with_org("org-1");
-    let err = client
-        .list_time_entries("m-1", "a", "b")
-        .await
-        .unwrap_err();
-    assert!(matches!(err, stint_core::Error::SolidtimeAuth), "got: {err:?}");
+    let err = client.list_time_entries("m-1", "a", "b").await.unwrap_err();
+    assert!(
+        matches!(err, stint_core::Error::SolidtimeAuth),
+        "got: {err:?}"
+    );
 }
 
 #[tokio::test]

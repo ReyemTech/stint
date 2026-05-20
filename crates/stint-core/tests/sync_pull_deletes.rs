@@ -60,7 +60,11 @@ async fn deletes_local_when_remote_returns_404() {
     assert_eq!(report.deleted, 1);
 
     let entries = Entries::new(env.store.clone());
-    assert!(entries.get_by_solidtime_id("doomed").await.unwrap().is_none());
+    assert!(entries
+        .get_by_solidtime_id("doomed")
+        .await
+        .unwrap()
+        .is_none());
 }
 
 #[tokio::test]
@@ -146,9 +150,7 @@ async fn caps_delete_probes_at_50_per_pull() {
                 start_at,
                 end_at: Some(end_at),
                 billable: false,
-                updated_at: chrono::Utc::now()
-                    .format("%Y-%m-%dT%H:%M:%SZ")
-                    .to_string(),
+                updated_at: chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(),
             })
             .await
             .unwrap();

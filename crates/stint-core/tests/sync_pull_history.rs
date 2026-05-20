@@ -51,11 +51,19 @@ async fn inserts_new_remote_entries() {
     assert_eq!(report.updated, 0);
 
     let entries = Entries::new(env.store.clone());
-    let a = entries.get_by_solidtime_id("remote-a").await.unwrap().unwrap();
+    let a = entries
+        .get_by_solidtime_id("remote-a")
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(a.description, "task a");
     assert_eq!(a.sync_state, "synced");
     assert_eq!(a.source, "solidtime");
-    let b = entries.get_by_solidtime_id("remote-b").await.unwrap().unwrap();
+    let b = entries
+        .get_by_solidtime_id("remote-b")
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(b.description, "task b");
     assert_eq!(b.billable, 1);
 }
@@ -102,7 +110,11 @@ async fn updates_existing_row_when_remote_is_newer() {
     assert_eq!(report.updated, 1);
 
     let entries = Entries::new(env.store.clone());
-    let row = entries.get_by_solidtime_id("remote-c").await.unwrap().unwrap();
+    let row = entries
+        .get_by_solidtime_id("remote-c")
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(row.description, "newer description");
     assert_eq!(row.billable, 1);
 }
@@ -128,7 +140,10 @@ async fn skips_when_local_is_pending() {
         .await
         .unwrap();
     // Local edit → row flips to `dirty`.
-    entries.update_description(&local_uuid, "local edit").await.unwrap();
+    entries
+        .update_description(&local_uuid, "local edit")
+        .await
+        .unwrap();
 
     Mock::given(method("GET"))
         .and(path("/api/v1/organizations/org-1/time-entries"))
@@ -149,7 +164,10 @@ async fn skips_when_local_is_pending() {
     let report = pull(&env.store, &client, Trigger::Manual).await.unwrap();
     assert_eq!(report.updated, 0);
     let row = entries.get(&local_uuid).await.unwrap().unwrap();
-    assert_eq!(row.description, "local edit", "must not overwrite local pending change");
+    assert_eq!(
+        row.description, "local edit",
+        "must not overwrite local pending change"
+    );
 }
 
 #[tokio::test]
@@ -262,7 +280,15 @@ async fn rollback_on_partial_failure_leaves_no_rows() {
 
     // Pre-seeded row untouched; nothing leaked from the failed pull.
     let entries = Entries::new(env.store.clone());
-    let pre = entries.get_by_solidtime_id("collide").await.unwrap().unwrap();
+    let pre = entries
+        .get_by_solidtime_id("collide")
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(pre.description, "preexisting");
-    assert!(entries.get_by_solidtime_id("fresh-a").await.unwrap().is_none());
+    assert!(entries
+        .get_by_solidtime_id("fresh-a")
+        .await
+        .unwrap()
+        .is_none());
 }
