@@ -11,6 +11,9 @@ use crate::{time, Result};
 /// Row shape returned by the `calendar_accounts` SELECT queries.
 type AccountRow = (String, String, String, String, Option<String>, i64, String);
 
+/// Row shape returned by the `calendars` SELECT queries.
+type CalendarRow = (String, String, String, Option<String>, i64);
+
 pub struct CalendarStore {
     store: Store,
 }
@@ -71,6 +74,62 @@ impl CalendarStore {
         sqlx::query("UPDATE calendar_accounts SET enabled = ? WHERE id = ?")
             .bind(if enabled { 1 } else { 0 })
             .bind(id)
+            .execute(self.store.pool())
+            .await?;
+        Ok(())
+    }
+
+    /// Upserts a provider-returned set of calendars for one account. The
+    /// `included` field on the input is ignored — locality of the include
+    /// flag is preserved by an `ON CONFLICT` that doesn't touch it. New
+    /// rows default `included = 1` per the schema.
+    pub async fn upsert_calendars(&self, account_id: &str, calendars: &[Calendar]) -> Result<()> {
+        let mut tx = self.store.pool().begin().await?;
+        for c in calendars {
+            sqlx::query(
+                r#"INSERT INTO calendars (id, account_id, name, color, included)
+                   VALUES (?, ?, ?, ?, 1)
+                   ON CONFLICT(id) DO UPDATE SET
+                     name = excluded.name,
+                     color = excluded.color
+                     -- intentionally not touching included
+                "#,
+            )
+            .bind(&c.id)
+            .bind(account_id)
+            .bind(&c.name)
+            .bind(&c.color)
+            .execute(&mut *tx)
+            .await?;
+        }
+        tx.commit().await?;
+        Ok(())
+    }
+
+    pub async fn list_calendars(&self, account_id: &str) -> Result<Vec<Calendar>> {
+        let rows: Vec<CalendarRow> = sqlx::query_as(
+            "SELECT id, account_id, name, color, included
+             FROM calendars WHERE account_id = ? ORDER BY name",
+        )
+        .bind(account_id)
+        .fetch_all(self.store.pool())
+        .await?;
+        Ok(rows
+            .into_iter()
+            .map(|(id, account_id, name, color, included)| Calendar {
+                id,
+                account_id,
+                name,
+                color,
+                included: included != 0,
+            })
+            .collect())
+    }
+
+    pub async fn set_calendar_included(&self, calendar_id: &str, included: bool) -> Result<()> {
+        sqlx::query("UPDATE calendars SET included = ? WHERE id = ?")
+            .bind(if included { 1 } else { 0 })
+            .bind(calendar_id)
             .execute(self.store.pool())
             .await?;
         Ok(())
