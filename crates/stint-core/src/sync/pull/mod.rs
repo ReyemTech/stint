@@ -3,6 +3,7 @@
 //! reconciliation sub-functions and returns a summary. Task 6 wires up
 //! running-timer adoption; history and deletes land in subsequent tasks.
 
+pub mod deletes;
 pub mod history;
 pub mod running;
 pub mod window;
@@ -59,6 +60,9 @@ pub async fn pull(
     let running_outcome =
         running::reconcile_running(&mut tx, client, &remote_entries).await?;
     let history_outcome = history::reconcile_history(&mut tx, &remote_entries).await?;
+    let deletes_outcome =
+        deletes::reconcile_deletes(&mut tx, client, &remote_entries, window.from, window.to)
+            .await?;
     tx.commit().await?;
 
     Ok(PullReport {
@@ -66,7 +70,7 @@ pub async fn pull(
         conflict: running_outcome.conflict,
         inserted: history_outcome.inserted,
         updated: history_outcome.updated,
-        deleted: 0,
+        deleted: deletes_outcome.deleted,
     })
 }
 
