@@ -1,5 +1,5 @@
 use stint_core::calendar::google::config::{
-    google_oauth_config, google_oauth_config_with_client_id, GOOGLE_CALENDAR_READONLY_SCOPE,
+    google_oauth_config_with_client_id, GOOGLE_CALENDAR_READONLY_SCOPE,
 };
 use stint_core::oauth::client::OAuthClient;
 
@@ -32,14 +32,24 @@ fn google_authorize_url_carries_access_type_offline_and_prompt_consent() {
 }
 
 #[test]
-fn google_oauth_config_honours_env_override() {
-    // The build-time constant is consulted when no env var is set; with
-    // the env var, the env value wins for tests.
-    std::env::set_var(
-        "STINT_GOOGLE_CLIENT_ID",
-        "override-client.apps.googleusercontent.com",
-    );
-    let cfg = google_oauth_config();
-    assert_eq!(cfg.client_id, "override-client.apps.googleusercontent.com");
-    std::env::remove_var("STINT_GOOGLE_CLIENT_ID");
+fn is_configured_reflects_compile_time_presence() {
+    // The actual value depends on whether STINT_GOOGLE_CLIENT_ID and
+    // STINT_GOOGLE_CLIENT_SECRET were set at build time. We can only
+    // assert that the function returns a deterministic bool consistent
+    // with the constant emptiness.
+    let configured = stint_core::calendar::google::config::is_configured();
+    let expected = !stint_core::calendar::google::config::GOOGLE_OAUTH_CLIENT_ID.is_empty()
+        && !stint_core::calendar::google::config::GOOGLE_OAUTH_CLIENT_SECRET.is_empty();
+    assert_eq!(configured, expected);
+}
+
+#[test]
+fn google_oauth_config_secret_present_when_baked() {
+    let cfg = google_oauth_config_with_client_id("fake-client.apps.googleusercontent.com");
+    // Reflects compile-time STINT_GOOGLE_CLIENT_SECRET presence.
+    if !stint_core::calendar::google::config::GOOGLE_OAUTH_CLIENT_SECRET.is_empty() {
+        assert!(cfg.client_secret.is_some());
+    } else {
+        assert!(cfg.client_secret.is_none());
+    }
 }

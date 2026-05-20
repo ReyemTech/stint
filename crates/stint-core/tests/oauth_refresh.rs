@@ -9,6 +9,7 @@ fn cfg(base: &str) -> OAuthConfig {
         authorize_url: format!("{base}/oauth/authorize"),
         token_url: format!("{base}/oauth/token"),
         client_id: "stint-desktop".into(),
+        client_secret: None,
         redirect_uri: "http://127.0.0.1:54321/callback".into(),
         scopes: vec!["read".into()],
         extra_authorize_params: vec![],

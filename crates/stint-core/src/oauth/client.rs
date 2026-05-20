@@ -21,6 +21,12 @@ pub struct OAuthConfig {
     pub authorize_url: String,
     pub token_url: String,
     pub client_id: String,
+    /// Some providers (Google's "Installed" desktop clients) require a
+    /// `client_secret` on the token endpoint even with PKCE. Per Google's
+    /// docs the value isn't truly secret — it's bundled in the binary,
+    /// paired with `client_id`. `None` for public clients (e.g. Solidtime
+    /// Laravel Passport public client).
+    pub client_secret: Option<String>,
     pub redirect_uri: String,
     pub scopes: Vec<String>,
     /// Provider-specific query params appended to the authorize URL.
@@ -82,13 +88,16 @@ impl OAuthClient {
     /// body to `config.token_url` and parses the standard JSON response.
     pub async fn exchange_code(&self, code: &str, code_verifier: &str) -> Result<TokenSet> {
         let http = Client::new();
-        let form = [
+        let mut form: Vec<(&str, &str)> = vec![
             ("grant_type", "authorization_code"),
             ("code", code),
             ("redirect_uri", self.config.redirect_uri.as_str()),
             ("client_id", self.config.client_id.as_str()),
             ("code_verifier", code_verifier),
         ];
+        if let Some(s) = &self.config.client_secret {
+            form.push(("client_secret", s.as_str()));
+        }
         let resp = http
             .post(&self.config.token_url)
             .form(&form)
@@ -128,11 +137,14 @@ impl OAuthClient {
             .ok_or(Error::OAuthRefreshFailed)?;
 
         let http = Client::new();
-        let form = [
+        let mut form: Vec<(&str, &str)> = vec![
             ("grant_type", "refresh_token"),
             ("refresh_token", refresh_token),
             ("client_id", self.config.client_id.as_str()),
         ];
+        if let Some(s) = &self.config.client_secret {
+            form.push(("client_secret", s.as_str()));
+        }
         let resp = http
             .post(&self.config.token_url)
             .form(&form)

@@ -23,6 +23,7 @@ async fn interactive_login_completes_against_mock_authz_server() {
         authorize_url: format!("{}/oauth/authorize", server.uri()),
         token_url: format!("{}/oauth/token", server.uri()),
         client_id: "stint-desktop".into(),
+        client_secret: None,
         redirect_uri: "http://127.0.0.1:0/callback".into(),
         scopes: vec![
             "read".into(),

@@ -1,21 +1,17 @@
 use anyhow::{anyhow, Context, Result};
 use clap::Subcommand;
-use std::sync::Arc;
 use std::time::Duration;
 use stint_core::calendar::google::client::GoogleClient;
-use stint_core::calendar::google::config::google_oauth_config;
-use stint_core::calendar::google::GoogleProvider;
+use stint_core::calendar::google::config::{google_oauth_config, is_configured};
 use stint_core::calendar::store::{
-    calendar_blob_delete, calendar_blob_load, calendar_blob_save, CalendarOAuthBlob, CalendarStore,
+    calendar_blob_delete, calendar_blob_save, CalendarOAuthBlob, CalendarStore,
 };
 use stint_core::calendar::sync::{refresh_account, Ranges};
 use stint_core::calendar::types::{CalendarAccount, ProviderKind};
 use stint_core::config::secrets::Secrets;
 use stint_core::ids;
 use stint_core::oauth::client::OAuthClient;
-use stint_core::solidtime::auth::{
-    login_interactive, OAuthTokenProvider, PersistFn, TokenProvider,
-};
+use stint_core::solidtime::auth::login_interactive;
 use stint_core::store::Store;
 use stint_core::time;
 
@@ -94,7 +90,8 @@ pub async fn run(c: CalendarCmd, store: Store) -> Result<()> {
             Ok(())
         }
         CalendarCmd::Refresh { account_id } => {
-            let provider = build_google_provider_cli(&secrets, &account_id)?;
+            let provider =
+                stint_core::calendar::google::build_provider_from_blob(&secrets, &account_id)?;
             let n =
                 refresh_account(&cs, &account_id, provider.as_ref(), Ranges::on_focus()).await?;
             println!("Refreshed {n} events.");
@@ -104,8 +101,16 @@ pub async fn run(c: CalendarCmd, store: Store) -> Result<()> {
 }
 
 async fn add_google(cs: &CalendarStore, secrets: &Secrets) -> Result<()> {
+    if !is_configured() {
+        return Err(anyhow!(
+            "Google OAuth credentials are not configured in this build. \
+             Set STINT_GOOGLE_CLIENT_ID and STINT_GOOGLE_CLIENT_SECRET at build time."
+        ));
+    }
+
     let cfg = google_oauth_config();
     let client_id = cfg.client_id.clone();
+    let cfg_client_secret = cfg.client_secret.clone();
     let oauth_client = OAuthClient::new(cfg);
 
     println!("Opening browser to sign in to Google.");
@@ -125,6 +130,7 @@ async fn add_google(cs: &CalendarStore, secrets: &Secrets) -> Result<()> {
         &account_uuid,
         &CalendarOAuthBlob {
             client_id: client_id.clone(),
+            client_secret: cfg_client_secret.clone(),
             tokens: tokens.clone(),
         },
     )?;
@@ -149,39 +155,13 @@ async fn add_google(cs: &CalendarStore, secrets: &Secrets) -> Result<()> {
     };
     cs.add_account(&account).await?;
 
-    let provider = build_google_provider_cli(secrets, &account_uuid)?;
+    let provider = stint_core::calendar::google::build_provider_from_blob(secrets, &account_uuid)?;
     let n = refresh_account(cs, &account_uuid, provider.as_ref(), Ranges::on_add()).await?;
     println!(
         "Added Google account: {} ({account_uuid}). Fetched {n} events.",
         account.identifier
     );
     Ok(())
-}
-
-fn build_google_provider_cli(
-    secrets: &Secrets,
-    account_id: &str,
-) -> Result<Box<dyn stint_core::calendar::provider::CalendarProvider>> {
-    let blob = calendar_blob_load(secrets, account_id)?
-        .ok_or_else(|| anyhow!("no OAuth credentials for account {account_id}"))?;
-    let mut cfg = google_oauth_config();
-    cfg.client_id = blob.client_id.clone();
-    let oauth_client = OAuthClient::new(cfg);
-
-    let secrets_clone = secrets.clone();
-    let account_owned = account_id.to_string();
-    let client_id_owned = blob.client_id.clone();
-    let persist: PersistFn = Box::new(move |tokens| {
-        let updated = CalendarOAuthBlob {
-            client_id: client_id_owned.clone(),
-            tokens: tokens.clone(),
-        };
-        calendar_blob_save(&secrets_clone, &account_owned, &updated)
-    });
-
-    let provider: Arc<dyn TokenProvider> =
-        Arc::new(OAuthTokenProvider::new(oauth_client, blob.tokens, persist));
-    Ok(Box::new(GoogleProvider::new(provider, GoogleClient::new())))
 }
 
 fn provider_label(p: ProviderKind) -> &'static str {

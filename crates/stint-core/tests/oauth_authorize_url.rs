@@ -5,6 +5,7 @@ fn cfg() -> OAuthConfig {
         authorize_url: "https://time.example.com/oauth/authorize".into(),
         token_url: "https://time.example.com/oauth/token".into(),
         client_id: "stint-desktop".into(),
+        client_secret: None,
         redirect_uri: "http://127.0.0.1:54321/callback".into(),
         scopes: vec![
             "read".into(),
@@ -50,6 +51,7 @@ fn authorize_url_appends_extra_params_in_order() {
         authorize_url: "https://accounts.google.com/o/oauth2/v2/auth".into(),
         token_url: "https://oauth2.googleapis.com/token".into(),
         client_id: "fake-id".into(),
+        client_secret: None,
         redirect_uri: "http://127.0.0.1:0/callback".into(),
         scopes: vec!["https://www.googleapis.com/auth/calendar.readonly".into()],
         extra_authorize_params: vec![

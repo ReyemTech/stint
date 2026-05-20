@@ -33,6 +33,7 @@ pub async fn run_login(store: Store) -> Result<()> {
         authorize_url: format!("{}/oauth/authorize", base_url.trim_end_matches('/')),
         token_url: format!("{}/oauth/token", base_url.trim_end_matches('/')),
         client_id: client_id.clone(),
+        client_secret: None,
         redirect_uri: "http://127.0.0.1:0/callback".into(),
         // Solidtime/Passport may reject explicit scopes if `Passport::tokensCan`
         // is not configured (scope enforcement is documented as not yet

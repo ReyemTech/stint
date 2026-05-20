@@ -354,6 +354,11 @@ fn event_from_row(
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CalendarOAuthBlob {
     pub client_id: String,
+    /// Some for Google (Desktop client secret); None for providers that
+    /// don't issue one. Serialized via `#[serde(default)]` so blobs
+    /// written by earlier Task 11 tests don't fail to deserialize.
+    #[serde(default)]
+    pub client_secret: Option<String>,
     pub tokens: TokenSet,
 }
 

@@ -18,6 +18,7 @@ fn save_load_delete_roundtrip() {
     let secrets = Secrets::with_service_prefix(unique_prefix());
     let blob = CalendarOAuthBlob {
         client_id: "fake-google-client-id".into(),
+        client_secret: Some("fake-secret".into()),
         tokens: TokenSet::from_response(
             "access-1".into(),
             Some("refresh-1".into()),
@@ -36,6 +37,7 @@ fn save_load_delete_roundtrip() {
     let loaded = calendar_blob_load(&secrets, account_uuid).unwrap().unwrap();
     assert_eq!(loaded.tokens.access_token, "access-1");
     assert_eq!(loaded.client_id, "fake-google-client-id");
+    assert_eq!(loaded.client_secret.as_deref(), Some("fake-secret"));
 
     calendar_blob_delete(&secrets, account_uuid).unwrap();
     assert!(calendar_blob_load(&secrets, account_uuid)
