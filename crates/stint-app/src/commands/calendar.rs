@@ -22,6 +22,7 @@ use stint_core::ids;
 use stint_core::oauth::client::OAuthClient;
 use stint_core::solidtime::auth::login_interactive;
 use stint_core::store::entries::{Entries, NewCompletedEntry};
+use stint_core::store::queue::{Queue, QueueOp};
 use stint_core::time;
 use tauri::{Emitter, State};
 use tokio::sync::RwLock;
@@ -249,6 +250,19 @@ pub async fn calendar_log_event(
             source: "calendar".into(),
             source_event_id: Some(format!("{}:{}:{}", account_id, event.id, event.start_at)),
         })
+        .await?;
+
+    // create_completed writes the row with sync_state='pending_create' but
+    // doesn't enqueue — mirroring TimerService::start, the caller is
+    // responsible for inserting into sync_queue. Without this, the sync
+    // drain never sees the entry and it never reaches Solidtime.
+    let queue = Queue::new((*store).clone());
+    queue
+        .enqueue(
+            QueueOp::CreateEntry,
+            &serde_json::json!({ "local_uuid": local_uuid }).to_string(),
+            Some(&local_uuid),
+        )
         .await?;
 
     cs.record_decision(
