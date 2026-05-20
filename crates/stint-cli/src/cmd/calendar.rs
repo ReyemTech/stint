@@ -137,12 +137,7 @@ async fn add_google(cs: &CalendarStore, secrets: &Secrets) -> Result<()> {
 
     let http = GoogleClient::new();
     let cals = http.list_calendars(&tokens.access_token).await?;
-    let identifier = cals
-        .iter()
-        .find(|c| c.id == "primary")
-        .map(|c| c.name.clone())
-        .or_else(|| cals.first().map(|c| c.id.clone()))
-        .unwrap_or_else(|| account_uuid.clone());
+    let identifier = stint_core::calendar::google::resolve_account_identifier(&cals, &account_uuid);
 
     let account = CalendarAccount {
         id: account_uuid.clone(),

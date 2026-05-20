@@ -21,6 +21,10 @@ pub struct RemoteCalendar {
     pub id: String,
     pub name: String,
     pub color: Option<String>,
+    /// True for the provider's "primary" calendar (Google's `primary: true`
+    /// flag, Microsoft's default calendar). Used to resolve the account's
+    /// identifier at sign-in time. CalDAV providers leave this `false`.
+    pub primary: bool,
 }
 
 /// Provider-shaped event — domain `CalendarEvent` minus `account_id` and

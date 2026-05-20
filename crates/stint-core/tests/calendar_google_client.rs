@@ -19,7 +19,7 @@ async fn list_calendars_calls_calendar_list_with_bearer() {
         .and(header("Authorization", "Bearer access-1"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "items": [
-                { "id": "primary", "summary": "Primary", "backgroundColor": "#abc" },
+                { "id": "me@example.com", "summary": "me@example.com", "backgroundColor": "#abc", "primary": true },
                 { "id": "work@example.com", "summary": "Work" }
             ]
         })))
@@ -29,10 +29,12 @@ async fn list_calendars_calls_calendar_list_with_bearer() {
     let client = GoogleClient::with_base_url(&server.uri());
     let cals = client.list_calendars("access-1").await.unwrap();
     assert_eq!(cals.len(), 2);
-    assert_eq!(cals[0].id, "primary");
-    assert_eq!(cals[0].name, "Primary");
+    assert_eq!(cals[0].id, "me@example.com");
+    assert_eq!(cals[0].name, "me@example.com");
     assert_eq!(cals[0].color.as_deref(), Some("#abc"));
+    assert!(cals[0].primary, "first item should be primary");
     assert_eq!(cals[1].id, "work@example.com");
+    assert!(!cals[1].primary, "second item should not be primary");
 }
 
 #[tokio::test]

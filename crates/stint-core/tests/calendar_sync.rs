@@ -59,6 +59,7 @@ async fn refresh_account_inserts_calendars_and_events() {
             id: "primary".into(),
             name: "Primary".into(),
             color: None,
+            primary: false,
         }],
         events_by_calendar: vec![(
             "primary".into(),
@@ -100,11 +101,13 @@ async fn refresh_account_skips_excluded_calendars() {
                 id: "primary".into(),
                 name: "Primary".into(),
                 color: None,
+                primary: false,
             },
             RemoteCalendar {
                 id: "work".into(),
                 name: "Work".into(),
                 color: None,
+                primary: false,
             },
         ],
         events_by_calendar: vec![

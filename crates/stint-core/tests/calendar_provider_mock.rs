@@ -29,6 +29,7 @@ async fn stub_provider_satisfies_trait() {
             id: "primary".into(),
             name: "Primary".into(),
             color: Some("#000".into()),
+            primary: false,
         }],
         events: vec![RemoteEvent {
             id: "evt-1".into(),
