@@ -210,6 +210,79 @@ impl CalendarStore {
 
         Ok(rows.into_iter().map(event_from_row).collect())
     }
+
+    pub async fn record_decision(
+        &self,
+        account_id: &str,
+        event_id: &str,
+        event_start: &str,
+        decision: &EventDecision,
+    ) -> Result<()> {
+        let now = time::now_utc();
+        sqlx::query(
+            r#"INSERT INTO event_decisions
+               (account_id, event_id, event_start, decision, linked_local_uuid, decided_at)
+               VALUES (?, ?, ?, ?, ?, ?)
+               ON CONFLICT(account_id, event_id, event_start) DO UPDATE SET
+                 decision = excluded.decision,
+                 linked_local_uuid = excluded.linked_local_uuid,
+                 decided_at = excluded.decided_at"#,
+        )
+        .bind(account_id)
+        .bind(event_id)
+        .bind(event_start)
+        .bind(decision.as_wire())
+        .bind(decision.linked_local_uuid())
+        .bind(&now)
+        .execute(self.store.pool())
+        .await?;
+        Ok(())
+    }
+
+    pub async fn get_decision(
+        &self,
+        account_id: &str,
+        event_id: &str,
+        event_start: &str,
+    ) -> Result<Option<EventDecision>> {
+        let row: Option<(String, Option<String>)> = sqlx::query_as(
+            "SELECT decision, linked_local_uuid FROM event_decisions
+             WHERE account_id = ? AND event_id = ? AND event_start = ?",
+        )
+        .bind(account_id)
+        .bind(event_id)
+        .bind(event_start)
+        .fetch_optional(self.store.pool())
+        .await?;
+        Ok(row.and_then(|(wire, uuid)| EventDecision::decoded(&wire, uuid)))
+    }
+
+    /// Returns `(event_id, event_start, decision)` triples for decisions
+    /// whose `event_start` falls in `[from, to)`. The event-id form lets
+    /// the caller index decisions against an event list cheaply.
+    pub async fn list_decisions_in_range(
+        &self,
+        account_id: &str,
+        from: &str,
+        to: &str,
+    ) -> Result<Vec<(String, String, EventDecision)>> {
+        let rows: Vec<(String, String, String, Option<String>)> = sqlx::query_as(
+            "SELECT event_id, event_start, decision, linked_local_uuid
+             FROM event_decisions
+             WHERE account_id = ? AND event_start >= ? AND event_start < ?",
+        )
+        .bind(account_id)
+        .bind(from)
+        .bind(to)
+        .fetch_all(self.store.pool())
+        .await?;
+        Ok(rows
+            .into_iter()
+            .filter_map(|(event_id, event_start, wire, uuid)| {
+                EventDecision::decoded(&wire, uuid).map(|d| (event_id, event_start, d))
+            })
+            .collect())
+    }
 }
 
 fn provider_wire(p: ProviderKind) -> &'static str {
@@ -269,16 +342,4 @@ fn event_from_row(
         recurring_root,
         fetched_at,
     }
-}
-
-// Suppress dead-code warnings on imports the later tasks will actually use.
-#[allow(dead_code)]
-fn _phantom_imports(
-    _: AttendeeStatus,
-    _: Calendar,
-    _: CalendarEvent,
-    _: EventDecision,
-    _: &dyn FnOnce() -> String,
-) {
-    let _ = time::now_utc;
 }
