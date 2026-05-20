@@ -78,11 +78,37 @@ pub(crate) struct EventAttendee {
     pub response_status: Option<String>,
 }
 
+/// Normalizes Google's RFC 3339 timestamps (often with a tz offset like
+/// `-04:00`) to canonical UTC with a `Z` suffix. Solidtime's API rejects
+/// the offset form with 422. All-day dates (`YYYY-MM-DD`) are passed
+/// through unchanged.
+fn to_utc_z(ts: &str) -> String {
+    chrono::DateTime::parse_from_rfc3339(ts)
+        .map(|dt| {
+            dt.with_timezone(&chrono::Utc)
+                .format("%Y-%m-%dT%H:%M:%SZ")
+                .to_string()
+        })
+        .unwrap_or_else(|_| ts.to_string())
+}
+
 impl EventEntry {
     pub(crate) fn into_remote(self, calendar_id: &str) -> RemoteEvent {
         let is_all_day = self.start.date.is_some();
-        let start_at = self.start.date_time.or(self.start.date).unwrap_or_default();
-        let end_at = self.end.date_time.or(self.end.date).unwrap_or_default();
+        let start_at = self
+            .start
+            .date_time
+            .as_deref()
+            .map(to_utc_z)
+            .or(self.start.date)
+            .unwrap_or_default();
+        let end_at = self
+            .end
+            .date_time
+            .as_deref()
+            .map(to_utc_z)
+            .or(self.end.date)
+            .unwrap_or_default();
         let attendee_status = self
             .attendees
             .iter()
