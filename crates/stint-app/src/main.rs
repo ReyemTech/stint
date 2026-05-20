@@ -1,4 +1,5 @@
 mod app_state;
+mod calendar_worker;
 mod commands;
 mod menu;
 mod sync_worker;
@@ -67,6 +68,9 @@ async fn main() -> Result<()> {
 
             // Periodic background sync (drains queue every 30s while running).
             sync_worker::spawn(app.handle().clone(), store_for_worker.clone());
+
+            // Periodic calendar refresh (polls every 15 min while running).
+            calendar_worker::spawn(app.handle().clone(), store_for_worker.clone());
 
             // Hide dock icon on startup (menu-bar app behavior).
             windows::hide_dock(app.handle());
