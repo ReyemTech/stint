@@ -197,3 +197,72 @@ async fn noop_when_local_is_newer() {
         .unwrap();
     assert_eq!(row.description, "local-most-recent");
 }
+
+#[tokio::test]
+async fn rollback_on_partial_failure_leaves_no_rows() {
+    let env = common::setup().await;
+    let server = MockServer::start().await;
+    configure(&env, &server.uri()).await;
+
+    // Construct a payload that succeeds partway then fails:
+    //   1. A *completed* entry "fresh-a" reconcile_history would
+    //      INSERT (no prior row).
+    //   2. A *running* entry "collide" whose id matches a pre-seeded
+    //      synced row. reconcile_running runs FIRST and INSERTs via
+    //      create_from_remote_with — that violates UNIQUE(solidtime_id).
+    //
+    // If `pull()` is wrapped in a single transaction, the failed
+    // running adopt must roll back. The pre-seeded row stays intact;
+    // because reconcile_running runs first, history never gets to
+    // touch "fresh-a", so it remains absent. (The negative assertion
+    // still catches the regression where the tx is committed early
+    // or where reconcile_history is allowed to run after a failure.)
+    Entries::new(env.store.clone())
+        .create_from_remote(RemoteEntryUpsert {
+            solidtime_id: "collide".into(),
+            description: "preexisting".into(),
+            project_id: None,
+            task_id: None,
+            start_at: "2026-05-19T08:00:00Z".into(),
+            end_at: Some("2026-05-19T09:00:00Z".into()),
+            billable: false,
+            updated_at: "2026-05-19T09:00:00Z".into(),
+        })
+        .await
+        .unwrap();
+
+    Mock::given(method("GET"))
+        .and(path("/api/v1/organizations/org-1/time-entries"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "data": [
+                {
+                    "id": "fresh-a",
+                    "description": "would-be-inserted",
+                    "start": "2026-05-20T11:30:00Z",
+                    "end": "2026-05-20T12:00:00Z",
+                    "billable": false,
+                    "updated_at": "2026-05-20T12:00:00Z"
+                },
+                {
+                    "id": "collide",
+                    "description": "remote running",
+                    "start": "2026-05-20T10:00:00Z",
+                    "end": null,
+                    "billable": false,
+                    "updated_at": "2026-05-20T10:05:00Z"
+                }
+            ]
+        })))
+        .mount(&server)
+        .await;
+
+    let client = SolidtimeClient::with_api_token(&server.uri(), "t").with_org("org-1");
+    let result = pull(&env.store, &client, Trigger::Manual).await;
+    assert!(result.is_err(), "expected UNIQUE violation on collide");
+
+    // Pre-seeded row untouched; nothing leaked from the failed pull.
+    let entries = Entries::new(env.store.clone());
+    let pre = entries.get_by_solidtime_id("collide").await.unwrap().unwrap();
+    assert_eq!(pre.description, "preexisting");
+    assert!(entries.get_by_solidtime_id("fresh-a").await.unwrap().is_none());
+}

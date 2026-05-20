@@ -3,7 +3,6 @@ use crate::{
     store::{
         entries::{Entries, RemoteEntryUpsert},
         running::RunningTimer,
-        Store,
     },
     sync::pull::ConflictInfo,
     Result,
@@ -17,26 +16,29 @@ pub struct RunningOutcome {
 
 /// Reconcile the local running timer against the (at most one) remote
 /// running entry. See spec §6.
+///
+/// Runs on a borrowed sqlx connection (typically a transaction handle)
+/// so the whole pull pipeline is atomic — any error rolls back the
+/// running-timer mutations alongside the history changes.
 pub async fn reconcile_running(
-    store: &Store,
+    conn: &mut sqlx::SqliteConnection,
     _client: &SolidtimeClient,
     remote_entries: &[RemoteTimeEntry],
 ) -> Result<RunningOutcome> {
     let remote_running = remote_entries.iter().find(|e| e.end.is_none());
-    let running = RunningTimer::new(store.clone());
-    let local_running_row = running.get().await?;
+    let local_running_row = RunningTimer::get_with(&mut *conn).await?;
 
     let local = match local_running_row {
-        Some(r) => Entries::new(store.clone()).get(&r.local_uuid).await?,
+        Some(r) => Entries::get_with(&mut *conn, &r.local_uuid).await?,
         None => None,
     };
 
     match (remote_running, local) {
         (None, _) => Ok(RunningOutcome::default()),
         (Some(remote), None) => {
-            let entries = Entries::new(store.clone());
-            let local_uuid = entries
-                .create_from_remote(RemoteEntryUpsert {
+            let local_uuid = Entries::create_from_remote_with(
+                &mut *conn,
+                RemoteEntryUpsert {
                     solidtime_id: remote.id.clone(),
                     description: remote.description.clone(),
                     project_id: remote.project_id.clone(),
@@ -48,9 +50,10 @@ pub async fn reconcile_running(
                         .updated_at
                         .clone()
                         .unwrap_or_else(|| remote.start.clone()),
-                })
-                .await?;
-            running.set(&local_uuid).await?;
+                },
+            )
+            .await?;
+            RunningTimer::set_with(&mut *conn, &local_uuid).await?;
             Ok(RunningOutcome {
                 adopted: Some(local_uuid),
                 conflict: None,

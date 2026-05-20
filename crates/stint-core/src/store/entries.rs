@@ -114,10 +114,19 @@ impl Entries {
     }
 
     pub async fn get(&self, local_uuid: &str) -> Result<Option<TimeEntryRow>> {
+        Self::get_with(self.store.pool(), local_uuid).await
+    }
+
+    /// Executor-generic variant of [`get`], used inside transactional
+    /// reconcile pipelines so reads and writes share one connection.
+    pub async fn get_with<'e, E>(executor: E, local_uuid: &str) -> Result<Option<TimeEntryRow>>
+    where
+        E: sqlx::SqliteExecutor<'e>,
+    {
         let row =
             sqlx::query_as::<_, TimeEntryRow>("SELECT * FROM time_entries WHERE local_uuid = ?")
                 .bind(local_uuid)
-                .fetch_optional(self.store.pool())
+                .fetch_optional(executor)
                 .await?;
         Ok(row)
     }
@@ -231,6 +240,17 @@ impl Entries {
     }
 
     pub async fn create_from_remote(&self, e: RemoteEntryUpsert) -> Result<String> {
+        Self::create_from_remote_with(self.store.pool(), e).await
+    }
+
+    /// Executor-generic variant of [`create_from_remote`].
+    pub async fn create_from_remote_with<'e, E>(
+        executor: E,
+        e: RemoteEntryUpsert,
+    ) -> Result<String>
+    where
+        E: sqlx::SqliteExecutor<'e>,
+    {
         let local_uuid = ids::new_local_uuid();
         sqlx::query(
             r#"INSERT INTO time_entries
@@ -249,17 +269,28 @@ impl Entries {
         .bind(if e.billable { 1 } else { 0 })
         .bind(&e.updated_at)
         .bind(&e.updated_at)
-        .execute(self.store.pool())
+        .execute(executor)
         .await?;
         Ok(local_uuid)
     }
 
     pub async fn get_by_solidtime_id(&self, solidtime_id: &str) -> Result<Option<TimeEntryRow>> {
+        Self::get_by_solidtime_id_with(self.store.pool(), solidtime_id).await
+    }
+
+    /// Executor-generic variant of [`get_by_solidtime_id`].
+    pub async fn get_by_solidtime_id_with<'e, E>(
+        executor: E,
+        solidtime_id: &str,
+    ) -> Result<Option<TimeEntryRow>>
+    where
+        E: sqlx::SqliteExecutor<'e>,
+    {
         let row = sqlx::query_as::<_, TimeEntryRow>(
             "SELECT * FROM time_entries WHERE solidtime_id = ?",
         )
         .bind(solidtime_id)
-        .fetch_optional(self.store.pool())
+        .fetch_optional(executor)
         .await?;
         Ok(row)
     }
@@ -269,6 +300,20 @@ impl Entries {
         solidtime_id: &str,
         e: RemoteEntryUpsert,
     ) -> Result<bool> {
+        Self::update_from_remote_with(self.store.pool(), solidtime_id, e).await
+    }
+
+    /// Executor-generic variant of [`update_from_remote`]. Preserves the
+    /// `AND sync_state = 'synced'` clause so pending-mutation rows are
+    /// never clobbered by a remote update.
+    pub async fn update_from_remote_with<'e, E>(
+        executor: E,
+        solidtime_id: &str,
+        e: RemoteEntryUpsert,
+    ) -> Result<bool>
+    where
+        E: sqlx::SqliteExecutor<'e>,
+    {
         let res = sqlx::query(
             r#"UPDATE time_entries
                SET description = ?, project_id = ?, task_id = ?,
@@ -283,15 +328,26 @@ impl Entries {
         .bind(if e.billable { 1 } else { 0 })
         .bind(&e.updated_at)
         .bind(solidtime_id)
-        .execute(self.store.pool())
+        .execute(executor)
         .await?;
         Ok(res.rows_affected() > 0)
     }
 
     pub async fn hard_delete_by_solidtime_id(&self, solidtime_id: &str) -> Result<bool> {
+        Self::hard_delete_by_solidtime_id_with(self.store.pool(), solidtime_id).await
+    }
+
+    /// Executor-generic variant of [`hard_delete_by_solidtime_id`].
+    pub async fn hard_delete_by_solidtime_id_with<'e, E>(
+        executor: E,
+        solidtime_id: &str,
+    ) -> Result<bool>
+    where
+        E: sqlx::SqliteExecutor<'e>,
+    {
         let res = sqlx::query("DELETE FROM time_entries WHERE solidtime_id = ?")
             .bind(solidtime_id)
-            .execute(self.store.pool())
+            .execute(executor)
             .await?;
         Ok(res.rows_affected() > 0)
     }
@@ -301,6 +357,18 @@ impl Entries {
         from: &str,
         to: &str,
     ) -> Result<Vec<TimeEntryRow>> {
+        Self::list_synced_in_window_with(self.store.pool(), from, to).await
+    }
+
+    /// Executor-generic variant of [`list_synced_in_window`].
+    pub async fn list_synced_in_window_with<'e, E>(
+        executor: E,
+        from: &str,
+        to: &str,
+    ) -> Result<Vec<TimeEntryRow>>
+    where
+        E: sqlx::SqliteExecutor<'e>,
+    {
         let rows = sqlx::query_as::<_, TimeEntryRow>(
             r#"SELECT * FROM time_entries
                WHERE sync_state = 'synced'
@@ -310,7 +378,7 @@ impl Entries {
         )
         .bind(from)
         .bind(to)
-        .fetch_all(self.store.pool())
+        .fetch_all(executor)
         .await?;
         Ok(rows)
     }

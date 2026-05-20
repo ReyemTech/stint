@@ -17,6 +17,14 @@ impl RunningTimer {
     }
 
     pub async fn set(&self, local_uuid: &str) -> Result<()> {
+        Self::set_with(self.store.pool(), local_uuid).await
+    }
+
+    /// Executor-generic variant of [`set`].
+    pub async fn set_with<'e, E>(executor: E, local_uuid: &str) -> Result<()>
+    where
+        E: sqlx::SqliteExecutor<'e>,
+    {
         let now = time::now_utc();
         sqlx::query(
             "INSERT INTO running_timer (id, local_uuid, heartbeat_at) VALUES (1, ?, ?)
@@ -24,16 +32,24 @@ impl RunningTimer {
         )
         .bind(local_uuid)
         .bind(now)
-        .execute(self.store.pool())
+        .execute(executor)
         .await?;
         Ok(())
     }
 
     pub async fn get(&self) -> Result<Option<RunningRow>> {
+        Self::get_with(self.store.pool()).await
+    }
+
+    /// Executor-generic variant of [`get`].
+    pub async fn get_with<'e, E>(executor: E) -> Result<Option<RunningRow>>
+    where
+        E: sqlx::SqliteExecutor<'e>,
+    {
         let row = sqlx::query_as::<_, RunningRow>(
             "SELECT local_uuid, heartbeat_at FROM running_timer WHERE id = 1",
         )
-        .fetch_optional(self.store.pool())
+        .fetch_optional(executor)
         .await?;
         Ok(row)
     }
