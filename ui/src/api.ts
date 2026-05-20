@@ -1,5 +1,15 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { ConfigEntry, Entry, OrgChoice, Project, RunningTimer } from "./types";
+import type {
+  CalendarAccount,
+  CalendarEventWithDecision,
+  CalendarOAuthStatus,
+  CalendarRow,
+  ConfigEntry,
+  Entry,
+  OrgChoice,
+  Project,
+  RunningTimer,
+} from "./types";
 
 export const api = {
   getRunningTimer: () => invoke<RunningTimer | null>("get_running_timer"),
@@ -58,3 +68,28 @@ export const oauthSolidtimeStart = () =>
 
 export const oauthSolidtimeLogout = () =>
   invoke<void>("oauth_solidtime_logout");
+
+export const calendarApi = {
+  listAccounts: () => invoke<CalendarAccount[]>("calendar_list_accounts"),
+  oauthStatus: (accountId: string) =>
+    invoke<CalendarOAuthStatus>("calendar_oauth_status", { accountId }),
+  addGoogle: () => invoke<CalendarAccount>("calendar_add_google"),
+  removeAccount: (accountId: string) =>
+    invoke<void>("calendar_remove_account", { accountId }),
+  listCalendars: (accountId: string) =>
+    invoke<CalendarRow[]>("calendar_list_calendars", { accountId }),
+  setCalendarIncluded: (calendarId: string, included: boolean) =>
+    invoke<void>("calendar_set_calendar_included", { calendarId, included }),
+  refreshAccount: (accountId: string) =>
+    invoke<number>("calendar_refresh_account", { accountId }),
+  listEventsInRange: (accountId: string, from: string, to: string) =>
+    invoke<CalendarEventWithDecision[]>("calendar_list_events_in_range", {
+      accountId,
+      from,
+      to,
+    }),
+  logEvent: (accountId: string, eventId: string, eventStart: string) =>
+    invoke<string>("calendar_log_event", { accountId, eventId, eventStart }),
+  ignoreEvent: (accountId: string, eventId: string, eventStart: string) =>
+    invoke<void>("calendar_ignore_event", { accountId, eventId, eventStart }),
+};

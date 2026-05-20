@@ -6,11 +6,11 @@ import {
   createResource,
   createSignal,
 } from "solid-js";
-import { api, oauthSolidtimeLogout, oauthSolidtimeStart, oauthSolidtimeStatus } from "~/api";
+import { api, calendarApi, oauthSolidtimeLogout, oauthSolidtimeStart, oauthSolidtimeStatus } from "~/api";
 import MainNav from "~/components/MainNav";
 import Button from "~/components/ui/Button";
 import Pill from "~/components/ui/Pill";
-import type { OrgChoice, Project } from "~/types";
+import type { CalendarAccount, CalendarRow, OrgChoice, Project } from "~/types";
 
 const LABELS: Record<string, string> = {
   "solidtime.url": "Solidtime URL",
@@ -154,6 +154,33 @@ export default function Settings() {
       await refetchAuthStatus();
     } catch (e) {
       flash("err", `Sign-out failed: ${(e as { message: string }).message}`);
+    }
+  }
+
+  // Calendar accounts
+  const [accounts, { refetch: refetchAccounts }] = createResource(() =>
+    calendarApi.listAccounts(),
+  );
+
+  async function handleAddGoogle() {
+    flash("info", "Opening Google sign-in…");
+    try {
+      const a = await calendarApi.addGoogle();
+      flash("ok", `Connected Google account: ${a.identifier}`);
+      refetchAccounts();
+    } catch (e) {
+      flash("err", `Failed: ${(e as { message: string }).message}`);
+    }
+  }
+
+  async function handleRemoveAccount(id: string) {
+    if (!confirm("Remove this calendar account?")) return;
+    try {
+      await calendarApi.removeAccount(id);
+      flash("ok", "Account removed.");
+      refetchAccounts();
+    } catch (e) {
+      flash("err", `Failed: ${(e as { message: string }).message}`);
     }
   }
 
@@ -349,7 +376,142 @@ export default function Settings() {
           <Button variant="secondary" onClick={syncNow}>Sync now</Button>
         </div>
       </section>
+
+      <section class="mt-6 rounded-2xl border border-black/[0.06] bg-white p-6 dark:border-white/[0.06] dark:bg-zinc-900">
+        <h2 class="mb-1 text-sm font-semibold uppercase tracking-wide text-zinc-500">
+          Calendar accounts
+        </h2>
+        <p class="mb-5 text-xs text-zinc-500">
+          Read-only — events appear on the Today view with a "Log this" action.
+        </p>
+
+        <Show
+          when={(accounts() ?? []).length > 0}
+          fallback={
+            <p class="text-sm text-zinc-500">
+              No calendar accounts connected yet.
+            </p>
+          }
+        >
+          <ul class="space-y-2">
+            <For each={accounts() ?? []}>
+              {(a) => (
+                <CalendarAccountRow
+                  account={a}
+                  flash={flash}
+                  onRemove={() => handleRemoveAccount(a.id)}
+                />
+              )}
+            </For>
+          </ul>
+        </Show>
+
+        <div class="mt-4 border-t border-black/[0.05] pt-4 dark:border-white/[0.04]">
+          <Button onClick={handleAddGoogle}>Add Google account</Button>
+        </div>
+      </section>
       </div>
+    </div>
+  );
+}
+
+function CalendarAccountRow(props: {
+  account: CalendarAccount;
+  flash: (kind: "ok" | "err" | "info", msg: string) => void;
+  onRemove: () => void;
+}) {
+  const [status] = createResource(
+    () => props.account.id,
+    (id) => calendarApi.oauthStatus(id),
+  );
+
+  return (
+    <li class="flex items-center justify-between rounded-md border border-black/[0.05] bg-white px-3 py-2 dark:border-white/[0.05] dark:bg-zinc-950">
+      <div class="min-w-0">
+        <div class="flex items-center gap-2">
+          <span class="text-sm font-medium truncate">
+            {props.account.identifier}
+          </span>
+          <Show when={status()?.signed_in} fallback={<Pill tone="amber">Reconnect</Pill>}>
+            <Pill tone="emerald">Signed in</Pill>
+          </Show>
+        </div>
+        <div class="mt-0.5 text-xs text-zinc-500">
+          {props.account.provider} · {props.account.id.slice(0, 8)}
+          <Show when={status()?.scope}>
+            {" · "}
+            <span title={status()?.scope ?? ""}>scope ✓</span>
+          </Show>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <CalendarsManager accountId={props.account.id} flash={props.flash} />
+        <Button variant="ghost" size="sm" onClick={props.onRemove}>
+          Remove
+        </Button>
+      </div>
+    </li>
+  );
+}
+
+function CalendarsManager(props: {
+  accountId: string;
+  flash: (kind: "ok" | "err" | "info", msg: string) => void;
+}) {
+  const [open, setOpen] = createSignal(false);
+  const [cals, { refetch }] = createResource(
+    () => (open() ? props.accountId : null),
+    async (id): Promise<CalendarRow[]> => {
+      if (!id) return [];
+      return calendarApi.listCalendars(id);
+    },
+  );
+
+  async function toggle(id: string, included: boolean) {
+    try {
+      await calendarApi.setCalendarIncluded(id, included);
+      refetch();
+    } catch (e) {
+      props.flash("err", `Toggle failed: ${(e as { message: string }).message}`);
+    }
+  }
+
+  return (
+    <div class="relative">
+      <Button variant="ghost" size="sm" onClick={() => { setOpen(!open()); }}>
+        Calendars
+      </Button>
+      <Show when={open()}>
+        <div class="absolute right-0 top-full z-10 mt-1 w-72 rounded-md border border-black/[0.08] bg-white p-3 shadow-lg dark:border-white/[0.08] dark:bg-zinc-950">
+          <Show
+            when={(cals() ?? []).length > 0}
+            fallback={
+              <p class="text-xs text-zinc-500">
+                {cals.loading ? "Loading…" : "No calendars."}
+              </p>
+            }
+          >
+            <ul class="space-y-1">
+              <For each={cals() ?? []}>
+                {(c) => (
+                  <li>
+                    <label class="flex cursor-pointer items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={c.included}
+                        onChange={(e) =>
+                          toggle(c.id, e.currentTarget.checked)
+                        }
+                      />
+                      <span>{c.name}</span>
+                    </label>
+                  </li>
+                )}
+              </For>
+            </ul>
+          </Show>
+        </div>
+      </Show>
     </div>
   );
 }
