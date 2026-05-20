@@ -162,7 +162,7 @@ git checkout -b phase-2.5
 | 2 | Tauri GUI + SolidJS UI | ✅ shipped (`phase-2-complete`) |
 | 2.5 | CI baseline (lint / test / typecheck on PR) | ✅ shipped (`phase-2.5-complete`) |
 | 3a | OAuth 2.0 foundation + Solidtime OAuth | ✅ shipped (`phase-3a-complete`) |
-| 3b | Calendar (Google + MS + CalDAV) | planned |
+| 3b | Calendar (Google + MS + CalDAV) | ✅ shipped (`phase-3b-complete`) |
 | 4 | Distribution (Homebrew cask + signing + release CD) | planned |
 | 5 | Documentation site (GitHub Pages) | planned |
 
@@ -236,6 +236,23 @@ git checkout -b phase-2.5
   passport:client --public --name=stint --redirect_uri=http://127.0.0.1/callback`
   on their Solidtime host. See the README "Signing in with Solidtime OAuth"
   section for the full setup.
+- **Google OAuth client ID is baked in.** `crates/stint-core/src/calendar/google/config.rs::GOOGLE_OAUTH_CLIENT_ID`
+  holds the production value registered against the stint Google Cloud
+  project. `STINT_GOOGLE_CLIENT_ID` env var overrides it for tests and
+  local dev. If you need to rotate the client (revoked credentials,
+  consent-screen reset, etc.), update the constant and ship a new
+  release; existing user accounts must re-sign-in because Google scopes
+  refresh tokens to the client_id.
+- **Calendar OAuth blobs are per-account.** Each Google account has its
+  own Keychain entry at `tech.reyem.stint.calendar.<account-uuid>` —
+  the lookup is by `calendar_accounts.id`, not by email. If you delete
+  a row from `calendar_accounts` directly via SQL, also delete the
+  Keychain blob or it will leak. `calendar_remove_account` does both.
+- **`singleEvents=true` does the recurrence expansion server-side.**
+  Google returns one event per occurrence in the requested window,
+  populating `recurringEventId` on overrides and expanded instances.
+  Phase 3b does NOT include an iCal RRULE expander — Phase 3d (CalDAV)
+  is where that machinery will live.
 
 ## When you start work on a phase
 

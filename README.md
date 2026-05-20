@@ -78,6 +78,52 @@ A browser opens, you authenticate against Solidtime, and stint captures the redi
 
 To switch back to API token: `stint config logout` (if you still have a PAT in Keychain it becomes active again), or pick **API token** in Settings.
 
+### Connecting a Google Calendar (Phase 3b)
+
+stint reads (read-only) your Google Calendar so you can convert events
+into time entries with one click. The stint binary ships with a
+registered Google OAuth client; you do **not** need to register your
+own.
+
+**First connect:**
+
+CLI:
+
+```
+stint calendar add google
+```
+
+GUI: open Settings → Calendar accounts → "Add Google account".
+
+The system browser opens, you grant `calendar.readonly`, and the
+account appears in the list. The Today view picks up today's events
+within a few seconds.
+
+**Managing per-calendar inclusion:**
+
+```
+stint calendar calendars <account-id> --exclude <calendar-id>
+stint calendar calendars <account-id> --include <calendar-id>
+```
+
+(Click "Calendars" on the account row in Settings for the GUI
+equivalent.)
+
+**Refresh window:** stint pulls last 7 + next 14 days at first
+connect, next 7 on launch/window focus, and last 1 + next 7 every
+15 minutes while the GUI is running.
+
+**Removing an account:**
+
+```
+stint calendar remove <account-id>
+```
+
+OAuth tokens for the account are deleted from Keychain; calendar
+rows are cascade-deleted from the local database. Any time entries
+already logged from calendar events remain (their `source_event_id`
+just becomes a dangling reference).
+
 ## Architecture
 
 Both surfaces share `~/Library/Application Support/stint/stint.db`. Secrets

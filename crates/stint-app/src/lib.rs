@@ -4,6 +4,7 @@
 //! commands, window management, and tray plumbing.
 
 pub mod app_state;
+pub mod calendar_worker;
 pub mod commands;
 pub mod menu;
 pub mod sync_worker;
