@@ -11,6 +11,7 @@ fn cfg(base: &str) -> OAuthConfig {
         client_id: "stint-desktop".into(),
         redirect_uri: "http://127.0.0.1:54321/callback".into(),
         scopes: vec!["read".into()],
+        extra_authorize_params: vec![],
     }
 }
 

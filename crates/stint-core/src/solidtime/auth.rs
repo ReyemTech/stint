@@ -187,6 +187,7 @@ pub async fn build_token_provider(
         client_id,
         redirect_uri: DEFAULT_REDIRECT_URI_HOST.into(),
         scopes: DEFAULT_SCOPES.iter().map(|s| s.to_string()).collect(),
+        extra_authorize_params: vec![],
     });
 
     match mode {
