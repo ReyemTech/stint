@@ -53,3 +53,22 @@ async fn calendar_events_pk_allows_same_event_id_at_different_starts() {
             .unwrap();
     assert_eq!(count, 2);
 }
+
+#[tokio::test]
+async fn calendars_table_has_default_project_id_column() {
+    let env = common::setup().await;
+    let pool = env.store.pool();
+
+    let row: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM pragma_table_info('calendars')
+         WHERE name = 'default_project_id'",
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap();
+
+    assert_eq!(
+        row.0, 1,
+        "default_project_id column should exist after migration 0005"
+    );
+}

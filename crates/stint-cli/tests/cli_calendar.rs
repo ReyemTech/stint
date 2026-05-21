@@ -54,6 +54,7 @@ async fn seed_account_with_calendars(
             name: (*name).into(),
             color: None,
             included: true,
+            default_project_id: None,
         })
         .collect();
     cs.upsert_calendars(account_id, &cals).await.unwrap();
@@ -127,6 +128,52 @@ async fn calendar_calendars_toggles_include_and_exclude() {
         .success()
         .stdout(predicate::str::contains("Included calendar cal-b"))
         .stdout(predicate::str::contains("[x] cal-b Calendar B"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn calendar_calendars_set_and_clear_default_project_round_trip() {
+    let tmp = TempDir::new().unwrap();
+    let db = tmp.path().join("stint.db");
+    seed_account_with_calendars(&db, "acc-1", &[("cal-1", "Personal")]).await;
+
+    cmd(&db)
+        .args([
+            "calendar",
+            "calendars",
+            "acc-1",
+            "--set-default-project",
+            "cal-1",
+            "p-42",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            "Set default project p-42 on calendar cal-1",
+        ))
+        .stdout(predicate::str::contains("(default: p-42)"));
+
+    // Re-open via core to confirm persistence beyond the listing.
+    let cs = CalendarStore::new(Store::connect(&db).await.unwrap());
+    let cals = cs.list_calendars("acc-1").await.unwrap();
+    assert_eq!(cals[0].default_project_id.as_deref(), Some("p-42"));
+
+    cmd(&db)
+        .args([
+            "calendar",
+            "calendars",
+            "acc-1",
+            "--clear-default-project",
+            "cal-1",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            "Cleared default project on calendar cal-1",
+        ));
+
+    let cs = CalendarStore::new(Store::connect(&db).await.unwrap());
+    let cals = cs.list_calendars("acc-1").await.unwrap();
+    assert_eq!(cals[0].default_project_id, None);
 }
 
 #[tokio::test(flavor = "multi_thread")]

@@ -62,6 +62,7 @@ pub async fn refresh_account(
             name: c.name.clone(),
             color: c.color.clone(),
             included: true, // ignored by upsert; included is locality-preserved
+            default_project_id: None, // local-only; never set from provider
         })
         .collect();
     store.upsert_calendars(account_id, &calendars).await?;

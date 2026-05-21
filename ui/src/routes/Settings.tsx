@@ -6,11 +6,13 @@ import {
   createResource,
   createSignal,
 } from "solid-js";
+import { Popover } from "@kobalte/core/popover";
 import { api, calendarApi, oauthSolidtimeLogout, oauthSolidtimeStart, oauthSolidtimeStatus } from "~/api";
 import MainNav from "~/components/MainNav";
 import Accordion from "~/components/ui/Accordion";
 import Button from "~/components/ui/Button";
 import Pill from "~/components/ui/Pill";
+import ProjectPicker from "~/components/ui/ProjectPicker";
 import type { CalendarAccount, CalendarRow, OrgChoice, Project } from "~/types";
 
 const LABELS: Record<string, string> = {
@@ -460,6 +462,9 @@ function CalendarsManager(props: {
       return calendarApi.listCalendars(id);
     },
   );
+  const [projects] = createResource(() => api.listProjects(), {
+    initialValue: [],
+  });
 
   async function toggle(id: string, included: boolean) {
     try {
@@ -470,13 +475,37 @@ function CalendarsManager(props: {
     }
   }
 
+  async function setDefault(calId: string, projectId: string | null) {
+    try {
+      await calendarApi.setDefaultProject(calId, projectId);
+      refetch();
+    } catch (e) {
+      props.flash(
+        "err",
+        `Set default failed: ${(e as { message: string }).message}`,
+      );
+    }
+  }
+
   return (
-    <div class="relative">
-      <Button variant="ghost" size="sm" onClick={() => { setOpen(!open()); }}>
+    <Popover open={open()} onOpenChange={setOpen}>
+      <Popover.Trigger class="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-zinc-700 outline-none transition hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-indigo-400 dark:text-zinc-300 dark:hover:bg-zinc-800">
         Calendars
-      </Button>
-      <Show when={open()}>
-        <div class="absolute right-0 top-full z-10 mt-1 w-72 rounded-md border border-black/[0.08] bg-white p-3 shadow-lg dark:border-white/[0.08] dark:bg-zinc-950">
+        <svg
+          class="h-3.5 w-3.5 text-zinc-400"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <path
+            fill-rule="evenodd"
+            d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z"
+            clip-rule="evenodd"
+          />
+        </svg>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content class="z-50 mt-1 w-80 rounded-md border border-black/[0.08] bg-white p-3 shadow-lg outline-none dark:border-white/[0.08] dark:bg-zinc-950">
           <Show
             when={(cals() ?? []).length > 0}
             fallback={
@@ -485,10 +514,10 @@ function CalendarsManager(props: {
               </p>
             }
           >
-            <ul class="space-y-1">
+            <ul class="space-y-2">
               <For each={cals() ?? []}>
                 {(c) => (
-                  <li>
+                  <li class="space-y-1">
                     <label class="flex cursor-pointer items-center gap-2 text-sm">
                       <input
                         type="checkbox"
@@ -497,16 +526,27 @@ function CalendarsManager(props: {
                           toggle(c.id, e.currentTarget.checked)
                         }
                       />
-                      <span>{c.name}</span>
+                      <span class="flex-1">{c.name}</span>
                     </label>
+                    <Show when={c.included}>
+                      <div class="pl-6">
+                        <ProjectPicker
+                          value={c.default_project_id}
+                          onChange={(id) => setDefault(c.id, id)}
+                          projects={projects() ?? []}
+                          placeholder="No default project"
+                          size="sm"
+                        />
+                      </div>
+                    </Show>
                   </li>
                 )}
               </For>
             </ul>
           </Show>
-        </div>
-      </Show>
-    </div>
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover>
   );
 }
 

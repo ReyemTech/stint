@@ -11,6 +11,7 @@ use stint_app::commands::calendar::{
     calendar_ignore_event, calendar_list_accounts, calendar_list_calendars,
     calendar_list_events_in_range, calendar_log_event, calendar_oauth_status,
     calendar_refresh_account, calendar_remove_account, calendar_set_calendar_included,
+    calendar_set_default_project,
 };
 use stint_core::calendar::store::CalendarStore;
 use stint_core::calendar::types::{
@@ -49,6 +50,7 @@ async fn seed_calendars(
             name: (*name).into(),
             color: None,
             included: true,
+            default_project_id: None,
         })
         .collect();
     cs.upsert_calendars(account_id, &rows).await.unwrap();
@@ -231,6 +233,64 @@ async fn calendar_log_event_creates_time_entry_and_marks_logged() {
         events[0].linked_local_uuid.as_deref(),
         Some(local_uuid.as_str())
     );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn calendar_set_default_project_round_trips_and_logs_prefill() {
+    let ctx = common::make_app().await;
+    seed_account(&ctx.store, "acc-1").await;
+    seed_calendars(&ctx.store, "acc-1", &[("cal-1", "Personal")]).await;
+    seed_event(
+        &ctx.store,
+        "acc-1",
+        "cal-1",
+        "evt-1",
+        "2026-05-20T09:00:00Z",
+        "2026-05-20T09:30:00Z",
+        "Standup",
+    )
+    .await;
+
+    let handle = ctx.handle();
+    calendar_set_default_project(
+        handle.state(),
+        handle.clone(),
+        "cal-1".into(),
+        Some("p-42".into()),
+    )
+    .await
+    .unwrap();
+    let cals = calendar_list_calendars(handle.state(), "acc-1".into())
+        .await
+        .unwrap();
+    assert_eq!(cals[0].default_project_id.as_deref(), Some("p-42"));
+
+    // Logging the event now prefills project_id from the calendar default.
+    let local_uuid = calendar_log_event(
+        handle.state(),
+        handle.clone(),
+        "acc-1".into(),
+        "evt-1".into(),
+        "2026-05-20T09:00:00Z".into(),
+    )
+    .await
+    .unwrap();
+    let row = Entries::new((*ctx.store).clone())
+        .get(&local_uuid)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(row.project_id.as_deref(), Some("p-42"));
+
+    // Clearing the default removes it from the calendar (no retroactive effect
+    // on the already-logged entry).
+    calendar_set_default_project(handle.state(), handle.clone(), "cal-1".into(), None)
+        .await
+        .unwrap();
+    let cals = calendar_list_calendars(handle.state(), "acc-1".into())
+        .await
+        .unwrap();
+    assert_eq!(cals[0].default_project_id, None);
 }
 
 #[tokio::test(flavor = "multi_thread")]

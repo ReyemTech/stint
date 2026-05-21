@@ -32,6 +32,7 @@ async fn upsert_calendars_replaces_set() {
                 name: "Primary".into(),
                 color: Some("#000".into()),
                 included: true,
+                default_project_id: None,
             },
             Calendar {
                 id: "work".into(),
@@ -39,6 +40,7 @@ async fn upsert_calendars_replaces_set() {
                 name: "Work".into(),
                 color: None,
                 included: true,
+                default_project_id: None,
             },
         ],
     )
@@ -57,6 +59,7 @@ async fn upsert_calendars_replaces_set() {
             name: "My Primary".into(),
             color: Some("#abc".into()),
             included: true, // value ignored by upsert; toggled via set_calendar_included
+            default_project_id: None,
         }],
     )
     .await
@@ -81,6 +84,7 @@ async fn set_calendar_included_toggles() {
             name: "Primary".into(),
             color: None,
             included: true,
+            default_project_id: None,
         }],
     )
     .await
@@ -103,10 +107,80 @@ async fn delete_account_cascades_to_calendars() {
             name: "Primary".into(),
             color: None,
             included: true,
+            default_project_id: None,
         }],
     )
     .await
     .unwrap();
     s.delete_account("acc-1").await.unwrap();
     assert!(s.list_calendars("acc-1").await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn set_default_project_round_trip() {
+    let env = common::setup().await;
+    let s = CalendarStore::new(env.store.clone());
+    seed_account(&s).await;
+    s.upsert_calendars(
+        "acc-1",
+        &[Calendar {
+            id: "cal-1".into(),
+            account_id: "acc-1".into(),
+            name: "Personal".into(),
+            color: None,
+            included: true,
+            default_project_id: None,
+        }],
+    )
+    .await
+    .unwrap();
+
+    s.set_default_project("cal-1", Some("p-123")).await.unwrap();
+    let cals = s.list_calendars("acc-1").await.unwrap();
+    assert_eq!(cals[0].default_project_id.as_deref(), Some("p-123"));
+
+    s.set_default_project("cal-1", None).await.unwrap();
+    let cals = s.list_calendars("acc-1").await.unwrap();
+    assert_eq!(cals[0].default_project_id, None);
+}
+
+#[tokio::test]
+async fn upsert_calendars_does_not_clobber_default_project_id() {
+    let env = common::setup().await;
+    let s = CalendarStore::new(env.store.clone());
+    seed_account(&s).await;
+    s.upsert_calendars(
+        "acc-1",
+        &[Calendar {
+            id: "cal-1".into(),
+            account_id: "acc-1".into(),
+            name: "Personal".into(),
+            color: None,
+            included: true,
+            default_project_id: None,
+        }],
+    )
+    .await
+    .unwrap();
+    s.set_default_project("cal-1", Some("p-42")).await.unwrap();
+
+    // A provider refresh comes in and re-upserts with no default. The
+    // local default must survive.
+    s.upsert_calendars(
+        "acc-1",
+        &[Calendar {
+            id: "cal-1".into(),
+            account_id: "acc-1".into(),
+            name: "Personal (renamed)".into(),
+            color: None,
+            included: true,
+            default_project_id: None,
+        }],
+    )
+    .await
+    .unwrap();
+
+    let cals = s.list_calendars("acc-1").await.unwrap();
+    assert_eq!(cals[0].name, "Personal (renamed)");
+    assert_eq!(cals[0].default_project_id.as_deref(), Some("p-42"));
 }

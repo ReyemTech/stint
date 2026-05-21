@@ -40,6 +40,7 @@ async fn seed(s: &CalendarStore) {
             name: "Primary".into(),
             color: None,
             included: true,
+            default_project_id: None,
         }],
     )
     .await
