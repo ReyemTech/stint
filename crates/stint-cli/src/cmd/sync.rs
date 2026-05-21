@@ -27,6 +27,11 @@ pub enum SyncCmd {
     /// auto-resolve (e.g. the remote's start differs from local). Drops
     /// any queued create_entry op for this uuid.
     ForceAdopt(ForceAdoptArgs),
+    /// Print every currently-running entry Solidtime sees for the
+    /// configured member, regardless of project / filter. Diagnostic
+    /// only — useful when overlap rejections happen but the Solidtime
+    /// web UI doesn't show what's blocking.
+    Active,
 }
 
 #[derive(Args)]
@@ -44,7 +49,37 @@ pub async fn run(args: SyncArgs) -> Result<()> {
         SyncCmd::Drain => drain().await,
         SyncCmd::RetryAbandoned => retry_abandoned().await,
         SyncCmd::ForceAdopt(a) => force_adopt(a).await,
+        SyncCmd::Active => active().await,
     }
+}
+
+async fn active() -> Result<()> {
+    let store = open_store().await?;
+    let settings = Settings::new(store.clone());
+    let member_id = settings
+        .get("solidtime.member_id")
+        .await?
+        .ok_or_else(|| anyhow!("solidtime.member_id not set"))?;
+    let client = build_client(&store).await?;
+    let actives = client.list_active_time_entries(&member_id).await?;
+    if actives.is_empty() {
+        println!("No active (running) remote time entries for member {member_id}.");
+        return Ok(());
+    }
+    println!(
+        "Solidtime has {} active (running) timer(s) for member {member_id}:",
+        actives.len()
+    );
+    for e in actives {
+        println!(
+            "  {} | start={} | project={} | description={:?}",
+            e.id,
+            e.start,
+            e.project_id.as_deref().unwrap_or("-"),
+            e.description,
+        );
+    }
+    Ok(())
 }
 
 async fn force_adopt(args: ForceAdoptArgs) -> Result<()> {
