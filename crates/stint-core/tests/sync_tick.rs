@@ -48,7 +48,9 @@ async fn tick_count_zero_drains_queue_and_refreshes_reference() {
         })))
         .mount(&server)
         .await;
-    for endpoint in ["tasks", "tags"] {
+    // `refresh_reference_data` fetches clients first; without a mock the
+    // 404 short-circuits the refresh before projects are upserted.
+    for endpoint in ["clients", "tasks", "tags"] {
         Mock::given(method("GET"))
             .and(path(format!("/api/v1/organizations/org-1/{endpoint}")))
             .respond_with(
