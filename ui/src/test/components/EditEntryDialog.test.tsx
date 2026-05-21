@@ -151,33 +151,32 @@ describe("<EditEntryDialog>", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("Delete prompts confirm; on confirm calls api.deleteEntry and onSaved+onClose", async () => {
-    const confirmSpy = vi
-      .spyOn(globalThis, "confirm")
-      .mockImplementation(() => true);
+  it("Delete arms a two-step confirm; second click calls api.deleteEntry and onSaved+onClose", async () => {
     const onSaved = vi.fn();
     const onClose = vi.fn();
-    const { getByText } = render(() => (
+    const { getByText, findByText } = render(() => (
       <EditEntryDialog
         entry={entry()}
         onClose={onClose}
         onSaved={onSaved}
       />
     ));
+    // First click only arms; nothing is deleted.
     fireEvent.click(getByText("Delete"));
+    await flush();
+    expect(api.deleteEntry).not.toHaveBeenCalled();
+    expect(await findByText("Delete this entry?")).toBeDefined();
+    // Second click commits.
+    fireEvent.click(getByText("Yes, delete"));
     await flush();
     expect(api.deleteEntry).toHaveBeenCalledWith("uuid-1");
     expect(onSaved).toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
-    confirmSpy.mockRestore();
   });
 
-  it("Delete declined by confirm does not call api.deleteEntry", async () => {
-    const confirmSpy = vi
-      .spyOn(globalThis, "confirm")
-      .mockImplementation(() => false);
+  it("Delete's inline Cancel resets back to the Delete button without deleting", async () => {
     const onSaved = vi.fn();
-    const { getByText } = render(() => (
+    const { getByText, queryByText, getAllByText, findByText } = render(() => (
       <EditEntryDialog
         entry={entry()}
         onClose={vi.fn()}
@@ -185,9 +184,14 @@ describe("<EditEntryDialog>", () => {
       />
     ));
     fireEvent.click(getByText("Delete"));
+    expect(await findByText("Delete this entry?")).toBeDefined();
+    // Two Cancel buttons exist when armed (inline + footer). The first one
+    // (inline, sm) resets the destroy state.
+    fireEvent.click(getAllByText("Cancel")[0]);
     await flush();
     expect(api.deleteEntry).not.toHaveBeenCalled();
     expect(onSaved).not.toHaveBeenCalled();
-    confirmSpy.mockRestore();
+    expect(queryByText("Delete this entry?")).toBeNull();
+    expect(getByText("Delete")).toBeDefined();
   });
 });
