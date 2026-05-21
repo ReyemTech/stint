@@ -3,6 +3,7 @@
 //!   - bare HH:MM (interpreted as today local time, day-shifted to yesterday
 //!     if the resulting moment would be in the future)
 //!   - RFC 3339 absolute timestamp
+//!
 //! Returns a UTC RFC 3339 string at second precision, suitable for stint-core.
 
 use anyhow::{anyhow, Result};

@@ -164,8 +164,8 @@ git checkout -b phase-2.5
 | 3a | OAuth 2.0 foundation + Solidtime OAuth | ✅ shipped (`phase-3a-complete`) |
 | 3b | Calendar (Google + MS + CalDAV) | ✅ shipped (`phase-3b-complete`) |
 | 3c | Solidtime down-sync | ✅ shipped (`phase-3c-complete`) |
-| 3.5 | Test coverage uplift across core / CLI / app / UI | planned |
-| 3d | Post-3b UX polish | planned |
+| 3.5 | Test coverage uplift across core / CLI / app / UI | ✅ shipped (`phase-3.5-complete`) |
+| 3d | Post-3b UX polish (picker / calendar defaults / editable times / backdate) | ✅ shipped (`phase-3d-complete`) |
 | 4 | Distribution (Homebrew cask + signing + release CD) | planned |
 | 5 | Documentation site (GitHub Pages) | planned |
 
