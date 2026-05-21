@@ -1,8 +1,9 @@
 mod common;
 
-use stint_core::store::entries::Entries;
+use stint_core::store::entries::{Entries, NewCompletedEntry};
 use stint_core::store::queue::Queue;
 use stint_core::store::running::RunningTimer;
+use stint_core::Error;
 use stint_core::timer::{StartArgs, TimerService};
 
 #[tokio::test]
@@ -214,4 +215,154 @@ async fn start_rolls_back_entry_if_running_timer_already_claimed() {
         .await
         .unwrap()
         .is_empty());
+}
+
+async fn create_completed_entry(
+    env: &common::TestEnv,
+    description: &str,
+    project_id: Option<&str>,
+    billable: bool,
+) -> String {
+    Entries::new(env.store.clone())
+        .create_completed(NewCompletedEntry {
+            description: description.into(),
+            project_id: project_id.map(str::to_owned),
+            task_id: None,
+            start_at: "2026-05-20T20:00:00Z".into(),
+            end_at: "2026-05-20T21:00:00Z".into(),
+            billable,
+            source: "cli".into(),
+            source_event_id: None,
+        })
+        .await
+        .unwrap()
+}
+
+async fn create_synced_entry(env: &common::TestEnv) -> String {
+    let id = create_completed_entry(env, "synced entry", Some("project-a"), false).await;
+    Entries::new(env.store.clone())
+        .mark_synced(&id, "remote-id")
+        .await
+        .unwrap();
+    id
+}
+
+#[tokio::test]
+async fn delete_local_only_entry_removes_row_without_delete_queue_op() {
+    let env = common::setup().await;
+    let timer = TimerService::new(env.store.clone());
+    let id = create_completed_entry(&env, "offline entry", None, false).await;
+
+    timer.delete(&id).await.unwrap();
+
+    assert!(Entries::new(env.store.clone()).get(&id).await.unwrap().is_none());
+    assert!(Queue::new(env.store.clone())
+        .take_due(10)
+        .await
+        .unwrap()
+        .is_empty());
+}
+
+#[tokio::test]
+async fn delete_missing_entry_returns_not_found() {
+    let env = common::setup().await;
+    let timer = TimerService::new(env.store.clone());
+
+    let err = timer.delete("missing-entry").await.unwrap_err();
+    assert!(matches!(err, Error::NotFound(ref msg) if msg == "entry missing-entry"));
+}
+
+#[tokio::test]
+async fn update_description_on_synced_entry_marks_dirty_and_enqueues_update() {
+    let env = common::setup().await;
+    let timer = TimerService::new(env.store.clone());
+    let id = create_synced_entry(&env).await;
+
+    timer.update_description(&id, "reworded").await.unwrap();
+
+    let row = Entries::new(env.store.clone()).get(&id).await.unwrap().unwrap();
+    assert_eq!(row.description, "reworded");
+    assert_eq!(row.sync_state, "dirty");
+
+    let due = Queue::new(env.store.clone()).take_due(10).await.unwrap();
+    assert_eq!(due.len(), 1);
+    assert_eq!(due[0].op, "update_entry");
+    assert_eq!(due[0].entry_uuid.as_deref(), Some(id.as_str()));
+    assert!(due[0].payload.contains("\"description\":\"reworded\""));
+}
+
+#[tokio::test]
+async fn synced_mutations_enqueue_updates_and_pending_create_mutations_do_not() {
+    let env = common::setup().await;
+    let timer = TimerService::new(env.store.clone());
+    let synced_id = create_synced_entry(&env).await;
+
+    timer.set_project(&synced_id, Some("project-b")).await.unwrap();
+    timer.set_billable(&synced_id, true).await.unwrap();
+
+    let synced_row = Entries::new(env.store.clone())
+        .get(&synced_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(synced_row.project_id.as_deref(), Some("project-b"));
+    assert_eq!(synced_row.billable, 1);
+    assert_eq!(synced_row.sync_state, "dirty");
+
+    let due = Queue::new(env.store.clone()).take_due(10).await.unwrap();
+    let update_ops: Vec<_> = due.iter().filter(|row| row.op == "update_entry").collect();
+    assert_eq!(update_ops.len(), 2);
+
+    let pending_env = common::setup().await;
+    let pending_timer = TimerService::new(pending_env.store.clone());
+    let pending_id = create_completed_entry(&pending_env, "draft", None, false).await;
+
+    pending_timer
+        .update_description(&pending_id, "draft updated")
+        .await
+        .unwrap();
+    pending_timer
+        .set_project(&pending_id, Some("project-c"))
+        .await
+        .unwrap();
+    pending_timer.set_billable(&pending_id, true).await.unwrap();
+
+    let pending_row = Entries::new(pending_env.store.clone())
+        .get(&pending_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(pending_row.description, "draft updated");
+    assert_eq!(pending_row.project_id.as_deref(), Some("project-c"));
+    assert_eq!(pending_row.billable, 1);
+    assert_eq!(pending_row.sync_state, "pending_create");
+    assert!(Queue::new(pending_env.store.clone())
+        .take_due(10)
+        .await
+        .unwrap()
+        .is_empty());
+}
+
+#[tokio::test]
+async fn missing_entry_mutations_return_not_found() {
+    let env = common::setup().await;
+    let timer = TimerService::new(env.store.clone());
+
+    let err = timer
+        .update_description("missing-entry", "new description")
+        .await
+        .unwrap_err();
+    assert!(matches!(err, Error::NotFound(ref msg) if msg == "entry missing-entry"));
+
+    let err = timer
+        .set_project("missing-entry", Some("project-z"))
+        .await
+        .unwrap_err();
+    assert!(matches!(err, Error::NotFound(ref msg) if msg == "entry missing-entry"));
+
+    let err = timer
+        .set_billable("missing-entry", true)
+        .await
+        .unwrap_err();
+    assert!(matches!(err, Error::NotFound(ref msg) if msg == "entry missing-entry"));
 }

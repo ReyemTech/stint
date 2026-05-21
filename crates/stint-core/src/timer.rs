@@ -135,18 +135,21 @@ impl TimerService {
     }
 
     pub async fn update_description(&self, local_uuid: &str, description: &str) -> Result<()> {
+        self.ensure_entry_exists(local_uuid).await?;
         let entries = Entries::new(self.store.clone());
         entries.update_description(local_uuid, description).await?;
         self.maybe_enqueue_update(local_uuid).await
     }
 
     pub async fn set_project(&self, local_uuid: &str, project_id: Option<&str>) -> Result<()> {
+        self.ensure_entry_exists(local_uuid).await?;
         let entries = Entries::new(self.store.clone());
         entries.set_project(local_uuid, project_id).await?;
         self.maybe_enqueue_update(local_uuid).await
     }
 
     pub async fn set_billable(&self, local_uuid: &str, billable: bool) -> Result<()> {
+        self.ensure_entry_exists(local_uuid).await?;
         let entries = Entries::new(self.store.clone());
         entries.set_billable(local_uuid, billable).await?;
         self.maybe_enqueue_update(local_uuid).await
@@ -164,6 +167,14 @@ impl TimerService {
             queue
                 .enqueue(QueueOp::UpdateEntry, &payload, Some(local_uuid))
                 .await?;
+        }
+        Ok(())
+    }
+
+    async fn ensure_entry_exists(&self, local_uuid: &str) -> Result<()> {
+        let entries = Entries::new(self.store.clone());
+        if entries.get(local_uuid).await?.is_none() {
+            return Err(Error::NotFound(format!("entry {local_uuid}")));
         }
         Ok(())
     }
