@@ -7,8 +7,12 @@ vi.mock("@tauri-apps/api/event", () => ({
 }));
 
 vi.mock("~/api", () => ({
+  api: {
+    listProjects: vi.fn().mockResolvedValue([]),
+  },
   calendarApi: {
     listAccounts: vi.fn(),
+    listCalendars: vi.fn().mockResolvedValue([]),
     listEventsInRange: vi.fn(),
     logEvent: vi.fn().mockResolvedValue("uuid-1"),
     ignoreEvent: vi.fn().mockResolvedValue(undefined),
@@ -16,7 +20,7 @@ vi.mock("~/api", () => ({
 }));
 
 import CalendarSection from "~/components/CalendarSection";
-import { calendarApi } from "~/api";
+import { api, calendarApi } from "~/api";
 
 const flushMicrotasks = () => new Promise<void>((r) => setTimeout(r, 0));
 
@@ -51,6 +55,10 @@ function event(overrides: Partial<CalendarEventWithDecision> = {}): CalendarEven
 beforeEach(() => {
   vi.mocked(calendarApi.listAccounts).mockReset();
   vi.mocked(calendarApi.listEventsInRange).mockReset();
+  vi.mocked(calendarApi.listCalendars).mockReset();
+  vi.mocked(calendarApi.listCalendars).mockResolvedValue([]);
+  vi.mocked(api.listProjects).mockReset();
+  vi.mocked(api.listProjects).mockResolvedValue([]);
   vi.mocked(calendarApi.logEvent).mockClear();
   vi.mocked(calendarApi.ignoreEvent).mockClear();
 });
@@ -114,6 +122,36 @@ describe("<CalendarSection>", () => {
       "evt-1",
       "2026-05-20T09:00:00Z",
     );
+  });
+
+  it("shows a default-project pill on undecided events when the calendar has one", async () => {
+    vi.mocked(calendarApi.listAccounts).mockResolvedValue([account]);
+    vi.mocked(calendarApi.listEventsInRange).mockResolvedValue([event()]);
+    vi.mocked(calendarApi.listCalendars).mockResolvedValue([
+      {
+        id: "cal-1",
+        account_id: "acc-1",
+        name: "Personal",
+        color: null,
+        included: true,
+        default_project_id: "p-1",
+      },
+    ]);
+    vi.mocked(api.listProjects).mockResolvedValue([
+      {
+        id: "p-1",
+        name: "Tet",
+        color: null,
+        client_id: null,
+        client_name: null,
+        archived: 0,
+      },
+    ]);
+    const { findByRole, findByText } = render(() => (
+      <CalendarSection onEntriesChanged={() => {}} />
+    ));
+    fireEvent.click(await findByRole("button", { name: /Calendar/ }));
+    expect(await findByText(/→\s*Tet/)).toBeDefined();
   });
 
   it("an already-logged event shows the Logged pill and hides the action buttons", async () => {

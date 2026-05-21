@@ -1,6 +1,6 @@
 import { For, Show, createMemo, createResource, onCleanup } from "solid-js";
 import { listen } from "@tauri-apps/api/event";
-import { calendarApi } from "~/api";
+import { api, calendarApi } from "~/api";
 import Accordion from "~/components/ui/Accordion";
 import Button from "~/components/ui/Button";
 import Pill from "~/components/ui/Pill";
@@ -49,9 +49,49 @@ export default function CalendarSection(props: { onEntriesChanged: () => void })
     },
   );
 
-  const unlisten = listen("calendar:changed", () => refetch());
+  // Map calendar_id → default project name. Lets each event show which
+  // project it'll be logged to. Built lazily from all accounts' calendars
+  // + the project list; empty map until both resolve.
+  const [calendarsByAccount] = createResource(
+    () => (accounts() ?? []).map((a) => a.id).join(","),
+    async (): Promise<Map<string, string>> => {
+      const list = accounts() ?? [];
+      const out = new Map<string, string>();
+      for (const a of list) {
+        try {
+          const cals = await calendarApi.listCalendars(a.id);
+          for (const c of cals) {
+            if (c.default_project_id) {
+              out.set(c.id, c.default_project_id);
+            }
+          }
+        } catch {
+          // ignore per-account failure
+        }
+      }
+      return out;
+    },
+  );
+
+  const [projects] = createResource(() => api.listProjects(), {
+    initialValue: [],
+  });
+
+  const projectNameById = createMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of projects() ?? []) m.set(p.id, p.name);
+    return m;
+  });
+
+  const defaultProjectForCalendar = (calendarId: string): string | null => {
+    const pid = calendarsByAccount()?.get(calendarId);
+    if (!pid) return null;
+    return projectNameById().get(pid) ?? null;
+  };
+
+  const unlistenChanged = listen("calendar:changed", () => refetch());
   onCleanup(() => {
-    unlisten.then((fn) => fn()).catch(() => {});
+    unlistenChanged.then((fn) => fn()).catch(() => {});
   });
 
   const total = createMemo(() =>
@@ -95,6 +135,7 @@ export default function CalendarSection(props: { onEntriesChanged: () => void })
                   {(e) => (
                     <EventRow
                       event={e}
+                      defaultProjectName={defaultProjectForCalendar(e.calendar_id)}
                       onLog={() => handleLog(g, e)}
                       onIgnore={() => handleIgnore(g, e)}
                     />
@@ -111,6 +152,7 @@ export default function CalendarSection(props: { onEntriesChanged: () => void })
 
 function EventRow(props: {
   event: CalendarEventWithDecision;
+  defaultProjectName: string | null;
   onLog: () => void;
   onIgnore: () => void;
 }) {
@@ -134,6 +176,9 @@ function EventRow(props: {
           {props.event.is_all_day ? "all-day" : `${startLabel()} – ${endLabel()}`}
         </div>
         <div class="min-w-0 flex-1 truncate text-sm">{props.event.title}</div>
+        <Show when={!decided() && props.defaultProjectName}>
+          <Pill tone="indigo">→ {props.defaultProjectName}</Pill>
+        </Show>
         <Show when={logged()}>
           <Pill tone="emerald">Logged</Pill>
         </Show>
