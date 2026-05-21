@@ -9,8 +9,8 @@
 mod common;
 
 use stint_app::commands::timer::{
-    delete_entry, get_running_timer, set_entry_billable, set_entry_project, start_timer,
-    stop_timer, update_description, update_entry_times, StartTimerArgs,
+    delete_entry, get_running_timer, restart_entry, set_entry_billable, set_entry_project,
+    start_timer, stop_timer, update_description, update_entry_times, StartTimerArgs,
 };
 use stint_core::store::entries::Entries;
 use stint_core::store::queue::Queue;
@@ -146,6 +146,117 @@ async fn stop_timer_sets_end_and_clears_running() {
         .await
         .unwrap()
         .is_none());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn restart_entry_starts_new_timer_with_same_metadata() {
+    let ctx = common::make_app().await;
+    let handle = ctx.handle();
+
+    // Seed a completed entry to act as the template.
+    let template_id = start_timer(
+        handle.clone(),
+        handle.state(),
+        StartTimerArgs {
+            description: "deep work".into(),
+            project_id: Some("proj-abc".into()),
+            task_id: None,
+            billable: true,
+            start_at: None,
+        },
+    )
+    .await
+    .unwrap();
+    stop_timer(handle.clone(), handle.state()).await.unwrap();
+
+    let new_id = restart_entry(handle.clone(), handle.state(), template_id.clone())
+        .await
+        .expect("restart succeeds");
+    assert_ne!(new_id, template_id, "restart creates a new local_uuid");
+
+    let entries = Entries::new((*ctx.store).clone());
+    let new_row = entries.get(&new_id).await.unwrap().unwrap();
+    assert_eq!(new_row.description, "deep work");
+    assert_eq!(new_row.project_id.as_deref(), Some("proj-abc"));
+    assert_eq!(new_row.billable, 1);
+    assert!(new_row.end_at.is_none(), "new entry is running");
+
+    let running = RunningTimer::new((*ctx.store).clone())
+        .get()
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(running.local_uuid, new_id);
+
+    // Template is untouched.
+    let template = entries.get(&template_id).await.unwrap().unwrap();
+    assert!(template.end_at.is_some());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn restart_entry_stops_existing_running_timer_first() {
+    let ctx = common::make_app().await;
+    let handle = ctx.handle();
+
+    // Seed a completed template entry.
+    let template_id = start_timer(
+        handle.clone(),
+        handle.state(),
+        StartTimerArgs {
+            description: "template".into(),
+            project_id: None,
+            task_id: None,
+            billable: false,
+            start_at: None,
+        },
+    )
+    .await
+    .unwrap();
+    stop_timer(handle.clone(), handle.state()).await.unwrap();
+
+    // Start an unrelated timer.
+    let blocking_id = start_timer(
+        handle.clone(),
+        handle.state(),
+        StartTimerArgs {
+            description: "in progress".into(),
+            project_id: None,
+            task_id: None,
+            billable: false,
+            start_at: None,
+        },
+    )
+    .await
+    .unwrap();
+
+    // Restart should stop the blocking timer and start a fresh one.
+    let new_id = restart_entry(handle.clone(), handle.state(), template_id.clone())
+        .await
+        .unwrap();
+
+    let entries = Entries::new((*ctx.store).clone());
+    let blocking_row = entries.get(&blocking_id).await.unwrap().unwrap();
+    assert!(blocking_row.end_at.is_some(), "blocking timer was stopped");
+    let new_row = entries.get(&new_id).await.unwrap().unwrap();
+    assert_eq!(new_row.description, "template");
+    assert!(new_row.end_at.is_none());
+    let running = RunningTimer::new((*ctx.store).clone())
+        .get()
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(running.local_uuid, new_id);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn restart_entry_errors_on_unknown_uuid() {
+    let ctx = common::make_app().await;
+    let handle = ctx.handle();
+    let err = restart_entry(handle.clone(), handle.state(), "no-such-uuid".into())
+        .await
+        .expect_err("missing entry should error");
+    assert!(err.message.to_lowercase().contains("not found"));
+    let _ = ctx;
 }
 
 #[tokio::test(flavor = "multi_thread")]
