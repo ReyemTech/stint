@@ -1,8 +1,6 @@
 use assert_cmd::Command;
 use predicates::prelude::*;
-use stint_core::config::secrets::Secrets;
 use stint_core::store::{entries::Entries, Store};
-use std::sync::{LazyLock, Mutex};
 use tempfile::TempDir;
 use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -13,11 +11,17 @@ fn cmd(db: &std::path::Path) -> Command {
     c
 }
 
-/// Per-test secret namespace. Threaded through both the spawned `stint`
-/// binary (via STINT_SECRET_PREFIX) and the in-process `Secrets` helper
-/// so tests never touch the developer's real `tech.reyem.stint.*`
-/// keychain entries. Each test gets a fresh UUID-suffixed prefix; the
-/// Drop on SecretRestoreGuard cleans the synthetic entry afterwards.
+/// Per-test secret namespace. Threaded through the spawned `stint`
+/// subprocess (via STINT_SECRET_PREFIX) so tests never touch the
+/// developer's real `tech.reyem.stint.*` keychain entries. The synthetic
+/// entries leak into the test-prefix namespace — harmless, and swept by
+/// scripts/clean-test-keychain.sh.
+///
+/// We intentionally do NOT install a Drop guard that deletes the
+/// synthetic entry: the test process has a different cdhash from the
+/// subprocess that created the entry, so a cross-process delete triggers
+/// a macOS keychain prompt. The leakage is bounded (one entry per test
+/// per `cargo test` invocation, all under tech.reyem.stint.test.*).
 fn unique_test_prefix() -> String {
     format!("tech.reyem.stint.test.{}", stint_core::ids::new_local_uuid())
 }
@@ -26,41 +30,6 @@ fn cmd_with_prefix(db: &std::path::Path, prefix: &str) -> Command {
     let mut c = cmd(db);
     c.env("STINT_SECRET_PREFIX", prefix);
     c
-}
-
-static KEYCHAIN_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
-
-struct SecretRestoreGuard {
-    secrets: Secrets,
-    key: &'static str,
-    prior: Option<String>,
-}
-
-impl SecretRestoreGuard {
-    /// Bind to a synthetic test prefix. The Drop deletes the synthetic
-    /// entry; `prior` is captured in case a previous test under the same
-    /// prefix left state behind (in practice always None for unique
-    /// per-test prefixes — but kept for symmetry / defensive cleanup).
-    fn capture_with_prefix(prefix: &str, key: &'static str) -> Self {
-        let secrets = Secrets::with_service_prefix(prefix);
-        let prior = secrets.get(key).expect("read prior secret");
-        Self { secrets, key, prior }
-    }
-}
-
-impl Drop for SecretRestoreGuard {
-    fn drop(&mut self) {
-        match &self.prior {
-            Some(value) => self
-                .secrets
-                .set(self.key, value)
-                .expect("restore prior secret value"),
-            None => self
-                .secrets
-                .delete(self.key)
-                .expect("delete test secret value"),
-        }
-    }
 }
 
 async fn first_entry_id(db: &std::path::Path) -> String {
@@ -178,14 +147,7 @@ async fn config_test_fails_when_solidtime_url_is_missing() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn config_test_succeeds_against_solidtime_and_masks_secret_in_show() {
-    if std::env::var_os("STINT_SKIP_KEYCHAIN_TESTS").is_some() {
-        eprintln!("skipped: STINT_SKIP_KEYCHAIN_TESTS=1");
-        return;
-    }
-
-    let _lock = KEYCHAIN_LOCK.lock().unwrap();
     let prefix = unique_test_prefix();
-    let _restore = SecretRestoreGuard::capture_with_prefix(&prefix, "solidtime.token");
 
     let tmp = TempDir::new().unwrap();
     let db = tmp.path().join("stint.db");
@@ -424,14 +386,7 @@ async fn projects_list_is_empty_before_refresh() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn projects_refresh_populates_cached_projects() {
-    if std::env::var_os("STINT_SKIP_KEYCHAIN_TESTS").is_some() {
-        eprintln!("skipped: STINT_SKIP_KEYCHAIN_TESTS=1");
-        return;
-    }
-
-    let _lock = KEYCHAIN_LOCK.lock().unwrap();
     let prefix = unique_test_prefix();
-    let _restore = SecretRestoreGuard::capture_with_prefix(&prefix, "solidtime.token");
 
     let tmp = TempDir::new().unwrap();
     let db = tmp.path().join("stint.db");
