@@ -6,6 +6,7 @@ pub mod edit;
 pub mod list;
 pub mod projects;
 pub mod pull;
+pub mod restart;
 pub mod start;
 pub mod stop;
 pub mod sync;

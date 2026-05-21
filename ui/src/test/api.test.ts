@@ -97,6 +97,13 @@ describe("api (timer commands)", () => {
       billable: true,
     });
   });
+
+  it("restartEntry passes localUuid", async () => {
+    await api.restartEntry("uuid-99");
+    expect(mockInvoke).toHaveBeenCalledWith("restart_entry", {
+      localUuid: "uuid-99",
+    });
+  });
 });
 
 describe("api (entries / projects / config / sync)", () => {

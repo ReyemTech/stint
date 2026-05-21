@@ -35,6 +35,7 @@ async fn main() -> Result<()> {
             commands::timer::get_running_timer,
             commands::timer::start_timer,
             commands::timer::stop_timer,
+            commands::timer::restart_entry,
             commands::timer::delete_entry,
             commands::timer::update_description,
             commands::timer::set_entry_project,

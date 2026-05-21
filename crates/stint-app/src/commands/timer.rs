@@ -77,6 +77,41 @@ pub async fn start_timer<R: Runtime>(
     Ok(id)
 }
 
+/// Start a fresh timer using the description / project / task / billable
+/// from an existing entry. If a timer is already running, stop it first so
+/// the user can "click to repeat" in one step.
+#[tauri::command]
+pub async fn restart_entry<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, RwLock<AppState>>,
+    local_uuid: String,
+) -> Result<String, AppError> {
+    let store = store(&state).await;
+    let entries = Entries::new((*store).clone());
+    let template = entries
+        .get(&local_uuid)
+        .await?
+        .ok_or_else(|| stint_core::Error::NotFound(format!("entry {local_uuid}")))?;
+
+    let timer = TimerService::new((*store).clone());
+    // Stop whatever's running so the start below doesn't fail. No-op when
+    // idle; ignore the not-running error.
+    let _ = timer.stop().await;
+    let id = timer
+        .start(StartArgs {
+            description: template.description,
+            project_id: template.project_id,
+            task_id: template.task_id,
+            billable: template.billable != 0,
+            source: "gui".into(),
+            start_at: None,
+        })
+        .await?;
+    announce_change(&app);
+    sync_worker::nudge(app.clone(), store);
+    Ok(id)
+}
+
 #[tauri::command]
 pub async fn stop_timer<R: Runtime>(
     app: AppHandle<R>,

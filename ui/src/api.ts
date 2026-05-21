@@ -32,6 +32,8 @@ export const api = {
   stopTimer: () => invoke<string>("stop_timer"),
   deleteEntry: (localUuid: string) =>
     invoke<void>("delete_entry", { localUuid }),
+  restartEntry: (localUuid: string) =>
+    invoke<string>("restart_entry", { localUuid }),
   updateDescription: (localUuid: string, description: string) =>
     invoke<void>("update_description", { localUuid, description }),
   setEntryProject: (localUuid: string, projectId: string | null) =>

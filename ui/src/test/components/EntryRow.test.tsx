@@ -12,6 +12,7 @@ vi.mock("~/api", () => ({
     setEntryBillable: vi.fn().mockResolvedValue(undefined),
     updateEntryTimes: vi.fn().mockResolvedValue(undefined),
     deleteEntry: vi.fn().mockResolvedValue(undefined),
+    restartEntry: vi.fn().mockResolvedValue("new-uuid"),
   },
 }));
 
@@ -100,6 +101,38 @@ describe("<EntryRow>", () => {
     fireEvent.click(container.querySelector("button")!);
     await flush();
     expect(queryByLabelText("Open project list")).not.toBeNull();
+  });
+
+  it("renders a Restart button on completed entries", () => {
+    const { getByLabelText } = render(() => <EntryRow entry={entry()} />);
+    expect(getByLabelText("Restart timer with these details")).toBeDefined();
+  });
+
+  it("hides the Restart button on running entries", () => {
+    const { queryByLabelText } = render(() => (
+      <EntryRow entry={entry({ end_at: null })} />
+    ));
+    expect(queryByLabelText("Restart timer with these details")).toBeNull();
+  });
+
+  it("clicking Restart calls api.restartEntry and fires onChange", async () => {
+    const onChange = vi.fn();
+    const { getByLabelText } = render(() => (
+      <EntryRow entry={entry()} onChange={onChange} />
+    ));
+    fireEvent.click(getByLabelText("Restart timer with these details"));
+    await flush();
+    expect(api.restartEntry).toHaveBeenCalledWith("uuid-1");
+    expect(onChange).toHaveBeenCalled();
+  });
+
+  it("Restart click does NOT open the edit dialog (event isolation)", async () => {
+    const { getByLabelText, queryByText } = render(() => (
+      <EntryRow entry={entry()} />
+    ));
+    fireEvent.click(getByLabelText("Restart timer with these details"));
+    await flush();
+    expect(queryByText("Edit entry")).toBeNull();
   });
 
   it("Cancel from the dialog closes it without invoking onChange", async () => {
