@@ -46,6 +46,7 @@ async fn list_projects_returns_seeded_rows() {
             client_id: None,
             client_name: None,
             archived: 0,
+            billable_default: 0,
         }])
         .await
         .unwrap();

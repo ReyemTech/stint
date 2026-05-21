@@ -18,6 +18,7 @@ use stint_core::calendar::types::{
     AttendeeStatus, Calendar, CalendarAccount, CalendarEvent, ProviderKind,
 };
 use stint_core::store::entries::Entries;
+use stint_core::store::reference::{ProjectRow, Reference};
 use stint_core::time;
 use tauri::Manager;
 
@@ -291,6 +292,66 @@ async fn calendar_set_default_project_round_trips_and_logs_prefill() {
         .await
         .unwrap();
     assert_eq!(cals[0].default_project_id, None);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn calendar_log_event_inherits_default_project_billable() {
+    let ctx = common::make_app().await;
+    seed_account(&ctx.store, "acc-1").await;
+    seed_calendars(&ctx.store, "acc-1", &[("cal-1", "Personal")]).await;
+
+    // Reference table caches Solidtime project is_billable as billable_default.
+    Reference::new((*ctx.store).clone())
+        .upsert_projects(&[ProjectRow {
+            id: "p-bill".into(),
+            name: "Billed".into(),
+            color: None,
+            client_id: None,
+            client_name: None,
+            archived: 0,
+            billable_default: 1,
+        }])
+        .await
+        .unwrap();
+
+    seed_event(
+        &ctx.store,
+        "acc-1",
+        "cal-1",
+        "evt-1",
+        "2026-05-20T09:00:00Z",
+        "2026-05-20T09:30:00Z",
+        "Standup",
+    )
+    .await;
+
+    let handle = ctx.handle();
+    calendar_set_default_project(
+        handle.state(),
+        handle.clone(),
+        "cal-1".into(),
+        Some("p-bill".into()),
+    )
+    .await
+    .unwrap();
+
+    let local_uuid = calendar_log_event(
+        handle.state(),
+        handle.clone(),
+        "acc-1".into(),
+        "evt-1".into(),
+        "2026-05-20T09:00:00Z".into(),
+    )
+    .await
+    .unwrap();
+
+    let row = Entries::new((*ctx.store).clone())
+        .get(&local_uuid)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(row.project_id.as_deref(), Some("p-bill"));
+    assert_eq!(row.billable, 1, "billable_default=1 should flow through");
 }
 
 #[tokio::test(flavor = "multi_thread")]

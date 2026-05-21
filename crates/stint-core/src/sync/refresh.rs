@@ -31,6 +31,7 @@ pub async fn refresh_reference_data(store: &Store, client: &SolidtimeClient) -> 
             client_id: p.client_id,
             client_name: None,
             archived: if p.archived { 1 } else { 0 },
+            billable_default: if p.is_billable { 1 } else { 0 },
         })
         .collect();
     r.upsert_projects(&proj_rows).await?;

@@ -10,6 +10,8 @@ pub struct ProjectRow {
     #[sqlx(default)]
     pub client_name: Option<String>,
     pub archived: i64,
+    #[sqlx(default)]
+    pub billable_default: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
@@ -47,13 +49,14 @@ impl Reference {
         let mut tx = self.store.pool().begin().await?;
         for p in projects {
             sqlx::query(
-                r#"INSERT INTO projects (id, name, color, client_id, archived, fetched_at)
-                   VALUES (?, ?, ?, ?, ?, ?)
+                r#"INSERT INTO projects (id, name, color, client_id, archived, billable_default, fetched_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)
                    ON CONFLICT(id) DO UPDATE SET
                      name = excluded.name,
                      color = excluded.color,
                      client_id = excluded.client_id,
                      archived = excluded.archived,
+                     billable_default = excluded.billable_default,
                      fetched_at = excluded.fetched_at"#,
             )
             .bind(&p.id)
@@ -61,6 +64,7 @@ impl Reference {
             .bind(&p.color)
             .bind(&p.client_id)
             .bind(p.archived)
+            .bind(p.billable_default)
             .bind(&now)
             .execute(&mut *tx)
             .await?;
@@ -72,7 +76,7 @@ impl Reference {
     pub async fn list_projects(&self) -> Result<Vec<ProjectRow>> {
         let rows = sqlx::query_as::<_, ProjectRow>(
             r#"SELECT p.id, p.name, p.color, p.client_id,
-                      c.name AS client_name, p.archived
+                      c.name AS client_name, p.archived, p.billable_default
                FROM projects p
                LEFT JOIN clients c ON c.id = p.client_id
                ORDER BY p.name"#,
