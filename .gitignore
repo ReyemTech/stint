@@ -8,6 +8,9 @@
 /ui/dist/
 /ui/dist-ssr/
 
+# Test coverage reports
+/ui/coverage/
+
 # Node
 node_modules/
 .pnp.*
