@@ -5,9 +5,9 @@ use chrono::{Duration, Utc};
 use std::sync::Mutex;
 use stint_core::calendar::provider::{CalendarProvider, RemoteCalendar, RemoteEvent};
 use stint_core::calendar::store::CalendarStore;
-use stint_core::calendar::sync::{refresh_account, Ranges};
+use stint_core::calendar::sync::{refresh_account, refresh_all_enabled, Ranges};
 use stint_core::calendar::types::{CalendarAccount, ProviderKind, TimeRange};
-use stint_core::Result;
+use stint_core::{Error, Result};
 
 struct ScriptedProvider {
     calendars: Vec<RemoteCalendar>,
@@ -182,4 +182,173 @@ async fn ranges_background_spans_last_1_next_7() {
     let now = Utc::now();
     assert!(r.start < now - Duration::hours(20));
     assert!(r.end > now + Duration::days(6));
+}
+
+// --- helpers for the additional Ranges/refresh_all_enabled tests ---
+
+fn scripted_with_one_event(cal_id: &str) -> ScriptedProvider {
+    ScriptedProvider {
+        calendars: vec![RemoteCalendar {
+            id: cal_id.into(),
+            name: cal_id.into(),
+            color: None,
+            primary: false,
+        }],
+        events_by_calendar: vec![(
+            cal_id.into(),
+            vec![RemoteEvent {
+                id: format!("evt-{cal_id}"),
+                calendar_id: cal_id.into(),
+                title: "x".into(),
+                start_at: "2026-05-19T09:00:00Z".into(),
+                end_at: "2026-05-19T09:15:00Z".into(),
+                is_all_day: false,
+                attendee_status: None,
+                recurring_root: None,
+            }],
+        )],
+        last_range: Mutex::new(None),
+    }
+}
+
+fn scripted_empty(cal_id: &str) -> ScriptedProvider {
+    ScriptedProvider {
+        calendars: vec![RemoteCalendar {
+            id: cal_id.into(),
+            name: cal_id.into(),
+            color: None,
+            primary: false,
+        }],
+        events_by_calendar: vec![(cal_id.into(), vec![])],
+        last_range: Mutex::new(None),
+    }
+}
+
+struct FailingProvider;
+
+#[async_trait]
+impl CalendarProvider for FailingProvider {
+    fn kind(&self) -> ProviderKind {
+        ProviderKind::Google
+    }
+    async fn list_calendars(&self) -> Result<Vec<RemoteCalendar>> {
+        Err(Error::Invariant("simulated provider failure".into()))
+    }
+    async fn list_events(&self, _: &str, _: TimeRange) -> Result<Vec<RemoteEvent>> {
+        Err(Error::Invariant("simulated provider failure".into()))
+    }
+}
+
+#[tokio::test]
+async fn refresh_account_passes_on_focus_range_to_provider() {
+    let env = common::setup().await;
+    let s = CalendarStore::new(env.store.clone());
+    seed_account(&s, "acc-1").await;
+    let provider = scripted_empty("primary");
+
+    refresh_account(&s, "acc-1", &provider, Ranges::on_focus())
+        .await
+        .unwrap();
+
+    let observed = provider
+        .last_range
+        .lock()
+        .unwrap()
+        .expect("provider.list_events should have been called");
+    let now = Utc::now();
+    // on_focus: now → now + 7d.
+    assert!(observed.start <= now);
+    assert!(observed.end > now + Duration::days(6));
+    assert!(observed.end < now + Duration::days(8));
+}
+
+#[tokio::test]
+async fn refresh_account_passes_background_range_to_provider() {
+    let env = common::setup().await;
+    let s = CalendarStore::new(env.store.clone());
+    seed_account(&s, "acc-1").await;
+    let provider = scripted_empty("primary");
+
+    refresh_account(&s, "acc-1", &provider, Ranges::background_poll())
+        .await
+        .unwrap();
+
+    let observed = provider
+        .last_range
+        .lock()
+        .unwrap()
+        .expect("provider.list_events should have been called");
+    let now = Utc::now();
+    // background_poll: last 1d, next 7d.
+    assert!(observed.start < now - Duration::hours(20));
+    assert!(observed.end > now + Duration::days(6));
+    assert!(observed.end < now + Duration::days(8));
+}
+
+#[tokio::test]
+async fn refresh_account_propagates_provider_error() {
+    let env = common::setup().await;
+    let s = CalendarStore::new(env.store.clone());
+    seed_account(&s, "acc-1").await;
+
+    let err = refresh_account(&s, "acc-1", &FailingProvider, Ranges::on_add())
+        .await
+        .unwrap_err();
+    assert!(format!("{err}").contains("simulated provider failure"));
+}
+
+#[tokio::test]
+async fn refresh_all_enabled_with_empty_providers_returns_zero() {
+    let env = common::setup().await;
+    let s = CalendarStore::new(env.store.clone());
+    let providers: Vec<(&str, Box<dyn CalendarProvider>)> = vec![];
+
+    let n = refresh_all_enabled(&s, &providers, Ranges::on_focus())
+        .await
+        .unwrap();
+    assert_eq!(n, 0);
+}
+
+#[tokio::test]
+async fn refresh_all_enabled_sums_counts_across_providers() {
+    let env = common::setup().await;
+    let s = CalendarStore::new(env.store.clone());
+    seed_account(&s, "acc-1").await;
+    seed_account(&s, "acc-2").await;
+
+    let providers: Vec<(&str, Box<dyn CalendarProvider>)> = vec![
+        ("acc-1", Box::new(scripted_with_one_event("c1"))),
+        ("acc-2", Box::new(scripted_with_one_event("c2"))),
+    ];
+
+    let n = refresh_all_enabled(&s, &providers, Ranges::on_focus())
+        .await
+        .unwrap();
+    assert_eq!(n, 2);
+}
+
+#[tokio::test]
+async fn refresh_all_enabled_continues_after_error_but_returns_first_err() {
+    let env = common::setup().await;
+    let s = CalendarStore::new(env.store.clone());
+    seed_account(&s, "acc-1").await;
+    seed_account(&s, "acc-2").await;
+
+    // Account 1 fails; account 2 must still run (single-account error doesn't
+    // abort the loop) but the aggregate Result is Err.
+    let healthy = scripted_with_one_event("c2");
+    let providers: Vec<(&str, Box<dyn CalendarProvider>)> = vec![
+        ("acc-1", Box::new(FailingProvider)),
+        ("acc-2", Box::new(healthy)),
+    ];
+
+    let err = refresh_all_enabled(&s, &providers, Ranges::on_focus())
+        .await
+        .unwrap_err();
+    assert!(format!("{err}").contains("simulated provider failure"));
+
+    // Side-effect of account 2 still ran: a calendar row got persisted.
+    let cals = s.list_calendars("acc-2").await.unwrap();
+    assert_eq!(cals.len(), 1);
+    assert_eq!(cals[0].id, "c2");
 }
