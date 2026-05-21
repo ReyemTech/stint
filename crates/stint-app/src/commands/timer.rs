@@ -5,10 +5,10 @@ use serde::{Deserialize, Serialize};
 use stint_core::store::entries::Entries;
 use stint_core::store::running::RunningTimer;
 use stint_core::timer::{StartArgs, TimerService};
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Runtime, State};
 use tokio::sync::RwLock;
 
-fn announce_change(app: &AppHandle) {
+fn announce_change<R: Runtime>(app: &AppHandle<R>) {
     let _ = app.emit(EVENT_ENTRIES_CHANGED, ());
 }
 
@@ -51,8 +51,8 @@ pub struct StartTimerArgs {
 }
 
 #[tauri::command]
-pub async fn start_timer(
-    app: AppHandle,
+pub async fn start_timer<R: Runtime>(
+    app: AppHandle<R>,
     state: State<'_, RwLock<AppState>>,
     args: StartTimerArgs,
 ) -> Result<String, AppError> {
@@ -73,8 +73,8 @@ pub async fn start_timer(
 }
 
 #[tauri::command]
-pub async fn stop_timer(
-    app: AppHandle,
+pub async fn stop_timer<R: Runtime>(
+    app: AppHandle<R>,
     state: State<'_, RwLock<AppState>>,
 ) -> Result<String, AppError> {
     let store = store(&state).await;
@@ -86,8 +86,8 @@ pub async fn stop_timer(
 }
 
 #[tauri::command]
-pub async fn delete_entry(
-    app: AppHandle,
+pub async fn delete_entry<R: Runtime>(
+    app: AppHandle<R>,
     state: State<'_, RwLock<AppState>>,
     local_uuid: String,
 ) -> Result<(), AppError> {
@@ -100,8 +100,8 @@ pub async fn delete_entry(
 }
 
 #[tauri::command]
-pub async fn update_description(
-    app: AppHandle,
+pub async fn update_description<R: Runtime>(
+    app: AppHandle<R>,
     state: State<'_, RwLock<AppState>>,
     local_uuid: String,
     description: String,
@@ -115,8 +115,8 @@ pub async fn update_description(
 }
 
 #[tauri::command]
-pub async fn set_entry_project(
-    app: AppHandle,
+pub async fn set_entry_project<R: Runtime>(
+    app: AppHandle<R>,
     state: State<'_, RwLock<AppState>>,
     local_uuid: String,
     project_id: Option<String>,
@@ -132,8 +132,8 @@ pub async fn set_entry_project(
 }
 
 #[tauri::command]
-pub async fn set_entry_billable(
-    app: AppHandle,
+pub async fn set_entry_billable<R: Runtime>(
+    app: AppHandle<R>,
     state: State<'_, RwLock<AppState>>,
     local_uuid: String,
     billable: bool,
