@@ -81,6 +81,29 @@ async fn mark_abandoned_parks_row_far_in_future_and_resurrect_revives_it() {
 }
 
 #[tokio::test]
+async fn delete_for_entry_drops_all_queued_ops_for_a_uuid() {
+    let env = common::setup().await;
+    let q = Queue::new(env.store.clone());
+
+    q.enqueue(QueueOp::CreateEntry, "{}", Some("entry-a"))
+        .await
+        .unwrap();
+    q.enqueue(QueueOp::UpdateEntry, "{}", Some("entry-a"))
+        .await
+        .unwrap();
+    q.enqueue(QueueOp::CreateEntry, "{}", Some("entry-b"))
+        .await
+        .unwrap();
+
+    let removed = q.delete_for_entry("entry-a").await.unwrap();
+    assert_eq!(removed, 2);
+
+    let remaining = q.take_due(10).await.unwrap();
+    assert_eq!(remaining.len(), 1);
+    assert_eq!(remaining[0].entry_uuid.as_deref(), Some("entry-b"));
+}
+
+#[tokio::test]
 async fn resurrect_abandoned_does_not_touch_normally_backed_off_rows() {
     let env = common::setup().await;
     let q = Queue::new(env.store.clone());

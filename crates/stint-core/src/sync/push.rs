@@ -99,6 +99,10 @@ async fn push_create(store: &Store, client: &SolidtimeClient, row: &QueueRow) ->
                 local = %payload.local_uuid,
                 "create_entry got overlapping_time_entry; checking for adoption candidate",
             );
+            // try_adopt_overlapping returns either Ok (adopted) or a
+            // diagnostic-enriched Error::Solidtime { status: 400 } which
+            // still matches the is_permanent_4xx abandon path — so just
+            // propagate it; no need to fall back to the raw `e`.
             try_adopt_overlapping(
                 store,
                 client,
@@ -107,9 +111,6 @@ async fn push_create(store: &Store, client: &SolidtimeClient, row: &QueueRow) ->
                 &member,
             )
             .await
-            // If adoption fails, return the original error so the
-            // permanent-fail path applies (mark_abandoned).
-            .or(Err(e))
         }
         Err(e) => Err(e),
     }
@@ -155,28 +156,52 @@ async fn try_adopt_overlapping(
             .await?;
         return Ok(());
     }
-    // Diagnostic: show what was in the window so the next failure is
-    // self-explanatory in logs instead of a silent "no match".
+    // No exact-start match. Solidtime's `start > X AND start < Y` filter
+    // can't see a stale remote that's still running from earlier today, so
+    // do a second `active=true` query to surface it. Don't auto-adopt
+    // (start mismatch could be a legitimately different timer) — just put
+    // it in the error so the user can stop it remotely or `sync
+    // force-adopt` it.
     let returned: Vec<String> = remotes
         .iter()
         .map(|r| format!("{}@{}", r.id, r.start))
         .collect();
+    let active = client
+        .list_active_time_entries(member_id)
+        .await
+        .unwrap_or_default();
+    let active_descr: Vec<String> = active
+        .iter()
+        .map(|r| format!("{} @ {} ({})", r.id, r.start, r.description))
+        .collect();
+
     warn!(
         local = %local_uuid,
         local_start = %local_start,
         window = %format!("[{from}, {to})"),
-        returned = ?returned,
-        "no matching remote at this start_at — overlap is with a different timer",
+        in_window = ?returned,
+        active_remotes = ?active_descr,
+        "adopt-on-overlap: no exact-start match",
     );
-    Err(Error::Solidtime {
-        status: 400,
-        body: format!(
+    let body = if active.is_empty() {
+        format!(
             "overlapping_time_entry: no remote entry at start={local_start} \
-             (window {from}..{to} returned {} candidates) \
-             — another timer must be active in Solidtime",
+             and no active remote timer either — Solidtime rejected for an \
+             unknown reason (window {from}..{to} returned {} candidates)",
             returned.len()
-        ),
-    })
+        )
+    } else {
+        format!(
+            "overlapping_time_entry: no remote entry at start={local_start} \
+             but Solidtime has {} active remote timer(s) blocking the POST: [{}]. \
+             Stop the conflicting one in Solidtime, then `stint sync \
+             retry-abandoned`. Or `stint sync force-adopt <local_uuid> \
+             <remote_id>` to link this local row to one of the actives.",
+            active.len(),
+            active_descr.join(", "),
+        )
+    };
+    Err(Error::Solidtime { status: 400, body })
 }
 
 async fn push_update(store: &Store, client: &SolidtimeClient, row: &QueueRow) -> Result<()> {
