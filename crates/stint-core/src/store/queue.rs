@@ -139,6 +139,18 @@ impl Queue {
         Ok(result.rows_affected())
     }
 
+    /// Delete every queued op tied to a specific local entry. Used by
+    /// `stint sync force-adopt` after manually linking a pending_create
+    /// row to a remote id — leaving the create_entry op in place would
+    /// re-POST a duplicate next drain.
+    pub async fn delete_for_entry(&self, local_uuid: &str) -> Result<u64> {
+        let result = sqlx::query("DELETE FROM sync_queue WHERE entry_uuid = ?")
+            .bind(local_uuid)
+            .execute(self.store.pool())
+            .await?;
+        Ok(result.rows_affected())
+    }
+
     /// Mark a queue item as abandoned: parks `next_try_at` ~1 year out so
     /// the worker stops picking it up. The row is preserved (with the
     /// error message) so the user can see why sync gave up. Use this for

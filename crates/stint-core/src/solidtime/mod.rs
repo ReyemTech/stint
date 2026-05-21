@@ -245,6 +245,36 @@ impl SolidtimeClient {
         Ok(wrapper.data)
     }
 
+    /// Currently-running entries for the given member (Solidtime's
+    /// `?active=true` filter — entries with `end IS NULL`). Used by the
+    /// overlap-adoption diagnostic to surface a stale remote timer that
+    /// our small `start`-window query can't see (Solidtime filters on the
+    /// `start` column strictly, so a still-running entry started hours ago
+    /// won't show up in a 3-second window).
+    pub async fn list_active_time_entries(&self, member_id: &str) -> Result<Vec<RemoteTimeEntry>> {
+        let org = self.org()?;
+        let url = format!("{}/api/v1/organizations/{org}/time-entries", self.base_url);
+        let resp = self
+            .authed(self.http.get(&url))
+            .await?
+            .query(&[("member_ids[]", member_id), ("active", "true")])
+            .send()
+            .await?;
+        let status = resp.status();
+        if status == StatusCode::UNAUTHORIZED {
+            return Err(Error::SolidtimeAuth);
+        }
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            return Err(Error::Solidtime {
+                status: status.as_u16(),
+                body,
+            });
+        }
+        let wrapper: Wrapper<Vec<RemoteTimeEntry>> = resp.json().await?;
+        Ok(wrapper.data)
+    }
+
     pub async fn get_time_entry(&self, id: &str) -> Result<Option<RemoteTimeEntry>> {
         let org = self.org()?;
         let url = format!(

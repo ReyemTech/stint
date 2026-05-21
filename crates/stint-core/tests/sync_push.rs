@@ -434,6 +434,8 @@ async fn push_create_adopts_when_remote_start_is_in_offset_form() {
 async fn push_create_abandons_on_overlap_when_no_matching_remote() {
     // The overlap is with an unrelated remote timer (different start_at).
     // We can't adopt; the queue should give up rather than retry forever.
+    // Both list endpoints (window + active=true) are stubbed to return
+    // something non-matching so the diagnostic path runs end-to-end.
     let env = common::setup().await;
     let start_at = "2026-05-20T09:00:00Z";
     let create_row = seed_pending_create_at(&env, start_at).await;
@@ -448,7 +450,6 @@ async fn push_create_abandons_on_overlap_when_no_matching_remote() {
         })))
         .mount(&server)
         .await;
-    // GET returns an entry started earlier (different timer that's still running).
     Mock::given(method("GET"))
         .and(path("/api/v1/organizations/org-1/time-entries"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
@@ -463,7 +464,15 @@ async fn push_create_abandons_on_overlap_when_no_matching_remote() {
         .await;
 
     let client = SolidtimeClient::with_api_token(&server.uri(), "t").with_org("org-1");
-    assert!(push_one(&env.store, &client, &create_row).await.is_err());
+    let err = push_one(&env.store, &client, &create_row)
+        .await
+        .unwrap_err();
+    // Error message surfaces the active-remote candidate so the user can act.
+    let msg = err.to_string();
+    assert!(
+        msg.contains("active remote") && msg.contains("remote-different"),
+        "expected diagnostic to mention active remote, got: {msg}"
+    );
 
     // Queue row should still exist but pushed ~1 year out (abandoned), so
     // a normal take_due returns nothing.
