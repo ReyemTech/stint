@@ -10,8 +10,8 @@ mod common;
 use stint_app::commands::calendar::{
     calendar_ignore_event, calendar_list_accounts, calendar_list_calendars,
     calendar_list_events_in_range, calendar_log_event, calendar_oauth_status,
-    calendar_refresh_account, calendar_remove_account, calendar_set_calendar_included,
-    calendar_set_default_project,
+    calendar_refresh_account, calendar_remove_account, calendar_revert_event,
+    calendar_set_calendar_included, calendar_set_default_project,
 };
 use stint_core::calendar::store::CalendarStore;
 use stint_core::calendar::types::{
@@ -292,6 +292,115 @@ async fn calendar_set_default_project_round_trips_and_logs_prefill() {
         .await
         .unwrap();
     assert_eq!(cals[0].default_project_id, None);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn calendar_revert_event_clears_logged_decision_and_deletes_entry() {
+    let ctx = common::make_app().await;
+    seed_account(&ctx.store, "acc-1").await;
+    seed_calendars(&ctx.store, "acc-1", &[("cal-1", "Personal")]).await;
+    seed_event(
+        &ctx.store,
+        "acc-1",
+        "cal-1",
+        "evt-1",
+        "2026-05-20T09:00:00Z",
+        "2026-05-20T09:30:00Z",
+        "Standup",
+    )
+    .await;
+
+    let handle = ctx.handle();
+    let local_uuid = calendar_log_event(
+        handle.state(),
+        handle.clone(),
+        "acc-1".into(),
+        "evt-1".into(),
+        "2026-05-20T09:00:00Z".into(),
+    )
+    .await
+    .unwrap();
+
+    calendar_revert_event(
+        handle.state(),
+        handle.clone(),
+        "acc-1".into(),
+        "evt-1".into(),
+        "2026-05-20T09:00:00Z".into(),
+    )
+    .await
+    .unwrap();
+
+    // Decision cleared so the event surfaces with Log this / Ignore again.
+    let events = calendar_list_events_in_range(
+        handle.state(),
+        "acc-1".into(),
+        "2026-05-20T00:00:00Z".into(),
+        "2026-05-21T00:00:00Z".into(),
+    )
+    .await
+    .unwrap();
+    assert!(events[0].decision.is_none(), "decision should be cleared");
+    assert!(events[0].linked_local_uuid.is_none());
+
+    // The pending-create entry got soft-deleted (its row may still exist
+    // with sync_state='pending_delete', or be gone outright). Either way,
+    // a follow-up Entries::get returns either None or a pending_delete row.
+    let row = Entries::new((*ctx.store).clone())
+        .get(&local_uuid)
+        .await
+        .unwrap();
+    if let Some(r) = row {
+        assert_eq!(r.sync_state, "pending_delete");
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn calendar_revert_event_clears_ignored_decision() {
+    let ctx = common::make_app().await;
+    seed_account(&ctx.store, "acc-1").await;
+    seed_calendars(&ctx.store, "acc-1", &[("cal-1", "Personal")]).await;
+    seed_event(
+        &ctx.store,
+        "acc-1",
+        "cal-1",
+        "evt-1",
+        "2026-05-20T09:00:00Z",
+        "2026-05-20T09:30:00Z",
+        "Standup",
+    )
+    .await;
+
+    let handle = ctx.handle();
+    calendar_ignore_event(
+        handle.state(),
+        handle.clone(),
+        "acc-1".into(),
+        "evt-1".into(),
+        "2026-05-20T09:00:00Z".into(),
+    )
+    .await
+    .unwrap();
+
+    calendar_revert_event(
+        handle.state(),
+        handle.clone(),
+        "acc-1".into(),
+        "evt-1".into(),
+        "2026-05-20T09:00:00Z".into(),
+    )
+    .await
+    .unwrap();
+
+    let events = calendar_list_events_in_range(
+        handle.state(),
+        "acc-1".into(),
+        "2026-05-20T00:00:00Z".into(),
+        "2026-05-21T00:00:00Z".into(),
+    )
+    .await
+    .unwrap();
+    assert!(events[0].decision.is_none());
 }
 
 #[tokio::test(flavor = "multi_thread")]

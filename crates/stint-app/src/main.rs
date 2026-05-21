@@ -65,6 +65,7 @@ async fn main() -> Result<()> {
             commands::calendar::calendar_list_events_in_range,
             commands::calendar::calendar_log_event,
             commands::calendar::calendar_ignore_event,
+            commands::calendar::calendar_revert_event,
             commands::sync::sync_now,
             commands::ui::show_main_window,
         ])

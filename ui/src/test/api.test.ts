@@ -227,4 +227,13 @@ describe("calendarApi", () => {
       eventStart: "2026-05-20T10:00:00Z",
     });
   });
+
+  it("revertEvent passes accountId/eventId/eventStart", async () => {
+    await calendarApi.revertEvent("acc-1", "evt-3", "2026-05-20T11:00:00Z");
+    expect(mockInvoke).toHaveBeenCalledWith("calendar_revert_event", {
+      accountId: "acc-1",
+      eventId: "evt-3",
+      eventStart: "2026-05-20T11:00:00Z",
+    });
+  });
 });
