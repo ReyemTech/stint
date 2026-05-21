@@ -81,6 +81,50 @@ async fn mark_abandoned_parks_row_far_in_future_and_resurrect_revives_it() {
 }
 
 #[tokio::test]
+async fn list_failed_with_entry_joins_metadata_and_filters_by_attempts() {
+    use stint_core::store::entries::{Entries, NewTimeEntry};
+    let env = common::setup().await;
+    let q = Queue::new(env.store.clone());
+    let entries = Entries::new(env.store.clone());
+
+    // Seed an entry + a queue row, and fail it 4 times to push attempts
+    // past the min-attempts threshold the UI uses.
+    let local_uuid = entries
+        .create(NewTimeEntry {
+            description: "Liberty Issue".into(),
+            project_id: None,
+            task_id: None,
+            start_at: "2026-05-21T13:39:14Z".into(),
+            billable: false,
+            source: "cli".into(),
+        })
+        .await
+        .unwrap();
+    let id = q
+        .enqueue(QueueOp::CreateEntry, "{}", Some(&local_uuid))
+        .await
+        .unwrap();
+    for _ in 0..4 {
+        q.mark_failed(id, "overlap").await.unwrap();
+    }
+
+    // Another fresh row with attempts=1 — should NOT be returned.
+    q.enqueue(QueueOp::CreateEntry, "{}", Some("other"))
+        .await
+        .unwrap();
+
+    let failed = q.list_failed_with_entry(3).await.unwrap();
+    assert_eq!(failed.len(), 1);
+    let row = &failed[0];
+    assert_eq!(row.queue_id, id);
+    assert_eq!(row.local_uuid.as_deref(), Some(local_uuid.as_str()));
+    assert_eq!(row.description.as_deref(), Some("Liberty Issue"));
+    assert_eq!(row.start_at.as_deref(), Some("2026-05-21T13:39:14Z"));
+    assert_eq!(row.attempts, 4);
+    assert_eq!(row.last_error.as_deref(), Some("overlap"));
+}
+
+#[tokio::test]
 async fn delete_for_entry_drops_all_queued_ops_for_a_uuid() {
     let env = common::setup().await;
     let q = Queue::new(env.store.clone());

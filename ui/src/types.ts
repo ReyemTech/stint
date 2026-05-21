@@ -88,3 +88,18 @@ export type CalendarOAuthStatus = {
   signed_in: boolean;
   scope: string | null;
 };
+
+export type SyncError = {
+  queue_id: number;
+  local_uuid: string | null;
+  op: string;
+  attempts: number;
+  last_error: string | null;
+  next_try_at: string;
+  /// True when this row was permanently parked (e.g. by an unrecoverable
+  /// 4xx). False for transient failures that will retry on their own.
+  abandoned: boolean;
+  description: string | null;
+  start_at: string | null;
+  end_at: string | null;
+};
