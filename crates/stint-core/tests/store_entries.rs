@@ -239,3 +239,38 @@ async fn update_times_rejects_duration_over_24h() {
         .unwrap_err();
     assert!(matches!(err, stint_core::Error::Invariant(_)));
 }
+
+#[tokio::test]
+async fn update_times_normalizes_fractional_seconds_and_offsets() {
+    // Sync push forwards stored timestamps directly to Solidtime; Solidtime
+    // rejects anything other than `...:ssZ` (no fractional, no offset). The
+    // UI edit dialog produces `Date.toISOString()` strings with `.sssZ`, so
+    // update_times must canonicalize before persisting.
+    let env = common::setup().await;
+    let entries = Entries::new(env.store.clone());
+
+    let id = entries
+        .create(NewTimeEntry {
+            description: "x".into(),
+            project_id: None,
+            task_id: None,
+            start_at: "2026-05-20T09:00:00Z".into(),
+            billable: false,
+            source: "cli".into(),
+        })
+        .await
+        .unwrap();
+
+    entries
+        .update_times(
+            &id,
+            "2026-05-20T09:30:00.123Z",
+            "2026-05-20T10:30:45-04:00",
+        )
+        .await
+        .unwrap();
+
+    let row = entries.get(&id).await.unwrap().unwrap();
+    assert_eq!(row.start_at, "2026-05-20T09:30:00Z");
+    assert_eq!(row.end_at.as_deref(), Some("2026-05-20T14:30:45Z"));
+}
