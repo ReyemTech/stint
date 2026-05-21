@@ -1,35 +1,12 @@
 import { For, Show, createResource, createSignal } from "solid-js";
 import { api } from "~/api";
+import { entryDurationSecs, entrySyncMeta } from "~/lib/entryFormat";
 import type { Entry } from "~/types";
 import { formatDuration } from "./Duration";
-import Pill, { type PillTone } from "./ui/Pill";
-import StatusDot, { type DotTone } from "./ui/StatusDot";
+import Pill from "./ui/Pill";
+import StatusDot from "./ui/StatusDot";
 import Toggle from "./ui/Toggle";
 import Button from "./ui/Button";
-
-function durationSecs(start: string, end: string | null): number {
-  const s = new Date(start).getTime();
-  const e = end ? new Date(end).getTime() : Date.now();
-  return Math.max(0, Math.floor((e - s) / 1000));
-}
-
-function syncMeta(state: Entry["sync_state"], isRunning: boolean): {
-  text: string;
-  tone: PillTone;
-  dotTone: DotTone;
-} {
-  if (isRunning) return { text: "Running", tone: "emerald", dotTone: "emerald" };
-  switch (state) {
-    case "synced":
-      return { text: "Synced", tone: "emerald", dotTone: "emerald" };
-    case "dirty":
-      return { text: "Edited", tone: "amber", dotTone: "amber" };
-    case "pending_create":
-      return { text: "Pending", tone: "amber", dotTone: "amber" };
-    case "pending_delete":
-      return { text: "Deleting", tone: "red", dotTone: "red" };
-  }
-}
 
 export default function EntryRow(props: {
   entry: Entry;
@@ -44,7 +21,7 @@ export default function EntryRow(props: {
     initialValue: [],
   });
   const isRunning = !props.entry.end_at;
-  const meta = () => syncMeta(props.entry.sync_state, isRunning);
+  const meta = () => entrySyncMeta(props.entry.sync_state, isRunning);
 
   async function saveDescription() {
     if (desc().trim() === props.entry.description.trim()) return;
@@ -91,7 +68,7 @@ export default function EntryRow(props: {
           </div>
         </div>
         <span class="font-mono tabular-nums text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          {formatDuration(durationSecs(props.entry.start_at, props.entry.end_at))}
+          {formatDuration(entryDurationSecs(props.entry.start_at, props.entry.end_at))}
         </span>
         <span
           class="select-none text-xs text-zinc-300 transition-transform dark:text-zinc-600"

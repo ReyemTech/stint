@@ -9,6 +9,7 @@ import MainNav from "~/components/MainNav";
 import TimerCard from "~/components/TimerCard";
 import SectionLabel from "~/components/ui/SectionLabel";
 import StatusDot from "~/components/ui/StatusDot";
+import { sumCompletedEntrySeconds } from "~/lib/entryFormat";
 import { useTimerStore } from "~/stores/timer";
 
 export default function Today() {
@@ -26,28 +27,17 @@ export default function Today() {
     (entries() ?? []).filter((e) => e.sync_state !== "synced").length,
   );
 
-  const totalSeconds = createMemo(() => {
-    let total = timer.running() ? timer.elapsedSecs() : 0;
-    for (const e of entries() ?? []) {
-      if (!e.end_at) continue;
-      const s = new Date(e.start_at).getTime();
-      const f = new Date(e.end_at).getTime();
-      total += Math.max(0, Math.floor((f - s) / 1000));
-    }
-    return total;
-  });
+  const totalSeconds = createMemo(
+    () =>
+      (timer.running() ? timer.elapsedSecs() : 0) +
+      sumCompletedEntrySeconds(entries() ?? []),
+  );
 
-  const billableSeconds = createMemo(() => {
-    let total =
-      timer.running() && timer.running()!.billable ? timer.elapsedSecs() : 0;
-    for (const e of entries() ?? []) {
-      if (!e.end_at || !e.billable) continue;
-      const s = new Date(e.start_at).getTime();
-      const f = new Date(e.end_at).getTime();
-      total += Math.max(0, Math.floor((f - s) / 1000));
-    }
-    return total;
-  });
+  const billableSeconds = createMemo(
+    () =>
+      (timer.running() && timer.running()!.billable ? timer.elapsedSecs() : 0) +
+      sumCompletedEntrySeconds(entries() ?? [], { onlyBillable: true }),
+  );
 
   async function syncNow() {
     setSyncing(true);
