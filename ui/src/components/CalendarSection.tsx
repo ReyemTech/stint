@@ -4,6 +4,7 @@ import { calendarApi } from "~/api";
 import Accordion from "~/components/ui/Accordion";
 import Button from "~/components/ui/Button";
 import Pill from "~/components/ui/Pill";
+import { formatEventTime } from "~/lib/entryFormat";
 import type {
   CalendarAccount,
   CalendarEventWithDecision,
@@ -118,8 +119,10 @@ function EventRow(props: {
     props.event.decision === "logged_manual" ||
     props.event.decision === "logged_auto";
 
-  const startLabel = () => formatTime(props.event.start_at, props.event.is_all_day);
-  const endLabel = () => formatTime(props.event.end_at, props.event.is_all_day);
+  const startLabel = () =>
+    formatEventTime(props.event.start_at, props.event.is_all_day);
+  const endLabel = () =>
+    formatEventTime(props.event.end_at, props.event.is_all_day);
 
   return (
     <div
@@ -153,8 +156,3 @@ function EventRow(props: {
   );
 }
 
-function formatTime(iso: string, allDay: boolean): string {
-  if (allDay) return "";
-  const d = new Date(iso);
-  return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-}

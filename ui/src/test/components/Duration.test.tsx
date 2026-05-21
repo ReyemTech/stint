@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { formatDuration } from "~/components/Duration";
+import { render } from "@solidjs/testing-library";
+import Duration, { formatDuration } from "~/components/Duration";
 
 describe("formatDuration", () => {
   it("formats zero as 00:00:00", () => {
@@ -23,5 +24,14 @@ describe("formatDuration", () => {
 
   it("supports hours above 9", () => {
     expect(formatDuration(36 * 3600 + 12 * 60 + 7)).toBe("36:12:07");
+  });
+});
+
+describe("<Duration>", () => {
+  it("renders the formatted seconds inside a tabular-numeric span", () => {
+    const { container } = render(() => <Duration seconds={3661} />);
+    const span = container.querySelector("span")!;
+    expect(span.textContent).toBe("01:01:01");
+    expect(span.className).toContain("tabular-nums");
   });
 });
