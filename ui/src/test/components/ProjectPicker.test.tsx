@@ -66,4 +66,20 @@ describe("<ProjectPicker>", () => {
     const control = container.querySelector("[class*='text-[12px]']");
     expect(control).toBeTruthy();
   });
+
+  it("leaves the input empty when value is null so the placeholder shows", () => {
+    // Regression: the synthetic NO_PROJECT row has id="" and would otherwise
+    // get selected when no project is set, pre-filling the input with the
+    // literal string "No project" instead of the placeholder.
+    const { container } = render(() => (
+      <ProjectPicker
+        value={null}
+        onChange={vi.fn()}
+        projects={fixture()}
+        placeholder="Pick a project"
+      />
+    ));
+    const input = container.querySelector("input") as HTMLInputElement;
+    expect(input.value).toBe("");
+  });
 });
