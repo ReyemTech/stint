@@ -5,12 +5,12 @@ use stint_core::config::{secrets::Secrets, Settings};
 use stint_core::solidtime::auth::build_token_provider;
 use stint_core::solidtime::SolidtimeClient;
 use stint_core::sync::drain_once;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Runtime, State};
 use tokio::sync::RwLock;
 
 #[tauri::command]
-pub async fn sync_now(
-    app: AppHandle,
+pub async fn sync_now<R: Runtime>(
+    app: AppHandle<R>,
     state: State<'_, RwLock<AppState>>,
 ) -> Result<usize, AppError> {
     let store = store(&state).await;

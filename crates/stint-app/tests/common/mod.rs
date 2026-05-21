@@ -8,12 +8,28 @@
 #![allow(dead_code)]
 
 use std::sync::Arc;
+use std::sync::OnceLock;
 use stint_app::app_state::AppState;
 use stint_core::store::Store;
 use tauri::test::{mock_builder, mock_context, noop_assets, MockRuntime};
 use tauri::{App, AppHandle, Manager};
 use tempfile::TempDir;
 use tokio::sync::RwLock;
+
+/// Routes any in-process `Secrets::default()` calls — including those
+/// inside `#[tauri::command]` bodies — to a synthetic prefix unique to
+/// this test binary. The developer's real `tech.reyem.stint.*` Keychain
+/// entries are never touched. Entries accumulate under
+/// `tech.reyem.stint.test.<uuid>.*` and are swept by
+/// `scripts/clean-test-keychain.sh`.
+fn ensure_test_secret_prefix() -> &'static str {
+    static PREFIX: OnceLock<String> = OnceLock::new();
+    let prefix = PREFIX.get_or_init(|| {
+        format!("tech.reyem.stint.test.{}", stint_core::ids::new_local_uuid())
+    });
+    std::env::set_var("STINT_SECRET_PREFIX", prefix);
+    prefix
+}
 
 /// Owns the live test app, the tempdir backing its database, and a
 /// direct `Arc<Store>` handle so tests can poke the database without
@@ -34,6 +50,8 @@ impl AppContext {
 /// `RwLock<AppState>` managed on its handle. Mirrors what
 /// `crates/stint-app/src/main.rs::setup` does in production.
 pub async fn make_app() -> AppContext {
+    ensure_test_secret_prefix();
+
     let tempdir = TempDir::new().expect("create tempdir");
     let db_path = tempdir.path().join("stint.db");
     let store = Arc::new(Store::connect(&db_path).await.expect("connect store"));
