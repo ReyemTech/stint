@@ -225,18 +225,11 @@ impl Entries {
         .await
     }
 
-    pub async fn update_times(
-        &self,
-        local_uuid: &str,
-        start_at: &str,
-        end_at: &str,
-    ) -> Result<()> {
+    pub async fn update_times(&self, local_uuid: &str, start_at: &str, end_at: &str) -> Result<()> {
         let start = time::parse(start_at)?;
         let end = time::parse(end_at)?;
         if end <= start {
-            return Err(crate::Error::Invariant(
-                "end must be after start".into(),
-            ));
+            return Err(crate::Error::Invariant("end must be after start".into()));
         }
         if (end - start) > chrono::Duration::hours(24) {
             return Err(crate::Error::Invariant(

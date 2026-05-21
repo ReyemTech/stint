@@ -15,14 +15,7 @@ use serde::{Deserialize, Serialize};
 type AccountRow = (String, String, String, String, Option<String>, i64, String);
 
 /// Row shape returned by the `calendars` SELECT queries.
-type CalendarRow = (
-    String,
-    String,
-    String,
-    Option<String>,
-    i64,
-    Option<String>,
-);
+type CalendarRow = (String, String, String, Option<String>, i64, Option<String>);
 
 /// Row shape returned by the `calendar_events` SELECT queries.
 type EventRow = (

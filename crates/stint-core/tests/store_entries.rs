@@ -150,10 +150,7 @@ async fn update_times_updates_both_fields_and_dirties_synced_entry() {
         })
         .await
         .unwrap();
-    entries
-        .set_end(&id, "2026-05-20T10:00:00Z")
-        .await
-        .unwrap();
+    entries.set_end(&id, "2026-05-20T10:00:00Z").await.unwrap();
     entries.mark_synced(&id, "remote-id").await.unwrap();
 
     entries
@@ -262,11 +259,7 @@ async fn update_times_normalizes_fractional_seconds_and_offsets() {
         .unwrap();
 
     entries
-        .update_times(
-            &id,
-            "2026-05-20T09:30:00.123Z",
-            "2026-05-20T10:30:45-04:00",
-        )
+        .update_times(&id, "2026-05-20T09:30:00.123Z", "2026-05-20T10:30:45-04:00")
         .await
         .unwrap();
 

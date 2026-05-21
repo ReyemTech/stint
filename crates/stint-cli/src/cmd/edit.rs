@@ -62,9 +62,7 @@ pub async fn run(args: Args) -> Result<()> {
     }
 
     if !acted {
-        println!(
-            "Nothing to update. Pass --description / --start / --end to change something."
-        );
+        println!("Nothing to update. Pass --description / --start / --end to change something.");
     }
     Ok(())
 }

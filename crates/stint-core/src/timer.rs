@@ -172,12 +172,7 @@ impl TimerService {
         self.maybe_enqueue_update(local_uuid).await
     }
 
-    pub async fn update_times(
-        &self,
-        local_uuid: &str,
-        start_at: &str,
-        end_at: &str,
-    ) -> Result<()> {
+    pub async fn update_times(&self, local_uuid: &str, start_at: &str, end_at: &str) -> Result<()> {
         self.ensure_entry_exists(local_uuid).await?;
         let entries = Entries::new(self.store.clone());
         entries.update_times(local_uuid, start_at, end_at).await?;
