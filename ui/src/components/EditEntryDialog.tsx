@@ -16,13 +16,12 @@ export default function EditEntryDialog(props: {
     props.entry.project_id,
   );
   const [billable, setBillable] = createSignal(props.entry.billable);
-  const [startHHMM, setStartHHMM] = createSignal(
-    toLocalHHMM(props.entry.start_at),
-  );
-  const endIsoInitial = props.entry.end_at;
-  const [endHHMM, setEndHHMM] = createSignal(
-    endIsoInitial ? toLocalHHMM(endIsoInitial) : "",
-  );
+  const startHHMMInitial = toLocalHHMM(props.entry.start_at);
+  const endHHMMInitial = props.entry.end_at
+    ? toLocalHHMM(props.entry.end_at)
+    : "";
+  const [startHHMM, setStartHHMM] = createSignal(startHHMMInitial);
+  const [endHHMM, setEndHHMM] = createSignal(endHHMMInitial);
   const [err, setErr] = createSignal<string | null>(null);
 
   const [projects] = createResource(() => api.listProjects(), {
@@ -43,15 +42,16 @@ export default function EditEntryDialog(props: {
       if (billable() !== props.entry.billable) {
         await api.setEntryBillable(props.entry.local_uuid, billable());
       }
-      if (isCompleted()) {
+      if (
+        isCompleted() &&
+        (startHHMM() !== startHHMMInitial || endHHMM() !== endHHMMInitial)
+      ) {
+        // Only rebuild + send when the user touched the time inputs.
+        // Rebuilding always zeroes seconds, so a no-op save would silently
+        // truncate non-zero-second timer entries to minute precision.
         const newStart = fromLocalHHMM(props.entry.start_at, startHHMM());
         const newEnd = fromLocalHHMM(props.entry.end_at!, endHHMM());
-        if (
-          newStart !== props.entry.start_at ||
-          newEnd !== props.entry.end_at
-        ) {
-          await api.updateEntryTimes(props.entry.local_uuid, newStart, newEnd);
-        }
+        await api.updateEntryTimes(props.entry.local_uuid, newStart, newEnd);
       }
       props.onSaved();
       props.onClose();

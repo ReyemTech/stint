@@ -109,6 +109,33 @@ describe("<EditEntryDialog>", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it("does not call updateEntryTimes when the user only edits metadata on a non-zero-second entry", async () => {
+    // Regression: rebuilding HH:MM → ISO always zeroes seconds. Without the
+    // guard, a metadata-only Save would silently shift a 09:00:42 start to
+    // 09:00:00, truncating recorded duration.
+    const onSaved = vi.fn();
+    const onClose = vi.fn();
+    const { container, getByText } = render(() => (
+      <EditEntryDialog
+        entry={entry({
+          start_at: "2026-05-20T09:00:42Z",
+          end_at: "2026-05-20T09:30:17Z",
+        })}
+        onClose={onClose}
+        onSaved={onSaved}
+      />
+    ));
+    const descInput = container.querySelector(
+      'input[type="text"]',
+    ) as HTMLInputElement;
+    descInput.value = "deep work (renamed)";
+    fireEvent.input(descInput);
+    fireEvent.click(getByText("Save"));
+    await flush();
+    expect(api.updateDescription).toHaveBeenCalled();
+    expect(api.updateEntryTimes).not.toHaveBeenCalled();
+  });
+
   it("clicking the scrim (outer wrapper) invokes onClose", async () => {
     const onClose = vi.fn();
     const { container } = render(() => (
