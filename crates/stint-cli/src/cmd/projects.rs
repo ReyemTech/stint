@@ -14,6 +14,8 @@ pub enum ProjectsCmd {
     List,
     /// Pull projects/tasks/tags from Solidtime.
     Refresh,
+    /// Print the raw Solidtime `/projects` response. Diagnostic only.
+    Raw,
 }
 
 pub async fn run(p: ProjectsCmd) -> Result<()> {
@@ -22,7 +24,8 @@ pub async fn run(p: ProjectsCmd) -> Result<()> {
         ProjectsCmd::List => {
             let r = Reference::new(store);
             for p in r.list_projects().await? {
-                println!("{}  {}", p.id, p.name);
+                let bill = if p.billable_default != 0 { "$" } else { " " };
+                println!("{bill} {}  {}", p.id, p.name);
             }
             Ok(())
         }
@@ -30,6 +33,12 @@ pub async fn run(p: ProjectsCmd) -> Result<()> {
             let client = build_client(&store).await?;
             refresh_reference_data(&store, &client).await?;
             println!("✓ refreshed");
+            Ok(())
+        }
+        ProjectsCmd::Raw => {
+            let client = build_client(&store).await?;
+            let body = client.list_projects_raw().await?;
+            println!("{body}");
             Ok(())
         }
     }

@@ -73,6 +73,26 @@ impl SolidtimeClient {
         self.get_list(&url).await
     }
 
+    /// Returns the raw response body for `GET /projects`. Diagnostic only —
+    /// callers should prefer `list_projects()` for parsed data.
+    pub async fn list_projects_raw(&self) -> Result<String> {
+        let org = self.org()?;
+        let url = format!("{}/api/v1/organizations/{org}/projects", self.base_url);
+        let resp = self.authed(self.http.get(&url)).await?.send().await?;
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        if status == StatusCode::UNAUTHORIZED {
+            return Err(Error::SolidtimeAuth);
+        }
+        if !status.is_success() {
+            return Err(Error::Solidtime {
+                status: status.as_u16(),
+                body,
+            });
+        }
+        Ok(body)
+    }
+
     pub async fn list_tasks(&self) -> Result<Vec<RemoteTask>> {
         let org = self.org()?;
         let url = format!("{}/api/v1/organizations/{org}/tasks", self.base_url);
