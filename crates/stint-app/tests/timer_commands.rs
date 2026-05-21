@@ -41,6 +41,7 @@ async fn start_timer_persists_entry_and_enqueues_create_op() {
             project_id: None,
             task_id: None,
             billable: true,
+            start_at: None,
         },
     )
     .await
@@ -84,6 +85,7 @@ async fn start_timer_while_running_returns_invariant_error() {
             project_id: None,
             task_id: None,
             billable: false,
+            start_at: None,
         },
     )
     .await
@@ -99,6 +101,7 @@ async fn start_timer_while_running_returns_invariant_error() {
             project_id: None,
             task_id: None,
             billable: false,
+            start_at: None,
         },
     )
     .await
@@ -123,6 +126,7 @@ async fn stop_timer_sets_end_and_clears_running() {
             project_id: None,
             task_id: None,
             billable: false,
+            start_at: None,
         },
     )
     .await
@@ -157,6 +161,7 @@ async fn delete_entry_on_pending_create_hard_deletes_the_row() {
             project_id: None,
             task_id: None,
             billable: false,
+            start_at: None,
         },
     )
     .await
@@ -184,6 +189,7 @@ async fn update_description_round_trips() {
             project_id: None,
             task_id: None,
             billable: false,
+            start_at: None,
         },
     )
     .await
@@ -214,6 +220,7 @@ async fn set_entry_project_round_trips() {
             project_id: None,
             task_id: None,
             billable: false,
+            start_at: None,
         },
     )
     .await
@@ -260,6 +267,7 @@ async fn set_entry_billable_round_trips() {
             project_id: None,
             task_id: None,
             billable: false,
+            start_at: None,
         },
     )
     .await
@@ -302,6 +310,7 @@ async fn update_entry_times_updates_both_fields_and_enqueues_update_when_synced(
             project_id: None,
             task_id: None,
             billable: false,
+            start_at: None,
         },
     )
     .await
@@ -352,6 +361,7 @@ async fn update_entry_times_rejects_end_le_start() {
             project_id: None,
             task_id: None,
             billable: false,
+            start_at: None,
         },
     )
     .await
@@ -387,6 +397,7 @@ async fn get_running_timer_returns_view_after_start() {
             project_id: Some("p-1".into()),
             task_id: None,
             billable: true,
+            start_at: None,
         },
     )
     .await

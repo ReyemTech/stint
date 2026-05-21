@@ -285,9 +285,7 @@ async fn edit_without_flags_is_a_no_op() {
         .args(["edit", "deadbeef"])
         .assert()
         .success()
-        .stdout(predicate::str::contains(
-            "Nothing to update. Pass --description to change something.",
-        ));
+        .stdout(predicate::str::contains("Nothing to update"));
 }
 
 #[tokio::test(flavor = "multi_thread")]

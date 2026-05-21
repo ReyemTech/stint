@@ -35,6 +35,7 @@ async fn sync_now_drains_one_pending_create_and_marks_entry_synced() {
             project_id: None,
             task_id: None,
             billable: false,
+            start_at: None,
         },
     )
     .await
