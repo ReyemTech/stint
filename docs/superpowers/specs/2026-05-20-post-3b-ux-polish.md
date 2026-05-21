@@ -2,9 +2,9 @@
 
 A grouping of UX gaps surfaced during Phase 3b's manual E2E. None are blocking 3b's ship; together they form a coherent "make logging fast and accurate" phase.
 
-- **Status:** Draft 2026-05-20
-- **Predecessors:** Phase 3b (Google Calendar)
-- **Target placement:** Standalone phase between 3b and 4 (provisionally **3c — UX polish**), or fold into a broader 3.5 alongside the Solidtime-down sync spec.
+- **Status:** Confirmed 2026-05-20
+- **Predecessors:** Phase 3b (Google Calendar), Phase 3c (Solidtime down-sync — shipped)
+- **Target placement:** Phase 3d. The original "3c — UX polish" placement was reclaimed by the Solidtime down-sync work; this is the next phase after 3c.
 
 ## 1. Project picker — searchable + client-grouped
 
@@ -147,8 +147,8 @@ Single phase, four commits + tests:
 
 Estimated total: ~1500 LOC + tests across stint-core (schema + types + commands), stint-app (Tauri commands + UI), stint-cli (subcommand flags), and a meaningful chunk of UI work for the picker.
 
-## 6. Open questions
+## 6. Decisions (resolved 2026-05-20)
 
-- **Picker keyboard nav model**: Solid has no community-blessed combobox; we either roll our own or pull a lightweight library (e.g. `@kobalte/core`). The repo currently has zero UI libraries beyond Tailwind primitives; adding one is a meaningful direction choice.
-- **Cross-day edits in §3**: do we want a full date+time picker, or restrict edits to the entry's existing date (rare to legitimately move an entry to a different day)?
-- **§4's relative-time shortcuts**: how many are useful? "5/15/30/60 min" covers ~90% of cases. Beyond that, drop into custom HH:MM.
+- **Picker primitive: pull in `@kobalte/core`.** Use its `Combobox` component as the foundation for `ProjectPicker`. Rationale: combobox keyboard nav + ARIA done right is ~200 LOC of fiddly plumbing; @kobalte is Solid-native and well-maintained. This is the first UI library beyond Tailwind primitives — restricted to combobox/menu primitives only; don't reach for it for things tailwind can do.
+- **Edit dialog scope: same-day only.** The §3 edit dialog locks the entry's date and exposes only start/end *times*. Cross-day moves remain a delete + re-create workaround. Covers ~95% of edits; revisit if real demand emerges.
+- **Backdate shortcuts: four + custom.** "5 min", "15 min", "30 min", "1 hour" buttons plus a custom HH:MM input. Matches the spec's own estimate that these cover ~90% of cases.
