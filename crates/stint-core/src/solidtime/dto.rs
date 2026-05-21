@@ -22,6 +22,8 @@ pub struct RemoteProject {
     pub client_id: Option<String>,
     #[serde(default)]
     pub archived: bool,
+    #[serde(default)]
+    pub is_billable: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

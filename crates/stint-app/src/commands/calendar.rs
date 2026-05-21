@@ -270,6 +270,20 @@ pub async fn calendar_log_event<R: Runtime>(
         .find(|c| c.id == event.calendar_id)
         .and_then(|c| c.default_project_id);
 
+    // When a default project is set, inherit its billable flag from the
+    // cached Solidtime is_billable (refreshed on every sync tick). Without
+    // a default project, fall back to non-billable.
+    let billable = match default_project_id.as_deref() {
+        Some(pid) => stint_core::store::reference::Reference::new((*store).clone())
+            .list_projects()
+            .await?
+            .into_iter()
+            .find(|p| p.id == pid)
+            .map(|p| p.billable_default != 0)
+            .unwrap_or(false),
+        None => false,
+    };
+
     let local_uuid = entries
         .create_completed(NewCompletedEntry {
             description: event.title,
@@ -277,7 +291,7 @@ pub async fn calendar_log_event<R: Runtime>(
             task_id: None,
             start_at,
             end_at,
-            billable: false,
+            billable,
             source: "calendar".into(),
             source_event_id: Some(format!("{}:{}:{}", account_id, event.id, event.start_at)),
         })

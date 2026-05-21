@@ -15,6 +15,7 @@ async fn upsert_projects_replaces_set() {
             client_id: None,
             client_name: None,
             archived: 0,
+            billable_default: 0,
         },
         ProjectRow {
             id: "p2".into(),
@@ -23,6 +24,7 @@ async fn upsert_projects_replaces_set() {
             client_id: None,
             client_name: None,
             archived: 0,
+            billable_default: 0,
         },
     ];
     r.upsert_projects(&initial).await.unwrap();
@@ -37,6 +39,7 @@ async fn upsert_projects_replaces_set() {
         client_id: None,
         client_name: None,
         archived: 0,
+        billable_default: 0,
     }];
     r.upsert_projects(&updated).await.unwrap();
 
@@ -57,6 +60,7 @@ async fn upsert_tasks_and_tags() {
         client_id: None,
         client_name: None,
         archived: 0,
+        billable_default: 0,
     }])
     .await
     .unwrap();
@@ -101,6 +105,7 @@ async fn list_projects_joins_client_name() {
             client_id: Some("c-1".into()),
             client_name: None,
             archived: 0,
+            billable_default: 0,
         },
         ProjectRow {
             id: "p-2".into(),
@@ -109,6 +114,7 @@ async fn list_projects_joins_client_name() {
             client_id: None,
             client_name: None,
             archived: 0,
+            billable_default: 0,
         },
     ])
     .await
