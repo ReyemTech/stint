@@ -356,17 +356,17 @@ export default function Settings() {
               </Show>
             }
           >
-            <SelectField
+            <FieldShell
               label="Default project"
               hint="Optional. New timers pre-fill this project."
-              value={defaultProjectId()}
-              options={[
-                { value: "", label: "(none)" },
-                ...projectList().map((p) => ({ value: p.id, label: p.name })),
-              ]}
-              onChange={(v) => saveValue("solidtime.default-project", v)}
-              placeholder="Select a project…"
-            />
+            >
+              <ProjectPicker
+                value={defaultProjectId() || null}
+                onChange={(id) => saveValue("solidtime.default-project", id ?? "")}
+                projects={projectList()}
+                placeholder="No default project"
+              />
+            </FieldShell>
           </Show>
         </div>
 
