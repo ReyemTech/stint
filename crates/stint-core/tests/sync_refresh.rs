@@ -7,14 +7,21 @@ use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 #[tokio::test]
-async fn refresh_reference_data_writes_projects_tasks_tags() {
+async fn refresh_reference_data_writes_clients_projects_tasks_tags() {
     let env = common::setup().await;
     let server = MockServer::start().await;
 
     Mock::given(method("GET"))
+        .and(path("/api/v1/organizations/org-1/clients"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "data": [{ "id": "c1", "name": "Acme", "archived": false }]
+        })))
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
         .and(path("/api/v1/organizations/org-1/projects"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-            "data": [{ "id": "p1", "name": "Tet", "color": null, "client_id": null, "archived": false }]
+            "data": [{ "id": "p1", "name": "Tet", "color": null, "client_id": "c1", "archived": false }]
         })))
         .mount(&server).await;
     Mock::given(method("GET"))
@@ -36,6 +43,9 @@ async fn refresh_reference_data_writes_projects_tasks_tags() {
     refresh_reference_data(&env.store, &client).await.unwrap();
 
     let r = Reference::new(env.store.clone());
+    let clients = r.list_clients().await.unwrap();
+    assert_eq!(clients.len(), 1);
+    assert_eq!(clients[0].name, "Acme");
     assert_eq!(r.list_projects().await.unwrap().len(), 1);
     assert_eq!(r.list_tasks("p1").await.unwrap().len(), 1);
     assert_eq!(r.list_tags().await.unwrap().len(), 1);

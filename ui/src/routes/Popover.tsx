@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { api } from "~/api";
 import Duration from "~/components/Duration";
 import Button from "~/components/ui/Button";
+import ProjectPicker from "~/components/ui/ProjectPicker";
 import SectionLabel from "~/components/ui/SectionLabel";
 import StatusDot from "~/components/ui/StatusDot";
 import Toggle from "~/components/ui/Toggle";
@@ -91,16 +92,15 @@ export default function Popover() {
                   onInput={(e) => setDescription(e.currentTarget.value)}
                 />
                 <div class="flex items-center gap-2">
-                  <select
-                    class="min-w-0 flex-1 rounded-lg border border-zinc-200 bg-zinc-50/50 px-2.5 py-1.5 text-[12px] outline-none transition focus:border-indigo-400 focus:bg-white dark:border-zinc-700 dark:bg-zinc-800/40 dark:focus:bg-zinc-800"
-                    value={projectId()}
-                    onChange={(e) => setProjectId(e.currentTarget.value)}
-                  >
-                    <option value="">No project</option>
-                    <For each={projects() ?? []}>
-                      {(p) => <option value={p.id}>{p.name}</option>}
-                    </For>
-                  </select>
+                  <div class="min-w-0 flex-1">
+                    <ProjectPicker
+                      value={projectId() || null}
+                      onChange={(id) => setProjectId(id ?? "")}
+                      projects={projects() ?? []}
+                      placeholder="No project"
+                      size="sm"
+                    />
+                  </div>
                   <Toggle
                     label="Billable"
                     size="sm"

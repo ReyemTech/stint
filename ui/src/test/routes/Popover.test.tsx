@@ -32,7 +32,7 @@ vi.mock("~/api", () => ({
   api: {
     listToday: vi.fn().mockResolvedValue([]),
     listProjects: vi.fn().mockResolvedValue([
-      { id: "p-1", name: "Tet", color: null, client_id: null, archived: 0 },
+      { id: "p-1", name: "Tet", color: null, client_id: null, client_name: null, archived: 0 },
     ]),
   },
 }));

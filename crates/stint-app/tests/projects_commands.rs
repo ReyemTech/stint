@@ -44,6 +44,7 @@ async fn list_projects_returns_seeded_rows() {
             name: "Tet".into(),
             color: None,
             client_id: None,
+            client_name: None,
             archived: 0,
         }])
         .await
@@ -98,7 +99,7 @@ async fn refresh_projects_populates_local_cache_from_solidtime() {
         })))
         .mount(&server)
         .await;
-    for endpoint in ["tasks", "tags"] {
+    for endpoint in ["tasks", "tags", "clients"] {
         Mock::given(method("GET"))
             .and(path(format!("/api/v1/organizations/org-1/{endpoint}")))
             .respond_with(

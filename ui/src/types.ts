@@ -24,6 +24,7 @@ export type Project = {
   name: string;
   color: string | null;
   client_id: string | null;
+  client_name: string | null;
   archived: number;
 };
 

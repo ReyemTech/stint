@@ -85,6 +85,12 @@ impl SolidtimeClient {
         self.get_list(&url).await
     }
 
+    pub async fn list_clients(&self) -> Result<Vec<RemoteClient>> {
+        let org = self.org()?;
+        let url = format!("{}/api/v1/organizations/{org}/clients", self.base_url);
+        self.get_list(&url).await
+    }
+
     pub async fn list_memberships(&self) -> Result<Vec<Membership>> {
         let url = format!("{}/api/v1/users/me/memberships", self.base_url);
         self.get_list(&url).await

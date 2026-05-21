@@ -34,7 +34,7 @@ function entry(overrides: Partial<Entry> = {}): Entry {
 beforeEach(() => {
   vi.mocked(api.listProjects).mockClear();
   vi.mocked(api.listProjects).mockResolvedValue([
-    { id: "p-1", name: "Tet", color: null, client_id: null, archived: 0 } as never,
+    { id: "p-1", name: "Tet", color: null, client_id: null, client_name: null, archived: 0 } as never,
   ]);
 });
 

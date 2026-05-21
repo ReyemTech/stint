@@ -1,7 +1,8 @@
-import { For, Show, createResource, createSignal } from "solid-js";
+import { Show, createResource, createSignal } from "solid-js";
 import { api } from "~/api";
 import Duration from "./Duration";
 import Button from "./ui/Button";
+import ProjectPicker from "./ui/ProjectPicker";
 import SectionLabel from "./ui/SectionLabel";
 import StatusDot from "./ui/StatusDot";
 import Toggle from "./ui/Toggle";
@@ -42,16 +43,14 @@ export default function TimerCard() {
               autofocus
             />
             <div class="flex items-center gap-2">
-              <select
-                class="min-w-0 flex-1 rounded-lg border border-zinc-200 bg-zinc-50/50 px-3 py-1.5 text-sm outline-none transition focus:border-indigo-400 focus:bg-white dark:border-zinc-700 dark:bg-zinc-800/40 dark:focus:bg-zinc-800"
-                value={projectId()}
-                onChange={(e) => setProjectId(e.currentTarget.value)}
-              >
-                <option value="">No project</option>
-                <For each={projectList()}>
-                  {(p) => <option value={p.id}>{p.name}</option>}
-                </For>
-              </select>
+              <div class="min-w-0 flex-1">
+                <ProjectPicker
+                  value={projectId() || null}
+                  onChange={(id) => setProjectId(id ?? "")}
+                  projects={projectList()}
+                  placeholder="No project"
+                />
+              </div>
               <Toggle label="Billable" checked={billable()} onChange={setBillable} />
               <Button type="submit" disabled={!description().trim()}>
                 Start
@@ -77,20 +76,18 @@ export default function TimerCard() {
             </div>
 
             <div class="mt-4 flex items-center gap-2">
-              <select
-                class="min-w-0 flex-1 rounded-lg border border-zinc-200 bg-zinc-50/50 px-3 py-1.5 text-xs outline-none transition focus:border-indigo-400 focus:bg-white dark:border-zinc-700 dark:bg-zinc-800/40 dark:focus:bg-zinc-800"
-                value={t().project_id ?? ""}
-                onChange={async (e) => {
-                  const v = e.currentTarget.value;
-                  await api.setEntryProject(t().local_uuid, v || null);
-                  await timer.refresh();
-                }}
-              >
-                <option value="">No project</option>
-                <For each={projectList()}>
-                  {(p) => <option value={p.id}>{p.name}</option>}
-                </For>
-              </select>
+              <div class="min-w-0 flex-1">
+                <ProjectPicker
+                  value={t().project_id}
+                  onChange={async (id) => {
+                    await api.setEntryProject(t().local_uuid, id);
+                    await timer.refresh();
+                  }}
+                  projects={projectList()}
+                  placeholder="No project"
+                  size="sm"
+                />
+              </div>
               <Toggle
                 label="Billable"
                 checked={t().billable}

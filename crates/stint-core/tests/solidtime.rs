@@ -279,3 +279,24 @@ async fn delete_time_entry_surfaces_non_404_failures() {
         other => panic!("expected Solidtime error, got {other:?}"),
     }
 }
+
+#[tokio::test]
+async fn list_clients_hits_org_endpoint_and_parses() {
+    let server = fake_server().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v1/organizations/org-1/clients"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "data": [
+                { "id": "c-1", "name": "Acme",   "archived": false },
+                { "id": "c-2", "name": "Beta Co", "archived": true  }
+            ]
+        })))
+        .mount(&server)
+        .await;
+
+    let client = SolidtimeClient::with_api_token(&server.uri(), "t").with_org("org-1");
+    let clients = client.list_clients().await.unwrap();
+    assert_eq!(clients.len(), 2);
+    assert_eq!(clients[0].id, "c-1");
+    assert!(clients[1].archived);
+}
