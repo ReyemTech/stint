@@ -23,6 +23,7 @@ export default function EditEntryDialog(props: {
   const [startHHMM, setStartHHMM] = createSignal(startHHMMInitial);
   const [endHHMM, setEndHHMM] = createSignal(endHHMMInitial);
   const [err, setErr] = createSignal<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = createSignal(false);
 
   const [projects] = createResource(() => api.listProjects(), {
     initialValue: [],
@@ -61,13 +62,19 @@ export default function EditEntryDialog(props: {
   }
 
   async function destroy() {
-    if (!confirm("Delete this entry?")) return;
+    // Inline two-step confirm: first click arms, second click commits.
+    // window.confirm() is silently suppressed by Tauri's WKWebView.
+    if (!confirmingDelete()) {
+      setConfirmingDelete(true);
+      return;
+    }
     try {
       await api.deleteEntry(props.entry.local_uuid);
       props.onSaved();
       props.onClose();
     } catch (e) {
       setErr((e as { message: string }).message);
+      setConfirmingDelete(false);
     }
   }
 
@@ -150,9 +157,32 @@ export default function EditEntryDialog(props: {
         </Show>
 
         <div class="mt-5 flex items-center justify-between gap-2">
-          <Button variant="ghost" size="sm" onClick={destroy}>
-            Delete
-          </Button>
+          <Show
+            when={confirmingDelete()}
+            fallback={
+              <Button variant="ghost" size="sm" onClick={destroy}>
+                Delete
+              </Button>
+            }
+          >
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-red-600 dark:text-red-400">
+                Delete this entry?
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setConfirmingDelete(false);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button variant="danger" size="sm" onClick={destroy}>
+                Yes, delete
+              </Button>
+            </div>
+          </Show>
           <div class="flex gap-2">
             <Button variant="ghost" onClick={props.onClose}>
               Cancel
