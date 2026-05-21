@@ -39,6 +39,7 @@ async fn main() -> Result<()> {
             commands::timer::update_description,
             commands::timer::set_entry_project,
             commands::timer::set_entry_billable,
+            commands::timer::update_entry_times,
             commands::entries::list_today,
             commands::entries::list_between,
             commands::projects::list_projects,

@@ -25,6 +25,7 @@ pub async fn run(args: Args) -> Result<()> {
             task_id: args.task,
             billable: false,
             source: "cli".into(),
+            start_at: None,
         })
         .await?;
     println!("Started: {} ({})", args.description, id);

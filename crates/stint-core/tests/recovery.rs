@@ -25,6 +25,7 @@ async fn fresh_heartbeat_returns_attach_in_place() {
             task_id: None,
             billable: false,
             source: "cli".into(),
+            start_at: None,
         })
         .await
         .unwrap();
@@ -46,6 +47,7 @@ async fn very_stale_heartbeat_prompts_decision_and_keep_continues_timer() {
             task_id: None,
             billable: false,
             source: "cli".into(),
+            start_at: None,
         })
         .await
         .unwrap();
@@ -88,6 +90,7 @@ async fn very_stale_heartbeat_stop_at_last_heartbeat_sets_end_and_clears() {
             task_id: None,
             billable: false,
             source: "cli".into(),
+            start_at: None,
         })
         .await
         .unwrap();
@@ -125,6 +128,7 @@ async fn moderately_stale_heartbeat_auto_recovers_without_prompting() {
             task_id: None,
             billable: false,
             source: "cli".into(),
+            start_at: None,
         })
         .await
         .unwrap();
@@ -180,6 +184,7 @@ async fn very_stale_heartbeat_discard_deletes_entry_and_clears_running() {
             task_id: None,
             billable: false,
             source: "cli".into(),
+            start_at: None,
         })
         .await
         .unwrap();

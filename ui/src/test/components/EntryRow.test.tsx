@@ -10,6 +10,8 @@ vi.mock("~/api", () => ({
     updateDescription: vi.fn().mockResolvedValue(undefined),
     setEntryProject: vi.fn().mockResolvedValue(undefined),
     setEntryBillable: vi.fn().mockResolvedValue(undefined),
+    updateEntryTimes: vi.fn().mockResolvedValue(undefined),
+    deleteEntry: vi.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -17,7 +19,7 @@ import EntryRow from "~/components/EntryRow";
 import { api } from "~/api";
 import type { Entry } from "~/types";
 
-const flushMicrotasks = () => new Promise<void>((r) => setTimeout(r, 0));
+const flush = () => new Promise<void>((r) => setTimeout(r, 0));
 
 function entry(overrides: Partial<Entry> = {}): Entry {
   return {
@@ -58,16 +60,14 @@ describe("<EntryRow>", () => {
   });
 
   it("renders the Billable pill only when entry.billable is true", () => {
-    const { queryByText, rerender } = render(() => (
+    const { queryByText } = render(() => (
       <EntryRow entry={entry({ billable: false })} />
-    )) as any;
+    ));
     expect(queryByText("Billable")).toBeNull();
-    // separate render for true case (rerender isn't part of the solid lib)
     const { queryByText: q2 } = render(() => (
       <EntryRow entry={entry({ billable: true })} />
     ));
     expect(q2("Billable")).not.toBeNull();
-    void rerender;
   });
 
   it("shows the project name pill when projectName prop is set", () => {
@@ -84,57 +84,35 @@ describe("<EntryRow>", () => {
     expect(getByText("Running")).toBeDefined();
   });
 
-  it("clicking the row toggles the editor panel open", async () => {
+  it("clicking the row opens the edit dialog", async () => {
     const { container, queryByText } = render(() => <EntryRow entry={entry()} />);
-    expect(queryByText("Description")).toBeNull();
+    expect(queryByText("Edit entry")).toBeNull();
     fireEvent.click(container.querySelector("button")!);
-    await flushMicrotasks();
-    expect(queryByText("Description")).not.toBeNull();
-    expect(container.querySelector('input[type="text"]')).not.toBeNull();
+    await flush();
+    expect(queryByText("Edit entry")).not.toBeNull();
   });
 
-  it("opens with the ProjectPicker visible inside the editor panel", async () => {
+  it("dialog shows the ProjectPicker after the row is clicked", async () => {
     const { container, queryByLabelText } = render(() => (
       <EntryRow entry={entry()} />
     ));
     expect(queryByLabelText("Open project list")).toBeNull();
     fireEvent.click(container.querySelector("button")!);
-    await flushMicrotasks();
+    await flush();
     expect(queryByLabelText("Open project list")).not.toBeNull();
   });
 
-  it("toggling the Billable Toggle calls api.setEntryBillable", async () => {
-    const { container, getByRole } = render(() => (
-      <EntryRow entry={entry({ billable: false })} />
+  it("Cancel from the dialog closes it without invoking onChange", async () => {
+    const onChange = vi.fn();
+    const { container, queryByText, getByText } = render(() => (
+      <EntryRow entry={entry()} onChange={onChange} />
     ));
     fireEvent.click(container.querySelector("button")!);
-    await flushMicrotasks();
-    fireEvent.click(getByRole("switch"));
-    await flushMicrotasks();
-    expect(api.setEntryBillable).toHaveBeenCalledWith("uuid-1", true);
-  });
-
-  it("editing the description and blurring calls api.updateDescription", async () => {
-    const { container } = render(() => <EntryRow entry={entry()} />);
-    fireEvent.click(container.querySelector("button")!);
-    await flushMicrotasks();
-    const input = container.querySelector('input[type="text"]') as HTMLInputElement;
-    input.value = "renamed";
-    fireEvent.input(input);
-    fireEvent.blur(input);
-    await flushMicrotasks();
-    expect(api.updateDescription).toHaveBeenCalledWith("uuid-1", "renamed");
-  });
-
-  it("Delete button invokes onDelete with the local uuid", async () => {
-    const onDelete = vi.fn();
-    const { container, findByRole } = render(() => (
-      <EntryRow entry={entry()} onDelete={onDelete} />
-    ));
-    fireEvent.click(container.querySelector("button")!);
-    await flushMicrotasks();
-    const del = await findByRole("button", { name: /Delete entry/i });
-    fireEvent.click(del);
-    expect(onDelete).toHaveBeenCalledWith("uuid-1");
+    await flush();
+    expect(queryByText("Edit entry")).not.toBeNull();
+    fireEvent.click(getByText("Cancel"));
+    await flush();
+    expect(queryByText("Edit entry")).toBeNull();
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

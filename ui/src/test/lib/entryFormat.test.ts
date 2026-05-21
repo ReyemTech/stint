@@ -3,7 +3,9 @@ import {
   entryDurationSecs,
   entrySyncMeta,
   formatEventTime,
+  fromLocalHHMM,
   sumCompletedEntrySeconds,
+  toLocalHHMM,
 } from "~/lib/entryFormat";
 import type { Entry } from "~/types";
 
@@ -154,5 +156,39 @@ describe("formatEventTime", () => {
     // with the explicit hour/minute options.
     const got = formatEventTime("2026-05-20T09:30:00Z", false);
     expect(got).toMatch(/\d{1,2}:\d{2}/);
+  });
+});
+
+describe("toLocalHHMM / fromLocalHHMM round-trip", () => {
+  it("toLocalHHMM returns a zero-padded HH:MM in local time", () => {
+    // The exact value depends on the runner's local TZ. The shape is stable.
+    const out = toLocalHHMM("2026-05-20T09:30:00Z");
+    expect(out).toMatch(/^\d{2}:\d{2}$/);
+  });
+
+  it("fromLocalHHMM returns a valid ISO string", () => {
+    const out = fromLocalHHMM("2026-05-20T09:00:00Z", "10:15");
+    // ISO format, parseable.
+    expect(() => new Date(out).toISOString()).not.toThrow();
+    expect(out).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+  });
+
+  it("toLocalHHMM ↔ fromLocalHHMM round-trip preserves HH:MM", () => {
+    const original = "2026-05-20T09:00:00Z";
+    const hhmm = toLocalHHMM(original);
+    const roundtripped = fromLocalHHMM(original, hhmm);
+    expect(toLocalHHMM(roundtripped)).toBe(hhmm);
+  });
+
+  it("fromLocalHHMM anchors the new time to the reference's date", () => {
+    // Anchor to a Tuesday; ask for 23:59. Whatever the local TZ, the result's
+    // local date should match the reference's local date.
+    const ref = "2026-05-20T09:00:00Z";
+    const out = fromLocalHHMM(ref, "23:59");
+    const refDate = new Date(ref);
+    const outDate = new Date(out);
+    expect(outDate.getDate()).toBe(refDate.getDate());
+    expect(outDate.getMonth()).toBe(refDate.getMonth());
+    expect(outDate.getFullYear()).toBe(refDate.getFullYear());
   });
 });

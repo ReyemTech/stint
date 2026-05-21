@@ -18,6 +18,7 @@ async fn start_creates_entry_sets_running_and_enqueues_sync() {
             task_id: None,
             billable: false,
             source: "cli".into(),
+            start_at: None,
         })
         .await
         .unwrap();
@@ -49,6 +50,7 @@ async fn start_while_already_running_returns_invariant_error() {
             task_id: None,
             billable: false,
             source: "cli".into(),
+            start_at: None,
         })
         .await
         .unwrap();
@@ -60,6 +62,7 @@ async fn start_while_already_running_returns_invariant_error() {
             task_id: None,
             billable: false,
             source: "cli".into(),
+            start_at: None,
         })
         .await;
 
@@ -78,6 +81,7 @@ async fn stop_sets_end_clears_running_and_enqueues_update() {
             task_id: None,
             billable: false,
             source: "cli".into(),
+            start_at: None,
         })
         .await
         .unwrap();
@@ -128,6 +132,7 @@ async fn delete_synced_entry_enqueues_delete_op() {
             task_id: None,
             billable: false,
             source: "cli".into(),
+            start_at: None,
         })
         .await
         .unwrap();
@@ -185,6 +190,7 @@ async fn start_rolls_back_entry_if_running_timer_already_claimed() {
             task_id: None,
             billable: false,
             source: "cli".into(),
+            start_at: None,
         })
         .await
         .expect_err("expected `already running` error");

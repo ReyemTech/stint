@@ -52,3 +52,23 @@ export function formatEventTime(iso: string, allDay: boolean): string {
   const d = new Date(iso);
   return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 }
+
+/// Convert an RFC 3339 timestamp to "HH:MM" in the user's local time. Used
+/// by the entry edit dialog to seed its time inputs.
+export function toLocalHHMM(iso: string): string {
+  const d = new Date(iso);
+  const hh = d.getHours().toString().padStart(2, "0");
+  const mm = d.getMinutes().toString().padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+/// Combine a "HH:MM" local-time string with the date portion of an existing
+/// RFC 3339 timestamp; returns an ISO string in UTC. Used by the edit
+/// dialog to pin a new time to the entry's original day.
+export function fromLocalHHMM(referenceIso: string, hhmm: string): string {
+  const ref = new Date(referenceIso);
+  const [hStr, mStr] = hhmm.split(":");
+  const out = new Date(ref);
+  out.setHours(parseInt(hStr, 10), parseInt(mStr, 10), 0, 0);
+  return out.toISOString();
+}

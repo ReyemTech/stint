@@ -24,6 +24,7 @@ async fn push_one_succeeds_for_create_entry_and_marks_synced() {
             task_id: None,
             billable: false,
             source: "cli".into(),
+            start_at: None,
         })
         .await
         .unwrap();
@@ -68,6 +69,7 @@ async fn push_one_marks_failed_on_500_and_backs_off() {
             task_id: None,
             billable: false,
             source: "cli".into(),
+            start_at: None,
         })
         .await
         .unwrap();
@@ -103,6 +105,7 @@ async fn push_one_handles_delete_entry() {
             task_id: None,
             billable: false,
             source: "cli".into(),
+            start_at: None,
         })
         .await
         .unwrap();
