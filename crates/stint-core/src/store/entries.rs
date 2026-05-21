@@ -243,14 +243,19 @@ impl Entries {
                 "entry duration must be \u{2264} 24 hours".into(),
             ));
         }
+        // Persist canonical `...:ssZ` form. Sync push forwards stored
+        // timestamps directly to Solidtime, which 422s on fractional
+        // seconds or offset suffixes.
+        let start_canon = time::format(&start);
+        let end_canon = time::format(&end);
         self.update_one(local_uuid, |s| {
             sqlx::query(
                 "UPDATE time_entries
                  SET start_at = ?, end_at = ?, sync_state = ?, updated_at = ?
                  WHERE local_uuid = ?",
             )
-            .bind(start_at)
-            .bind(end_at)
+            .bind(start_canon)
+            .bind(end_canon)
             .bind(s.next_state())
             .bind(time::now_utc())
             .bind(local_uuid)
