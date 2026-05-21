@@ -21,6 +21,7 @@ async fn enqueue_one_create(env: &common::TestEnv) {
             task_id: None,
             billable: false,
             source: "cli".into(),
+            start_at: None,
         })
         .await
         .unwrap();

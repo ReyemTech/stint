@@ -65,6 +65,7 @@ pub async fn start_timer<R: Runtime>(
             task_id: args.task_id,
             billable: args.billable,
             source: "gui".into(),
+            start_at: None,
         })
         .await?;
     announce_change(&app);
@@ -141,6 +142,22 @@ pub async fn set_entry_billable<R: Runtime>(
     let store = store(&state).await;
     let timer = TimerService::new((*store).clone());
     timer.set_billable(&local_uuid, billable).await?;
+    announce_change(&app);
+    sync_worker::nudge(app.clone(), store);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn update_entry_times<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, RwLock<AppState>>,
+    local_uuid: String,
+    start_at: String,
+    end_at: String,
+) -> Result<(), AppError> {
+    let store = store(&state).await;
+    let timer = TimerService::new((*store).clone());
+    timer.update_times(&local_uuid, &start_at, &end_at).await?;
     announce_change(&app);
     sync_worker::nudge(app.clone(), store);
     Ok(())

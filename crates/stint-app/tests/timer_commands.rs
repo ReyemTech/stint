@@ -10,7 +10,7 @@ mod common;
 
 use stint_app::commands::timer::{
     delete_entry, get_running_timer, set_entry_billable, set_entry_project, start_timer,
-    stop_timer, update_description, StartTimerArgs,
+    stop_timer, update_description, update_entry_times, StartTimerArgs,
 };
 use stint_core::store::entries::Entries;
 use stint_core::store::queue::Queue;
@@ -285,6 +285,93 @@ async fn set_entry_billable_round_trips() {
         .unwrap()
         .unwrap();
     assert_eq!(row.billable, 0);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn update_entry_times_updates_both_fields_and_enqueues_update_when_synced() {
+    let ctx = common::make_app().await;
+    let handle = ctx.handle();
+
+    // Start + stop to get a completed entry, then mark synced so the
+    // command's maybe_enqueue_update sees a "dirty" → enqueue path.
+    let id = start_timer(
+        handle.clone(),
+        handle.state(),
+        StartTimerArgs {
+            description: "edit me".into(),
+            project_id: None,
+            task_id: None,
+            billable: false,
+        },
+    )
+    .await
+    .unwrap();
+    stop_timer(handle.clone(), handle.state()).await.unwrap();
+    let entries = Entries::new((*ctx.store).clone());
+    entries.mark_synced(&id, "remote-id").await.unwrap();
+
+    let queue = Queue::new((*ctx.store).clone());
+    // take_due is a peek, not a drain — capture the baseline so we can check
+    // that update_entry_times added exactly one new op.
+    let before = queue.take_due(100).await.unwrap();
+
+    update_entry_times(
+        handle.clone(),
+        handle.state(),
+        id.clone(),
+        "2026-05-20T09:00:00Z".into(),
+        "2026-05-20T10:00:00Z".into(),
+    )
+    .await
+    .expect("update_entry_times succeeds");
+
+    let row = entries.get(&id).await.unwrap().unwrap();
+    assert_eq!(row.start_at, "2026-05-20T09:00:00Z");
+    assert_eq!(row.end_at.as_deref(), Some("2026-05-20T10:00:00Z"));
+    assert_eq!(row.sync_state, "dirty");
+
+    let after = queue.take_due(100).await.unwrap();
+    assert_eq!(after.len(), before.len() + 1);
+    assert_eq!(
+        after.last().unwrap().op,
+        "update_entry",
+        "the new op should be update_entry"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn update_entry_times_rejects_end_le_start() {
+    let ctx = common::make_app().await;
+    let handle = ctx.handle();
+
+    let id = start_timer(
+        handle.clone(),
+        handle.state(),
+        StartTimerArgs {
+            description: "x".into(),
+            project_id: None,
+            task_id: None,
+            billable: false,
+        },
+    )
+    .await
+    .unwrap();
+    stop_timer(handle.clone(), handle.state()).await.unwrap();
+
+    let err = update_entry_times(
+        handle.clone(),
+        handle.state(),
+        id,
+        "2026-05-20T11:00:00Z".into(),
+        "2026-05-20T10:00:00Z".into(),
+    )
+    .await
+    .expect_err("end < start should be rejected");
+    assert!(
+        err.message.contains("end must be after start"),
+        "got: {}",
+        err.message
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]

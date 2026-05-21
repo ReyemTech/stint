@@ -36,6 +36,8 @@ export const api = {
     invoke<void>("set_entry_project", { localUuid, projectId }),
   setEntryBillable: (localUuid: string, billable: boolean) =>
     invoke<void>("set_entry_billable", { localUuid, billable }),
+  updateEntryTimes: (localUuid: string, startAt: string, endAt: string) =>
+    invoke<void>("update_entry_times", { localUuid, startAt, endAt }),
 
   listToday: () => invoke<Entry[]>("list_today"),
   listBetween: (from: string, to: string) =>

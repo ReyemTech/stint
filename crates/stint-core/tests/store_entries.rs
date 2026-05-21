@@ -133,3 +133,109 @@ async fn delete_synced_marks_pending_delete() {
     let row = entries.get(&id).await.unwrap().unwrap();
     assert_eq!(row.sync_state, "pending_delete");
 }
+
+#[tokio::test]
+async fn update_times_updates_both_fields_and_dirties_synced_entry() {
+    let env = common::setup().await;
+    let entries = Entries::new(env.store.clone());
+
+    let id = entries
+        .create(NewTimeEntry {
+            description: "x".into(),
+            project_id: None,
+            task_id: None,
+            start_at: "2026-05-20T09:00:00Z".into(),
+            billable: false,
+            source: "cli".into(),
+        })
+        .await
+        .unwrap();
+    entries
+        .set_end(&id, "2026-05-20T10:00:00Z")
+        .await
+        .unwrap();
+    entries.mark_synced(&id, "remote-id").await.unwrap();
+
+    entries
+        .update_times(&id, "2026-05-20T09:30:00Z", "2026-05-20T10:30:00Z")
+        .await
+        .unwrap();
+
+    let row = entries.get(&id).await.unwrap().unwrap();
+    assert_eq!(row.start_at, "2026-05-20T09:30:00Z");
+    assert_eq!(row.end_at.as_deref(), Some("2026-05-20T10:30:00Z"));
+    assert_eq!(row.sync_state, "dirty");
+}
+
+#[tokio::test]
+async fn update_times_preserves_pending_create_state() {
+    let env = common::setup().await;
+    let entries = Entries::new(env.store.clone());
+
+    let id = entries
+        .create(NewTimeEntry {
+            description: "x".into(),
+            project_id: None,
+            task_id: None,
+            start_at: "2026-05-20T09:00:00Z".into(),
+            billable: false,
+            source: "cli".into(),
+        })
+        .await
+        .unwrap();
+    // pending_create (never marked synced).
+
+    entries
+        .update_times(&id, "2026-05-20T09:30:00Z", "2026-05-20T10:30:00Z")
+        .await
+        .unwrap();
+
+    let row = entries.get(&id).await.unwrap().unwrap();
+    assert_eq!(row.sync_state, "pending_create");
+}
+
+#[tokio::test]
+async fn update_times_rejects_end_le_start() {
+    let env = common::setup().await;
+    let entries = Entries::new(env.store.clone());
+    let id = entries
+        .create(NewTimeEntry {
+            description: "x".into(),
+            project_id: None,
+            task_id: None,
+            start_at: "2026-05-20T09:00:00Z".into(),
+            billable: false,
+            source: "cli".into(),
+        })
+        .await
+        .unwrap();
+
+    let err = entries
+        .update_times(&id, "2026-05-20T11:00:00Z", "2026-05-20T10:00:00Z")
+        .await
+        .unwrap_err();
+    assert!(matches!(err, stint_core::Error::Invariant(_)));
+}
+
+#[tokio::test]
+async fn update_times_rejects_duration_over_24h() {
+    let env = common::setup().await;
+    let entries = Entries::new(env.store.clone());
+    let id = entries
+        .create(NewTimeEntry {
+            description: "x".into(),
+            project_id: None,
+            task_id: None,
+            start_at: "2026-05-20T09:00:00Z".into(),
+            billable: false,
+            source: "cli".into(),
+        })
+        .await
+        .unwrap();
+
+    let err = entries
+        .update_times(&id, "2026-05-20T09:00:00Z", "2026-05-21T09:00:01Z")
+        .await
+        .unwrap_err();
+    assert!(matches!(err, stint_core::Error::Invariant(_)));
+}

@@ -225,6 +225,39 @@ impl Entries {
         .await
     }
 
+    pub async fn update_times(
+        &self,
+        local_uuid: &str,
+        start_at: &str,
+        end_at: &str,
+    ) -> Result<()> {
+        let start = time::parse(start_at)?;
+        let end = time::parse(end_at)?;
+        if end <= start {
+            return Err(crate::Error::Invariant(
+                "end must be after start".into(),
+            ));
+        }
+        if (end - start) > chrono::Duration::hours(24) {
+            return Err(crate::Error::Invariant(
+                "entry duration must be \u{2264} 24 hours".into(),
+            ));
+        }
+        self.update_one(local_uuid, |s| {
+            sqlx::query(
+                "UPDATE time_entries
+                 SET start_at = ?, end_at = ?, sync_state = ?, updated_at = ?
+                 WHERE local_uuid = ?",
+            )
+            .bind(start_at)
+            .bind(end_at)
+            .bind(s.next_state())
+            .bind(time::now_utc())
+            .bind(local_uuid)
+        })
+        .await
+    }
+
     pub async fn delete(&self, local_uuid: &str) -> Result<()> {
         let state = self.current_state(local_uuid).await?;
         match state.as_str() {

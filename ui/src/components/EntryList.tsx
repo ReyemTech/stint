@@ -5,8 +5,8 @@ import EntryRow from "./EntryRow";
 
 export default function EntryList(props: {
   entries: Entry[];
+  /// Fires after any save or delete in a row's edit dialog. Callers refetch here.
   onChange?: () => void;
-  onDelete?: (id: string) => void;
 }) {
   const [projects] = createResource(() => api.listProjects(), {
     initialValue: [],
@@ -34,7 +34,6 @@ export default function EntryList(props: {
               projectName={projectName()(e.project_id)}
               isFirst={i() === 0}
               onChange={props.onChange}
-              onDelete={props.onDelete}
             />
           )}
         </For>

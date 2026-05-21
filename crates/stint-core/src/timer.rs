@@ -20,6 +20,10 @@ pub struct StartArgs {
     pub task_id: Option<String>,
     pub billable: bool,
     pub source: String,
+    /// Optional backdate. `None` means "now". Validation lands with
+    /// Phase 3d slice 4; this slice adds the field so `TimerService::start`
+    /// callers (and tests) can pre-thread it without churn.
+    pub start_at: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -152,6 +156,18 @@ impl TimerService {
         self.ensure_entry_exists(local_uuid).await?;
         let entries = Entries::new(self.store.clone());
         entries.set_billable(local_uuid, billable).await?;
+        self.maybe_enqueue_update(local_uuid).await
+    }
+
+    pub async fn update_times(
+        &self,
+        local_uuid: &str,
+        start_at: &str,
+        end_at: &str,
+    ) -> Result<()> {
+        self.ensure_entry_exists(local_uuid).await?;
+        let entries = Entries::new(self.store.clone());
+        entries.update_times(local_uuid, start_at, end_at).await?;
         self.maybe_enqueue_update(local_uuid).await
     }
 
