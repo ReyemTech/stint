@@ -7,6 +7,7 @@ import Button from "~/components/ui/Button";
 import SectionLabel from "~/components/ui/SectionLabel";
 import StatusDot from "~/components/ui/StatusDot";
 import Toggle from "~/components/ui/Toggle";
+import { sumCompletedEntrySeconds } from "~/lib/entryFormat";
 import { openSolidtime } from "~/lib/openSolidtime";
 import { useTimerStore } from "~/stores/timer";
 
@@ -27,16 +28,8 @@ export default function Popover() {
     unlistenEntries.then((fn) => fn()).catch(() => {});
   });
 
-  const totalSeconds = () => {
-    let total = timer.elapsedSecs();
-    for (const e of entries() ?? []) {
-      if (!e.end_at) continue;
-      const s = new Date(e.start_at).getTime();
-      const f = new Date(e.end_at).getTime();
-      total += Math.max(0, Math.floor((f - s) / 1000));
-    }
-    return total;
-  };
+  const totalSeconds = () =>
+    timer.elapsedSecs() + sumCompletedEntrySeconds(entries() ?? []);
 
   async function openMain() {
     await invoke("show_main_window");
