@@ -70,6 +70,15 @@ pub fn build(app: &AppHandle) -> tauri::Result<TrayIcon> {
                     if win.is_visible().unwrap_or(false) {
                         let _ = windows::hide_popover(app);
                     } else {
+                        // tauri-plugin-positioner 2.3.1 does
+                        // `window.current_monitor()?.unwrap()` inside
+                        // `move_window`, which panics when the popover
+                        // hasn't been associated with a monitor yet (the
+                        // window is hidden on first launch). Park it on the
+                        // primary monitor first so the unwrap succeeds.
+                        if matches!(win.current_monitor(), Ok(None)) {
+                            let _ = win.set_position(tauri::PhysicalPosition::new(0i32, 0i32));
+                        }
                         let _ = tauri_plugin_positioner::WindowExt::move_window(
                             &win,
                             tauri_plugin_positioner::Position::TrayCenter,
