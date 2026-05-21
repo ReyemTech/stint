@@ -261,65 +261,87 @@ If the final scripts differ slightly after setup, normalize them before phase cl
 
 ## `stint-app` uplift
 
-- [ ] **Task 13: Add app test harness and shared setup**
+**Approach revision (2026-05-20):** the original plan called for extracting every `#[tauri::command]` body into a `pub(crate)` helper so tests could call the helper against a tempdir Store. After realising Tauri 2 ships `tauri::test::mock_builder()` — which gives a real `App<MockRuntime>` with working `AppHandle` and `State` — the helper-extraction refactor isn't needed. The new approach: dev-feature `tauri/test`, build a mock app per test, call the `#[tauri::command]` functions directly. Production code stays untouched; coverage shape stays the same.
+
+- [ ] **Task 13: Add Tauri mock-app test harness**
 
 **Files:**
+- Modify: `crates/stint-app/Cargo.toml` (add `tauri/test` feature to dev-dependencies)
 - Add: `crates/stint-app/tests/common/mod.rs`
-- Add: a first app integration test file, likely `crates/stint-app/tests/timer_commands.rs`
-- Modify only if needed: `crates/stint-app/Cargo.toml`
+- Add: `crates/stint-app/tests/timer_commands.rs` (one proof-of-life test)
 
 **Steps:**
-- [ ] Mirror the `stint-core/tests/common/mod.rs` tempdir-store setup pattern for app tests.
-- [ ] Add only the dependencies needed to test command helpers outside a real Tauri runtime.
-- [ ] Prove the harness with one minimal failing/passing test.
-- [ ] Commit: `test(app): add command helper test harness`
+- [ ] In `crates/stint-app/Cargo.toml`, add the test feature to dev-dependencies:
+  ```toml
+  [dev-dependencies]
+  tauri = { version = "2.1", features = ["test"] }
+  tempfile.workspace = true
+  tokio.workspace = true
+  ```
+  Cargo unifies features, so the main `tauri` dependency keeps its production feature set while tests additionally see `test`.
+- [ ] Create `crates/stint-app/tests/common/mod.rs` exposing:
+  - `fn mock_app() -> tauri::App<tauri::test::MockRuntime>` — uses `tauri::test::mock_builder()` + `mock_context(noop_assets())`.
+  - `async fn fresh_store() -> (TempDir, Arc<Store>)` — tempdir-backed store, mirroring `stint-core/tests/common/mod.rs::setup`.
+  - A composer like `async fn make_app_with_state() -> AppContext` returning the mock app, store, and a held `TempDir` (so the tempdir survives the test scope). Manage `RwLock<AppState>` on the app handle inside the helper.
+- [ ] Write one proof-of-life test in `tests/timer_commands.rs`: call `get_running_timer(handle, state)` against a fresh store, assert `Ok(None)`.
+- [ ] Verify the mock app builds and the test passes: `cargo test -p stint-app -- --test-threads=1`.
+- [ ] Commit: `test(app): add tauri mock-app test harness`
 
-- [ ] **Task 14: Extract and cover `timer.rs` command bodies**
+- [ ] **Task 14: Cover `timer.rs` commands**
 
 **Files:**
-- Modify: `crates/stint-app/src/commands/timer.rs`
-- Modify: `crates/stint-app/tests/timer_commands.rs` or equivalent
+- Modify: `crates/stint-app/tests/timer_commands.rs`
+- No production-code changes expected.
 
 **Steps:**
-- [ ] Extract `get_running_timer`, `start_timer`, `stop_timer`, `delete_entry`, `update_description`, `set_entry_project`, and `set_entry_billable` bodies into `pub(crate)` helpers.
-- [ ] Leave `#[tauri::command]` wrappers thin.
-- [ ] Test the helpers directly against temp stores.
-- [ ] Commit: `refactor(app): extract timer command helpers`
+- [ ] Using the mock harness, add direct tests for each `#[tauri::command]` in `commands/timer.rs`:
+  - `start_timer` happy path → returns local_uuid, entry persisted, queue op enqueued.
+  - `start_timer` while running → returns Err with the "already running" invariant.
+  - `stop_timer` happy path → entry's `end_at` is set, running_timer cleared.
+  - `delete_entry` on pending_create → hard delete.
+  - `update_description`, `set_entry_project`, `set_entry_billable` round trips.
+- [ ] Assert event emission where helpful: `MockRuntime` captures `app.emit()` calls; verify `entries:changed` fires on mutations.
+- [ ] Re-run crate coverage and confirm `commands/timer.rs` is materially covered.
+- [ ] Commit: `test(app): cover timer commands`
 
-- [ ] **Task 15: Extract and cover low-risk command modules**
+- [ ] **Task 15: Cover `entries.rs`, `projects.rs`, `sync.rs` commands**
 
 **Files:**
-- Modify: `crates/stint-app/src/commands/entries.rs`
-- Modify: `crates/stint-app/src/commands/projects.rs`
-- Modify: `crates/stint-app/src/commands/sync.rs`
-- Add/modify matching test files under `crates/stint-app/tests/`
+- Add: `crates/stint-app/tests/entries_commands.rs`
+- Add: `crates/stint-app/tests/projects_commands.rs`
+- Add: `crates/stint-app/tests/sync_commands.rs`
+- No production-code changes expected.
 
 **Steps:**
-- [ ] Extract helper bodies in the same pattern as Task 14.
-- [ ] Focus on commands that are store/client driven and do not require browser launch or real Tauri UI state.
-- [ ] Add direct helper tests and re-measure coverage.
-- [ ] Commit: `refactor(app): extract entries and sync helpers`
+- [ ] `entries_commands.rs`: cover `list_today`, `list_between` against seeded entries.
+- [ ] `projects_commands.rs`: cover `list_projects` (empty + seeded), `list_organizations` and `refresh_projects` against a wiremock Solidtime.
+- [ ] `sync_commands.rs`: cover `sync_now` happy path (wiremock-backed) + missing-config error path.
+- [ ] Re-run crate coverage; aggregate moves up materially.
+- [ ] Commit: `test(app): cover entries, projects, sync commands`
 
-- [ ] **Task 16: Extract and cover selected config/pull/calendar helpers**
+- [ ] **Task 16: Cover `config.rs`, `pull.rs`, and non-browser `calendar.rs`**
 
 **Files:**
-- Modify: `crates/stint-app/src/commands/config.rs`
-- Modify: `crates/stint-app/src/commands/pull.rs`
-- Modify: `crates/stint-app/src/commands/calendar.rs`
-- Add/modify matching test files under `crates/stint-app/tests/`
+- Add: `crates/stint-app/tests/config_commands.rs`
+- Add: `crates/stint-app/tests/pull_commands.rs`
+- Add: `crates/stint-app/tests/calendar_commands.rs`
+- No production-code changes expected.
 
 **Steps:**
-- [ ] Cover only the non-browser portions:
-  - config read/write/test paths
-  - pull/report/resolve paths
-  - calendar list/refresh/log/ignore paths that do not open a browser
-- [ ] Leave OAuth-start/browser-launch wrappers thin and effectively exempt.
-- [ ] Re-run crate coverage and stop once extracted logic reaches >=80%.
-- [ ] Commit: `test(app): reach command helper coverage target`
+- [ ] `config_commands.rs`: cover `config_show`, `config_set`, `config_test`, `solidtime_url`. Use `STINT_SECRET_PREFIX` to route the `Secrets::default()` writes inside the binary code to a synthetic prefix — the test process doesn't need to clean up; the synthetic entries are swept by `scripts/clean-test-keychain.sh`.
+- [ ] `pull_commands.rs`: cover `pull_now` (wiremock-backed: empty remote, single insert, conflict detected) and `conflict_resolve` for `dismiss` / `stop_remote` / `switch` actions.
+- [ ] `calendar_commands.rs`: cover `calendar_list_accounts`, `calendar_list_calendars`, `calendar_set_calendar_included`, `calendar_remove_account`, `calendar_list_events_in_range`, `calendar_log_event`, `calendar_ignore_event`. Skip `calendar_add_google` (interactive OAuth) and `calendar_oauth_status` for accounts whose blob doesn't exist (NoEntry branch is enough).
+- [ ] Re-run crate coverage and stop once `stint-app` reaches >=80% on the non-browser surface. `calendar_add_google` and `oauth_solidtime_start` remain exempt per the spec.
+- [ ] Commit: `test(app): reach app coverage target`
 
 **Review gates for Tasks 13-16:**
-- [ ] Spec-compliance review confirms wrapper-thinning is happening instead of moving business logic deeper into Tauri-only code.
-- [ ] Code-quality review confirms helper extraction improves design rather than creating parallel abstractions with no reuse value.
+- [ ] Spec-compliance review confirms no production code changes leaked in (these tasks are test-only after the harness lands).
+- [ ] Code-quality review confirms shared setup is reused across test files rather than copy-pasted.
+
+**Notes on the mock runtime:**
+- `MockRuntime` doesn't actually run the sync_worker / pull_worker background tasks. `sync_worker::nudge(...)` etc. become no-ops in tests, which is fine — assertions focus on database state and event emission, not worker side-effects.
+- `app.emit("entries:changed", ())` calls succeed silently in tests. To assert emission, use the listener pattern: `app.listen("entries:changed", |event| { /* record */ })` before invoking the command.
+- The `AppHandle::state::<T>()` lookup works exactly like in production — register state with `handle.manage(RwLock::new(AppState { ... }))` in the harness.
 
 ---
 
@@ -419,10 +441,10 @@ If the final scripts differ slightly after setup, normalize them before phase cl
 9. `test(cli): cover timer and history commands`
 10. `test(cli): cover config and mutation commands`
 11. `test(cli): reach coverage target`
-12. `test(app): add command helper test harness`
-13. `refactor(app): extract timer command helpers`
-14. `refactor(app): extract entries and sync helpers`
-15. `test(app): reach command helper coverage target`
+12. `test(app): add tauri mock-app test harness`
+13. `test(app): cover timer commands`
+14. `test(app): cover entries, projects, sync commands`
+15. `test(app): reach app coverage target`
 16. `test(ui): add vitest harness`
 17. `test(ui): cover stores and lib helpers`
 18. `test(ui): cover route helper logic`
