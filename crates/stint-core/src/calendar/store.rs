@@ -15,7 +15,14 @@ use serde::{Deserialize, Serialize};
 type AccountRow = (String, String, String, String, Option<String>, i64, String);
 
 /// Row shape returned by the `calendars` SELECT queries.
-type CalendarRow = (String, String, String, Option<String>, i64);
+type CalendarRow = (
+    String,
+    String,
+    String,
+    Option<String>,
+    i64,
+    Option<String>,
+);
 
 /// Row shape returned by the `calendar_events` SELECT queries.
 type EventRow = (
@@ -125,27 +132,31 @@ impl CalendarStore {
 
     pub async fn list_calendars(&self, account_id: &str) -> Result<Vec<Calendar>> {
         let rows: Vec<CalendarRow> = sqlx::query_as(
-            "SELECT id, account_id, name, color, included
+            "SELECT id, account_id, name, color, included, default_project_id
              FROM calendars WHERE account_id = ? ORDER BY name",
         )
         .bind(account_id)
         .fetch_all(self.store.pool())
         .await?;
-        Ok(rows
-            .into_iter()
-            .map(|(id, account_id, name, color, included)| Calendar {
-                id,
-                account_id,
-                name,
-                color,
-                included: included != 0,
-            })
-            .collect())
+        Ok(rows.into_iter().map(calendar_from_row).collect())
     }
 
     pub async fn set_calendar_included(&self, calendar_id: &str, included: bool) -> Result<()> {
         sqlx::query("UPDATE calendars SET included = ? WHERE id = ?")
             .bind(if included { 1 } else { 0 })
+            .bind(calendar_id)
+            .execute(self.store.pool())
+            .await?;
+        Ok(())
+    }
+
+    pub async fn set_default_project(
+        &self,
+        calendar_id: &str,
+        project_id: Option<&str>,
+    ) -> Result<()> {
+        sqlx::query("UPDATE calendars SET default_project_id = ? WHERE id = ?")
+            .bind(project_id)
             .bind(calendar_id)
             .execute(self.store.pool())
             .await?;
@@ -314,6 +325,19 @@ fn account_from_row(
         caldav_url,
         enabled: enabled != 0,
         created_at,
+    }
+}
+
+fn calendar_from_row(
+    (id, account_id, name, color, included, default_project_id): CalendarRow,
+) -> Calendar {
+    Calendar {
+        id,
+        account_id,
+        name,
+        color,
+        included: included != 0,
+        default_project_id,
     }
 }
 

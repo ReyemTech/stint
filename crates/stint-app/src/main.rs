@@ -59,6 +59,7 @@ async fn main() -> Result<()> {
             commands::calendar::calendar_remove_account,
             commands::calendar::calendar_list_calendars,
             commands::calendar::calendar_set_calendar_included,
+            commands::calendar::calendar_set_default_project,
             commands::calendar::calendar_refresh_account,
             commands::calendar::calendar_list_events_in_range,
             commands::calendar::calendar_log_event,

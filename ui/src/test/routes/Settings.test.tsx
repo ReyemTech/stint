@@ -17,6 +17,7 @@ vi.mock("~/api", () => ({
     removeAccount: vi.fn().mockResolvedValue(undefined),
     listCalendars: vi.fn().mockResolvedValue([]),
     setCalendarIncluded: vi.fn(),
+    setDefaultProject: vi.fn().mockResolvedValue(undefined),
     oauthStatus: vi.fn().mockResolvedValue({ signed_in: true, scope: null }),
   },
   oauthSolidtimeStatus: vi.fn(),

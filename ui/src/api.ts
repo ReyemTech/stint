@@ -105,6 +105,8 @@ export const calendarApi = {
     invoke<CalendarRow[]>("calendar_list_calendars", { accountId }),
   setCalendarIncluded: (calendarId: string, included: boolean) =>
     invoke<void>("calendar_set_calendar_included", { calendarId, included }),
+  setDefaultProject: (calendarId: string, projectId: string | null) =>
+    invoke<void>("calendar_set_default_project", { calendarId, projectId }),
   refreshAccount: (accountId: string) =>
     invoke<number>("calendar_refresh_account", { accountId }),
   listEventsInRange: (accountId: string, from: string, to: string) =>

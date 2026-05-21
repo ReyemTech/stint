@@ -176,6 +176,21 @@ pub async fn calendar_set_calendar_included<R: Runtime>(
 }
 
 #[tauri::command]
+pub async fn calendar_set_default_project<R: Runtime>(
+    state: State<'_, RwLock<AppState>>,
+    app: tauri::AppHandle<R>,
+    calendar_id: String,
+    project_id: Option<String>,
+) -> Result<(), AppError> {
+    let store = store(&state).await;
+    let cs = CalendarStore::new((*store).clone());
+    cs.set_default_project(&calendar_id, project_id.as_deref())
+        .await?;
+    let _ = app.emit(EVENT_CALENDAR_CHANGED, &calendar_id);
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn calendar_refresh_account<R: Runtime>(
     state: State<'_, RwLock<AppState>>,
     app: tauri::AppHandle<R>,
@@ -246,10 +261,19 @@ pub async fn calendar_log_event<R: Runtime>(
     let start_at = stint_core::time::to_solidtime_z(&event.start_at);
     let end_at = stint_core::time::to_solidtime_z(&event.end_at);
 
+    // Look up the calendar's default project (if any). The picker on
+    // Settings → Calendars controls this; it's a suggestion, not a lock.
+    let default_project_id = cs
+        .list_calendars(&account_id)
+        .await?
+        .into_iter()
+        .find(|c| c.id == event.calendar_id)
+        .and_then(|c| c.default_project_id);
+
     let local_uuid = entries
         .create_completed(NewCompletedEntry {
             description: event.title,
-            project_id: None,
+            project_id: default_project_id,
             task_id: None,
             start_at,
             end_at,

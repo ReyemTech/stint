@@ -59,6 +59,9 @@ pub struct Calendar {
     pub name: String,
     pub color: Option<String>,
     pub included: bool,
+    /// Optional default project for "Log this" prefill. Stored locally,
+    /// never overwritten by a provider refresh.
+    pub default_project_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

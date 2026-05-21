@@ -64,6 +64,7 @@ export type CalendarRow = {
   name: string;
   color: string | null;
   included: boolean;
+  default_project_id: string | null;
 };
 
 export type CalendarEventDecision = "ignored" | "logged_manual" | "logged_auto";

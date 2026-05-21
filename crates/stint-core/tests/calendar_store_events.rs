@@ -23,6 +23,7 @@ async fn seed(s: &CalendarStore) {
             name: "Primary".into(),
             color: None,
             included: true,
+            default_project_id: None,
         }],
     )
     .await
@@ -174,6 +175,7 @@ async fn list_events_in_range_excludes_calendars_not_included() {
             name: "Extra".into(),
             color: None,
             included: true,
+            default_project_id: None,
         }],
     )
     .await

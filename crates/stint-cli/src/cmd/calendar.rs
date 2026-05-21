@@ -26,7 +26,7 @@ pub enum CalendarCmd {
     List,
     /// Remove a connected calendar account by id.
     Remove { account_id: String },
-    /// List or toggle calendars for an account.
+    /// List or modify calendars for an account.
     Calendars {
         account_id: String,
         /// Calendar id to include.
@@ -35,6 +35,14 @@ pub enum CalendarCmd {
         /// Calendar id to exclude.
         #[arg(long)]
         exclude: Option<String>,
+        /// Set the default project on a calendar:
+        /// `--set-default-project <CALENDAR_ID> <PROJECT_ID>`.
+        #[arg(long, num_args = 2, value_names = ["CALENDAR_ID", "PROJECT_ID"])]
+        set_default_project: Option<Vec<String>>,
+        /// Clear the default project on a calendar:
+        /// `--clear-default-project <CALENDAR_ID>`.
+        #[arg(long)]
+        clear_default_project: Option<String>,
     },
     /// Refresh one account's events (on_focus window).
     Refresh { account_id: String },
@@ -74,6 +82,8 @@ pub async fn run(c: CalendarCmd, store: Store) -> Result<()> {
             account_id,
             include,
             exclude,
+            set_default_project,
+            clear_default_project,
         } => {
             if let Some(id) = include {
                 cs.set_calendar_included(&id, true).await?;
@@ -83,9 +93,23 @@ pub async fn run(c: CalendarCmd, store: Store) -> Result<()> {
                 cs.set_calendar_included(&id, false).await?;
                 println!("Excluded calendar {id}.");
             }
+            if let Some(pair) = set_default_project {
+                let cal_id = &pair[0];
+                let proj_id = &pair[1];
+                cs.set_default_project(cal_id, Some(proj_id)).await?;
+                println!("Set default project {proj_id} on calendar {cal_id}.");
+            }
+            if let Some(id) = clear_default_project {
+                cs.set_default_project(&id, None).await?;
+                println!("Cleared default project on calendar {id}.");
+            }
             for c in cs.list_calendars(&account_id).await? {
                 let mark = if c.included { "[x]" } else { "[ ]" };
-                println!("{mark} {} {}", c.id, c.name);
+                let default = match &c.default_project_id {
+                    Some(p) => format!(" (default: {p})"),
+                    None => String::new(),
+                };
+                println!("{mark} {} {}{default}", c.id, c.name);
             }
             Ok(())
         }
