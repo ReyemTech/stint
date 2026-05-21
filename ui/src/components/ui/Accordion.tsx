@@ -1,8 +1,10 @@
-import { JSX, Show, createSignal } from "solid-js";
+import { Collapsible } from "@kobalte/core/collapsible";
+import { JSX, Show } from "solid-js";
 
 /**
- * Collapsible card section. Renders a button-based header with a chevron and
- * an optional right-slot for status content. Body is unrendered when closed.
+ * Collapsible card section built on `@kobalte/core/collapsible` for keyboard
+ * + ARIA handling. Same prop shape as the previous hand-rolled component:
+ * title, optional hint, optional right slot, defaultOpen, children.
  */
 export default function Accordion(props: {
   title: string;
@@ -11,16 +13,12 @@ export default function Accordion(props: {
   defaultOpen?: boolean;
   children: JSX.Element;
 }) {
-  const [open, setOpen] = createSignal(props.defaultOpen ?? false);
-
   return (
-    <section class="rounded-2xl border border-black/[0.06] bg-white dark:border-white/[0.06] dark:bg-zinc-900">
-      <button
-        type="button"
-        onClick={() => setOpen(!open())}
-        aria-expanded={open()}
-        class="flex w-full items-center justify-between gap-3 px-6 py-4 text-left"
-      >
+    <Collapsible
+      class="rounded-2xl border border-black/[0.06] bg-white dark:border-white/[0.06] dark:bg-zinc-900"
+      defaultOpen={props.defaultOpen}
+    >
+      <Collapsible.Trigger class="flex w-full items-center justify-between gap-3 px-6 py-4 text-left">
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2">
             <h2 class="text-sm font-semibold uppercase tracking-wide text-zinc-500">
@@ -35,8 +33,7 @@ export default function Accordion(props: {
           </Show>
         </div>
         <svg
-          class="h-4 w-4 shrink-0 text-zinc-400 transition-transform"
-          classList={{ "rotate-90": open() }}
+          class="h-4 w-4 shrink-0 text-zinc-400 transition-transform data-[expanded]:rotate-90"
           viewBox="0 0 20 20"
           fill="currentColor"
           aria-hidden="true"
@@ -47,13 +44,10 @@ export default function Accordion(props: {
             clip-rule="evenodd"
           />
         </svg>
-      </button>
-
-      <Show when={open()}>
-        <div class="border-t border-black/[0.05] px-6 pb-6 pt-5 dark:border-white/[0.04]">
-          {props.children}
-        </div>
-      </Show>
-    </section>
+      </Collapsible.Trigger>
+      <Collapsible.Content class="border-t border-black/[0.05] px-6 pb-6 pt-5 dark:border-white/[0.04]">
+        {props.children}
+      </Collapsible.Content>
+    </Collapsible>
   );
 }

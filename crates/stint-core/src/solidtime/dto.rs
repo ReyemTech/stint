@@ -40,6 +40,14 @@ pub struct RemoteTag {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RemoteClient {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub archived: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RemoteTimeEntry {
     pub id: String,
     #[serde(default)]

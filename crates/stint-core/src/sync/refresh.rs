@@ -1,7 +1,7 @@
 use crate::{
     solidtime::SolidtimeClient,
     store::{
-        reference::{ProjectRow, Reference, TagRow, TaskRow},
+        reference::{ClientRow, ProjectRow, Reference, TagRow, TaskRow},
         Store,
     },
     Result,
@@ -9,6 +9,17 @@ use crate::{
 
 pub async fn refresh_reference_data(store: &Store, client: &SolidtimeClient) -> Result<()> {
     let r = Reference::new(store.clone());
+
+    let clients = client.list_clients().await?;
+    let client_rows: Vec<ClientRow> = clients
+        .into_iter()
+        .map(|c| ClientRow {
+            id: c.id,
+            name: c.name,
+            archived: if c.archived { 1 } else { 0 },
+        })
+        .collect();
+    r.upsert_clients(&client_rows).await?;
 
     let projects = client.list_projects().await?;
     let proj_rows: Vec<ProjectRow> = projects
@@ -18,6 +29,7 @@ pub async fn refresh_reference_data(store: &Store, client: &SolidtimeClient) -> 
             name: p.name,
             color: p.color,
             client_id: p.client_id,
+            client_name: None,
             archived: if p.archived { 1 } else { 0 },
         })
         .collect();

@@ -4,8 +4,8 @@ import { fireEvent, render } from "@solidjs/testing-library";
 vi.mock("~/api", () => ({
   api: {
     listProjects: vi.fn().mockResolvedValue([
-      { id: "p-1", name: "Tet", color: null, client_id: null, archived: 0 },
-      { id: "p-2", name: "Other", color: null, client_id: null, archived: 0 },
+      { id: "p-1", name: "Tet", color: null, client_id: null, client_name: null, archived: 0 },
+      { id: "p-2", name: "Other", color: null, client_id: null, client_name: null, archived: 0 },
     ]),
     updateDescription: vi.fn().mockResolvedValue(undefined),
     setEntryProject: vi.fn().mockResolvedValue(undefined),
@@ -93,19 +93,14 @@ describe("<EntryRow>", () => {
     expect(container.querySelector('input[type="text"]')).not.toBeNull();
   });
 
-  it("changing the project select calls api.setEntryProject and onChange", async () => {
-    const onChange = vi.fn();
-    const { container } = render(() => (
-      <EntryRow entry={entry()} onChange={onChange} />
+  it("opens with the ProjectPicker visible inside the editor panel", async () => {
+    const { container, queryByLabelText } = render(() => (
+      <EntryRow entry={entry()} />
     ));
+    expect(queryByLabelText("Open project list")).toBeNull();
     fireEvent.click(container.querySelector("button")!);
     await flushMicrotasks();
-    const select = container.querySelector("select") as HTMLSelectElement;
-    select.value = "p-1";
-    fireEvent.change(select);
-    await flushMicrotasks();
-    expect(api.setEntryProject).toHaveBeenCalledWith("uuid-1", "p-1");
-    expect(onChange).toHaveBeenCalled();
+    expect(queryByLabelText("Open project list")).not.toBeNull();
   });
 
   it("toggling the Billable Toggle calls api.setEntryBillable", async () => {

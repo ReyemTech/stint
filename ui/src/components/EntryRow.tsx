@@ -1,9 +1,10 @@
-import { For, Show, createResource, createSignal } from "solid-js";
+import { Show, createResource, createSignal } from "solid-js";
 import { api } from "~/api";
 import { entryDurationSecs, entrySyncMeta } from "~/lib/entryFormat";
 import type { Entry } from "~/types";
 import { formatDuration } from "./Duration";
 import Pill from "./ui/Pill";
+import ProjectPicker from "./ui/ProjectPicker";
 import StatusDot from "./ui/StatusDot";
 import Toggle from "./ui/Toggle";
 import Button from "./ui/Button";
@@ -29,8 +30,8 @@ export default function EntryRow(props: {
     props.onChange?.();
   }
 
-  async function changeProject(projectId: string) {
-    await api.setEntryProject(props.entry.local_uuid, projectId || null);
+  async function changeProject(projectId: string | null) {
+    await api.setEntryProject(props.entry.local_uuid, projectId);
     props.onChange?.();
   }
 
@@ -100,16 +101,15 @@ export default function EntryRow(props: {
               <label class="block text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500">
                 Project
               </label>
-              <select
-                class="mt-1 w-full rounded-md border border-zinc-200 bg-white px-2.5 py-1.5 text-sm outline-none transition focus:border-indigo-400 dark:border-zinc-700 dark:bg-zinc-900"
-                value={props.entry.project_id ?? ""}
-                onChange={(e) => changeProject(e.currentTarget.value)}
-              >
-                <option value="">No project</option>
-                <For each={projects() ?? []}>
-                  {(p) => <option value={p.id}>{p.name}</option>}
-                </For>
-              </select>
+              <div class="mt-1">
+                <ProjectPicker
+                  value={props.entry.project_id}
+                  onChange={(id) => changeProject(id)}
+                  projects={projects() ?? []}
+                  placeholder="No project"
+                  size="sm"
+                />
+              </div>
             </div>
             <Toggle
               label="Billable"

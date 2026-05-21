@@ -99,19 +99,20 @@ fn empty_range() -> [&'static str; 2] {
 fn config_show_round_trips_non_secret_settings() {
     let tmp = TempDir::new().unwrap();
     let db = tmp.path().join("stint.db");
+    let prefix = unique_test_prefix();
 
-    cmd(&db)
+    cmd_with_prefix(&db, &prefix)
         .args(["config", "set", "solidtime.url", "https://time.example.com"])
         .assert()
         .success()
         .stdout(predicate::str::contains("Saved solidtime.url."));
-    cmd(&db)
+    cmd_with_prefix(&db, &prefix)
         .args(["config", "set", "solidtime.org", "org-1"])
         .assert()
         .success()
         .stdout(predicate::str::contains("Saved solidtime.org."));
 
-    cmd(&db)
+    cmd_with_prefix(&db, &prefix)
         .args(["config", "show"])
         .assert()
         .success()
@@ -125,8 +126,9 @@ fn config_show_round_trips_non_secret_settings() {
 fn config_set_requires_value_for_non_secret_keys() {
     let tmp = TempDir::new().unwrap();
     let db = tmp.path().join("stint.db");
+    let prefix = unique_test_prefix();
 
-    cmd(&db)
+    cmd_with_prefix(&db, &prefix)
         .args(["config", "set", "solidtime.url"])
         .assert()
         .failure()
@@ -403,6 +405,15 @@ async fn projects_refresh_populates_cached_projects() {
         .and(header("Authorization", "Bearer test-token"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "data": [{ "id": "g1", "name": "billable" }]
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/v1/organizations/org-1/clients"))
+        .and(header("Authorization", "Bearer test-token"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "data": [{ "id": "c1", "name": "Acme", "archived": false }]
         })))
         .expect(1)
         .mount(&server)

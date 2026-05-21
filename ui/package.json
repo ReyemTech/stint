@@ -12,6 +12,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@kobalte/core": "^0.13.11",
     "@solidjs/router": "^0.15",
     "@tauri-apps/api": "^2.1",
     "@tauri-apps/plugin-opener": "^2.5.4",

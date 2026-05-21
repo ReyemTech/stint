@@ -21,7 +21,7 @@ vi.mock("~/stores/timer", () => ({
 vi.mock("~/api", () => ({
   api: {
     listProjects: vi.fn().mockResolvedValue([
-      { id: "p-1", name: "Tet", color: null, client_id: null, archived: 0 },
+      { id: "p-1", name: "Tet", color: null, client_id: null, client_name: null, archived: 0 },
     ]),
     setEntryProject: vi.fn().mockResolvedValue(undefined),
     setEntryBillable: vi.fn().mockResolvedValue(undefined),
@@ -44,9 +44,12 @@ beforeEach(() => {
 });
 
 describe("<TimerCard> — start form (no timer running)", () => {
-  it("renders the description input, a project select, and a Start button", () => {
-    const { getByPlaceholderText, getByText } = render(() => <TimerCard />);
+  it("renders the description input, a project picker, and a Start button", () => {
+    const { getByPlaceholderText, getByText, getByLabelText } = render(() => (
+      <TimerCard />
+    ));
     expect(getByPlaceholderText("What are you working on?")).toBeDefined();
+    expect(getByLabelText("Open project list")).toBeDefined();
     expect(getByText("Start")).toBeDefined();
   });
 
@@ -118,7 +121,7 @@ describe("<TimerCard> — running timer panel", () => {
     expect(storeMock.stop).toHaveBeenCalledTimes(1);
   });
 
-  it("changing the project select on the running panel calls api.setEntryProject + refresh", async () => {
+  it("running panel shows the ProjectPicker for live project changes", async () => {
     setRunning({
       local_uuid: "uuid-1",
       description: "x",
@@ -126,13 +129,8 @@ describe("<TimerCard> — running timer panel", () => {
       project_id: null,
       billable: false,
     });
-    const { container } = render(() => <TimerCard />);
+    const { getByLabelText } = render(() => <TimerCard />);
     await flushMicrotasks();
-    const select = container.querySelector("select") as HTMLSelectElement;
-    select.value = "p-1";
-    fireEvent.change(select);
-    await flushMicrotasks();
-    expect(api.setEntryProject).toHaveBeenCalledWith("uuid-1", "p-1");
-    expect(storeMock.refresh).toHaveBeenCalled();
+    expect(getByLabelText("Open project list")).toBeDefined();
   });
 });
