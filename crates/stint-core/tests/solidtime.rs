@@ -212,7 +212,10 @@ async fn update_time_entry_maps_401_to_auth_error() {
         end: None,
         billable: false,
     };
-    let err = client.update_time_entry("remote-1", &req).await.unwrap_err();
+    let err = client
+        .update_time_entry("remote-1", &req)
+        .await
+        .unwrap_err();
     assert!(matches!(err, stint_core::Error::SolidtimeAuth));
 }
 

@@ -72,7 +72,10 @@ fn database_path_uses_env_override_when_present() {
     let override_dir = std::env::temp_dir().join("stint-paths-test-db-override");
 
     with_stint_data_dir_override(Some(&override_dir), || {
-        assert_eq!(paths::database_path().unwrap(), override_dir.join("stint.db"));
+        assert_eq!(
+            paths::database_path().unwrap(),
+            override_dir.join("stint.db")
+        );
     });
 }
 
@@ -111,7 +114,10 @@ fn ensure_data_dir_returns_io_error_when_override_points_to_file() {
 
     with_stint_data_dir_override(Some(&file_path), || {
         let err = paths::ensure_data_dir().unwrap_err();
-        assert!(matches!(err, stint_core::Error::Io(_)), "unexpected error: {err}");
+        assert!(
+            matches!(err, stint_core::Error::Io(_)),
+            "unexpected error: {err}"
+        );
         let io = match err {
             stint_core::Error::Io(err) => err,
             other => panic!("unexpected error: {other}"),

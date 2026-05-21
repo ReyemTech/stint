@@ -25,7 +25,10 @@ use tokio::sync::RwLock;
 fn ensure_test_secret_prefix() -> &'static str {
     static PREFIX: OnceLock<String> = OnceLock::new();
     let prefix = PREFIX.get_or_init(|| {
-        format!("tech.reyem.stint.test.{}", stint_core::ids::new_local_uuid())
+        format!(
+            "tech.reyem.stint.test.{}",
+            stint_core::ids::new_local_uuid()
+        )
     });
     std::env::set_var("STINT_SECRET_PREFIX", prefix);
     prefix

@@ -63,12 +63,21 @@ async fn list_today_maps_billable_int_to_bool() {
     let ctx = common::make_app().await;
     let entries = Entries::new((*ctx.store).clone());
 
-    // Seed a completed billable entry whose start time is today (now-ish UTC),
-    // so list_today (which uses Local TZ → UTC) picks it up.
-    let now = chrono::Utc::now();
-    let start = (now - chrono::Duration::minutes(30))
+    // Seed a completed billable entry pinned to local-today at 09:00–09:30
+    // so this test is stable near midnight (where naive `now-30min` UTC can
+    // fall outside list_today's local-day window).
+    use chrono::{Local, TimeZone};
+    let today_local = Local::now().date_naive();
+    let start_local = Local
+        .from_local_datetime(&today_local.and_hms_opt(9, 0, 0).unwrap())
+        .unwrap();
+    let end_local = start_local + chrono::Duration::minutes(30);
+    let start = start_local
+        .with_timezone(&chrono::Utc)
         .to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
-    let end = now.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+    let end = end_local
+        .with_timezone(&chrono::Utc)
+        .to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
     entries
         .create_completed(NewCompletedEntry {
             description: "billable work".into(),

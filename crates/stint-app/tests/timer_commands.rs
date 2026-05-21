@@ -103,7 +103,11 @@ async fn start_timer_while_running_returns_invariant_error() {
     )
     .await
     .expect_err("second start should fail");
-    assert!(err.message.contains("already running"), "got: {}", err.message);
+    assert!(
+        err.message.contains("already running"),
+        "got: {}",
+        err.message
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -215,9 +219,14 @@ async fn set_entry_project_round_trips() {
     .await
     .unwrap();
 
-    set_entry_project(handle.clone(), handle.state(), id.clone(), Some("p-7".into()))
-        .await
-        .expect("set project succeeds");
+    set_entry_project(
+        handle.clone(),
+        handle.state(),
+        id.clone(),
+        Some("p-7".into()),
+    )
+    .await
+    .expect("set project succeeds");
 
     let row = Entries::new((*ctx.store).clone())
         .get(&id)

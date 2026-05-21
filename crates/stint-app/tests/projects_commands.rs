@@ -124,5 +124,9 @@ async fn refresh_projects_errors_when_solidtime_url_missing() {
     let ctx = common::make_app().await;
     let handle = ctx.handle();
     let err = refresh_projects(handle.state()).await.unwrap_err();
-    assert!(err.message.contains("solidtime.url"), "got: {}", err.message);
+    assert!(
+        err.message.contains("solidtime.url"),
+        "got: {}",
+        err.message
+    );
 }
