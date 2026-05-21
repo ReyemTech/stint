@@ -9,6 +9,7 @@ vi.mock("@tauri-apps/api/event", () => ({
 vi.mock("~/api", () => ({
   api: {
     listSyncErrors: vi.fn().mockResolvedValue([]),
+    getSyncErrorOverlaps: vi.fn().mockResolvedValue([]),
     deleteEntry: vi.fn().mockResolvedValue(undefined),
     listProjects: vi.fn().mockResolvedValue([]),
     updateDescription: vi.fn().mockResolvedValue(undefined),
@@ -43,6 +44,8 @@ function err(overrides: Partial<SyncError> = {}): SyncError {
 beforeEach(() => {
   vi.mocked(api.listSyncErrors).mockReset();
   vi.mocked(api.listSyncErrors).mockResolvedValue([]);
+  vi.mocked(api.getSyncErrorOverlaps).mockReset();
+  vi.mocked(api.getSyncErrorOverlaps).mockResolvedValue([]);
   vi.mocked(api.deleteEntry).mockClear();
 });
 
@@ -88,5 +91,35 @@ describe("<SyncErrorBanner>", () => {
     fireEvent.click(getByText("Delete entry"));
     await flush();
     expect(api.deleteEntry).toHaveBeenCalledWith("uuid-1");
+  });
+
+  it("lists the actual conflicting Solidtime entries on expand", async () => {
+    vi.mocked(api.listSyncErrors).mockResolvedValue([err()]);
+    vi.mocked(api.getSyncErrorOverlaps).mockResolvedValue([
+      {
+        id: "remote-bni",
+        description: "BNI Meeting",
+        start: "2026-05-21T12:00:00Z",
+        end: "2026-05-21T14:00:00Z",
+      },
+    ]);
+    const { findByText, getByText } = render(() => <SyncErrorBanner />);
+    fireEvent.click(await findByText(/1 entry couldn't sync/));
+    // expand triggers the lazy fetch — give it a tick.
+    await flush();
+    await flush();
+    expect(api.getSyncErrorOverlaps).toHaveBeenCalledWith("uuid-1");
+    expect(getByText("Conflicts with:")).toBeDefined();
+    expect(getByText("BNI Meeting")).toBeDefined();
+  });
+
+  it("shows a fallback when Solidtime reports no overlaps", async () => {
+    vi.mocked(api.listSyncErrors).mockResolvedValue([err()]);
+    vi.mocked(api.getSyncErrorOverlaps).mockResolvedValue([]);
+    const { findByText, getByText } = render(() => <SyncErrorBanner />);
+    fireEvent.click(await findByText(/1 entry couldn't sync/));
+    await flush();
+    await flush();
+    expect(getByText(/no overlapping entries/)).toBeDefined();
   });
 });

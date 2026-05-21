@@ -59,6 +59,92 @@ pub async fn list_sync_errors(
     Ok(rows.into_iter().map(SyncErrorView::from).collect())
 }
 
+#[derive(Serialize)]
+pub struct OverlapCandidate {
+    pub id: String,
+    pub description: String,
+    pub start: String,
+    /// `None` means the remote is still running.
+    pub end: Option<String>,
+}
+
+/// For a local entry that's failing to sync (most often overlapping_time_entry),
+/// fetch Solidtime entries whose time range actually intersects the local
+/// row's [start, end]. Used by the in-app sync-error banner to tell the
+/// user "this conflicts with X" instead of just "this conflicts".
+#[tauri::command]
+pub async fn get_sync_error_overlaps(
+    state: State<'_, RwLock<AppState>>,
+    local_uuid: String,
+) -> Result<Vec<OverlapCandidate>, AppError> {
+    let store = store(&state).await;
+    let entries = stint_core::store::entries::Entries::new((*store).clone());
+    let Some(entry) = entries.get(&local_uuid).await? else {
+        return Ok(Vec::new());
+    };
+
+    let settings = Settings::new((*store).clone());
+    let url = match settings.get("solidtime.url").await? {
+        Some(u) => u,
+        None => return Ok(Vec::new()),
+    };
+    let Some(org) = settings.get("solidtime.org").await? else {
+        return Ok(Vec::new());
+    };
+    let Some(member_id) = settings.get("solidtime.member_id").await? else {
+        return Ok(Vec::new());
+    };
+    let secrets = Secrets::default();
+    let (provider, _oauth_client) = build_token_provider(&settings, &secrets, &url).await?;
+    let client = SolidtimeClient::new(&url, provider).with_org(org);
+
+    let our_start = stint_core::time::parse(&entry.start_at)?;
+    let our_end = match entry.end_at.as_deref() {
+        Some(e) => stint_core::time::parse(e)?,
+        None => stint_core::time::now(),
+    };
+
+    // Query a 24-hour-before window so completed entries that started
+    // earlier the same day land in the result set.
+    let from = stint_core::time::format(&(our_start - chrono::Duration::hours(24)));
+    let to = stint_core::time::format(&(our_end + chrono::Duration::seconds(1)));
+    let mut candidates = client
+        .list_time_entries(&member_id, &from, &to)
+        .await
+        .unwrap_or_default();
+    // Active=true entries can have a start before our 24h window but still
+    // be running — add them in too.
+    if let Ok(active) = client.list_active_time_entries(&member_id).await {
+        for a in active {
+            if !candidates.iter().any(|c| c.id == a.id) {
+                candidates.push(a);
+            }
+        }
+    }
+
+    let mut out = Vec::new();
+    for r in candidates {
+        let r_start = match stint_core::time::parse(&r.start) {
+            Ok(t) => t,
+            Err(_) => continue,
+        };
+        let r_end = match r.end.as_deref() {
+            Some(e) => stint_core::time::parse(e).unwrap_or(our_end),
+            None => stint_core::time::now(),
+        };
+        // Range-intersection: their [start, end] crosses our [start, end].
+        if r_start < our_end && r_end > our_start {
+            out.push(OverlapCandidate {
+                id: r.id,
+                description: r.description,
+                start: r.start,
+                end: r.end,
+            });
+        }
+    }
+    Ok(out)
+}
+
 #[tauri::command]
 pub async fn sync_now<R: Runtime>(
     app: AppHandle<R>,
