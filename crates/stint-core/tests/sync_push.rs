@@ -289,7 +289,10 @@ async fn delete_time_entry_treats_404_as_success() {
 /// Helpers shared by the overlap / 4xx tests below: build a member_id +
 /// running-timer-with-pending-create-queue state, then return the queue row
 /// so the test can drive `push_one`.
-async fn seed_pending_create_at(env: &common::TestEnv, start_at: &str) -> stint_core::store::queue::QueueRow {
+async fn seed_pending_create_at(
+    env: &common::TestEnv,
+    start_at: &str,
+) -> stint_core::store::queue::QueueRow {
     Settings::new(env.store.clone())
         .set("solidtime.member_id", "m-1")
         .await
@@ -362,10 +365,69 @@ async fn push_create_adopts_remote_on_overlap_when_start_matches() {
     push_one(&env.store, &client, &create_row).await.unwrap();
 
     // Queue cleared, entry synced.
-    assert!(Queue::new(env.store.clone()).take_due(10).await.unwrap().is_empty());
-    let row = Entries::new(env.store.clone()).get(&local_uuid).await.unwrap().unwrap();
+    assert!(Queue::new(env.store.clone())
+        .take_due(10)
+        .await
+        .unwrap()
+        .is_empty());
+    let row = Entries::new(env.store.clone())
+        .get(&local_uuid)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(row.sync_state, "synced");
     assert_eq!(row.solidtime_id.as_deref(), Some("remote-adopted"));
+}
+
+#[tokio::test]
+async fn push_create_adopts_when_remote_start_is_in_offset_form() {
+    // Solidtime occasionally returns timestamps in `+00:00` form rather
+    // than `Z`. The adopt match should normalize both sides so a string
+    // equality mismatch doesn't make us abandon a legitimate adoption.
+    let env = common::setup().await;
+    let start_at = "2026-05-20T09:00:00Z";
+    let create_row = seed_pending_create_at(&env, start_at).await;
+    let local_uuid = create_row.entry_uuid.clone().unwrap();
+
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/v1/organizations/org-1/time-entries"))
+        .respond_with(ResponseTemplate::new(400).set_body_json(serde_json::json!({
+            "error": true,
+            "key": "overlapping_time_entry",
+        })))
+        .mount(&server)
+        .await;
+    // Return the same moment but in offset form — pre-normalization this
+    // string would NOT equal "2026-05-20T09:00:00Z".
+    Mock::given(method("GET"))
+        .and(path("/api/v1/organizations/org-1/time-entries"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "data": [{
+                "id": "remote-offset",
+                "description": "stuck task",
+                "start": "2026-05-20T09:00:00+00:00",
+                "billable": false
+            }]
+        })))
+        .mount(&server)
+        .await;
+
+    let client = SolidtimeClient::with_api_token(&server.uri(), "t").with_org("org-1");
+    push_one(&env.store, &client, &create_row).await.unwrap();
+
+    assert!(Queue::new(env.store.clone())
+        .take_due(10)
+        .await
+        .unwrap()
+        .is_empty());
+    let row = Entries::new(env.store.clone())
+        .get(&local_uuid)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(row.sync_state, "synced");
+    assert_eq!(row.solidtime_id.as_deref(), Some("remote-offset"));
 }
 
 #[tokio::test]
@@ -433,7 +495,11 @@ async fn push_create_abandons_on_unprocessable_entity() {
 
     let client = SolidtimeClient::with_api_token(&server.uri(), "t").with_org("org-1");
     assert!(push_one(&env.store, &client, &create_row).await.is_err());
-    assert!(Queue::new(env.store.clone()).take_due(10).await.unwrap().is_empty());
+    assert!(Queue::new(env.store.clone())
+        .take_due(10)
+        .await
+        .unwrap()
+        .is_empty());
     let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM sync_queue")
         .fetch_one(env.store.pool())
         .await
