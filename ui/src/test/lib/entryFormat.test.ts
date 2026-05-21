@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import {
   entryDurationSecs,
   entrySyncMeta,
+  formatEventTime,
   sumCompletedEntrySeconds,
 } from "~/lib/entryFormat";
 import type { Entry } from "~/types";
@@ -139,5 +140,19 @@ describe("sumCompletedEntrySeconds", () => {
       { onlyBillable: true },
     );
     expect(total).toBe(3600);
+  });
+});
+
+describe("formatEventTime", () => {
+  it("returns an empty string for all-day events", () => {
+    expect(formatEventTime("2026-05-20T09:00:00Z", true)).toBe("");
+  });
+
+  it("returns a HH:MM-ish local-time label for timed events", () => {
+    // The exact string is locale-dependent (jsdom default), but it always
+    // contains two digits separated by `:` and the result of toLocaleTimeString
+    // with the explicit hour/minute options.
+    const got = formatEventTime("2026-05-20T09:30:00Z", false);
+    expect(got).toMatch(/\d{1,2}:\d{2}/);
   });
 });

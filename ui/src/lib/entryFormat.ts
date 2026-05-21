@@ -43,3 +43,12 @@ export function sumCompletedEntrySeconds(
   }
   return total;
 }
+
+/// Format an ISO timestamp as a local HH:MM string (e.g. "09:30"). Returns
+/// an empty string for all-day events. Used by CalendarSection to render
+/// the time-of-day next to each event title.
+export function formatEventTime(iso: string, allDay: boolean): string {
+  if (allDay) return "";
+  const d = new Date(iso);
+  return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+}
