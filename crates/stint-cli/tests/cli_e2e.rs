@@ -50,3 +50,103 @@ async fn full_start_stop_sync_flow() {
         .success()
         .stdout(predicate::str::contains("e2e"));
 }
+
+fn wide_range() -> [&'static str; 2] {
+    ["2000-01-01T00:00:00Z", "2100-01-01T00:00:00Z"]
+}
+
+fn empty_range() -> [&'static str; 2] {
+    ["1990-01-01T00:00:00Z", "1990-01-02T00:00:00Z"]
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn start_rejects_second_running_timer() {
+    let tmp = TempDir::new().unwrap();
+    let db = tmp.path().join("stint.db");
+
+    cmd(&db)
+        .args(["start", "first task"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Started: first task"));
+
+    cmd(&db)
+        .args(["start", "second task"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("a timer is already running"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn stop_fails_when_no_timer_is_running() {
+    let tmp = TempDir::new().unwrap();
+    let db = tmp.path().join("stint.db");
+
+    cmd(&db)
+        .args(["stop"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("no timer running"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn today_reports_empty_state_and_lists_completed_and_running_entries() {
+    let tmp = TempDir::new().unwrap();
+    let db = tmp.path().join("stint.db");
+
+    cmd(&db)
+        .args(["today"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("No entries today."));
+
+    cmd(&db)
+        .args(["start", "finished task"])
+        .assert()
+        .success();
+    cmd(&db).args(["stop"]).assert().success();
+
+    cmd(&db)
+        .args(["start", "running task"])
+        .assert()
+        .success();
+
+    cmd(&db)
+        .args(["today"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("duration"))
+        .stdout(predicate::str::contains("description"))
+        .stdout(predicate::str::contains("status"))
+        .stdout(predicate::str::contains("finished task"))
+        .stdout(predicate::str::contains("running task"))
+        .stdout(predicate::str::contains("pending_create"))
+        .stdout(predicate::str::contains("RUNNING"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn list_shows_entries_in_range_and_nothing_outside_it() {
+    let tmp = TempDir::new().unwrap();
+    let db = tmp.path().join("stint.db");
+
+    cmd(&db)
+        .args(["start", "listed task"])
+        .assert()
+        .success();
+    cmd(&db).args(["stop"]).assert().success();
+
+    let [from, to] = wide_range();
+    cmd(&db)
+        .args(["list", from, to])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("listed task"))
+        .stdout(predicate::str::contains("[pending_create]"));
+
+    let [from, to] = empty_range();
+    cmd(&db)
+        .args(["list", from, to])
+        .assert()
+        .success()
+        .stdout(predicate::str::is_empty());
+}
