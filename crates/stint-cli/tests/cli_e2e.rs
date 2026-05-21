@@ -490,3 +490,100 @@ async fn projects_refresh_populates_cached_projects() {
         .success()
         .stdout(predicate::str::contains("p1  Tet"));
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn sync_drains_one_pending_create() {
+    // Unique synthetic Keychain prefix per test. No SecretRestoreGuard:
+    // with a fresh-per-test prefix there's no prior value to restore, and
+    // having the test process attempt a `delete` on an entry created by
+    // the `stint` subprocess (different cdhash) triggers a macOS prompt.
+    // The synthetic entry leaks into the test prefix — harmless and
+    // periodically swept by scripts/clean-test-keychain.sh.
+    let prefix = unique_test_prefix();
+
+    let tmp = TempDir::new().unwrap();
+    let db = tmp.path().join("stint.db");
+    let server = MockServer::start().await;
+
+    Mock::given(method("POST"))
+        .and(path("/api/v1/organizations/org-1/time-entries"))
+        .and(header("Authorization", "Bearer test-token"))
+        .respond_with(ResponseTemplate::new(201).set_body_json(serde_json::json!({
+            "data": { "id": "remote-1", "description": "x", "start": "2026-05-20T09:00:00Z" }
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    cmd_with_prefix(&db, &prefix)
+        .args(["config", "set", "solidtime.url", &server.uri()])
+        .assert()
+        .success();
+    cmd_with_prefix(&db, &prefix)
+        .args(["config", "set", "solidtime.org", "org-1"])
+        .assert()
+        .success();
+    cmd_with_prefix(&db, &prefix)
+        .args(["config", "set", "solidtime.member_id", "m-1"])
+        .assert()
+        .success();
+    cmd_with_prefix(&db, &prefix)
+        .args(["config", "set", "solidtime.token", "test-token"])
+        .assert()
+        .success();
+
+    // Start a timer to enqueue a create_entry op.
+    cmd_with_prefix(&db, &prefix)
+        .args(["start", "deep work"])
+        .assert()
+        .success();
+    cmd_with_prefix(&db, &prefix).args(["stop"]).assert().success();
+
+    cmd_with_prefix(&db, &prefix)
+        .args(["sync"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Drained 1 item"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn pull_with_empty_remote_reports_zero_changes() {
+    // See sync_drains_one_pending_create above for the no-Drop rationale.
+    let prefix = unique_test_prefix();
+
+    let tmp = TempDir::new().unwrap();
+    let db = tmp.path().join("stint.db");
+    let server = MockServer::start().await;
+
+    Mock::given(method("GET"))
+        .and(path("/api/v1/organizations/org-1/time-entries"))
+        .and(header("Authorization", "Bearer test-token"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "data": []
+        })))
+        .mount(&server)
+        .await;
+
+    cmd_with_prefix(&db, &prefix)
+        .args(["config", "set", "solidtime.url", &server.uri()])
+        .assert()
+        .success();
+    cmd_with_prefix(&db, &prefix)
+        .args(["config", "set", "solidtime.org", "org-1"])
+        .assert()
+        .success();
+    cmd_with_prefix(&db, &prefix)
+        .args(["config", "set", "solidtime.member_id", "m-1"])
+        .assert()
+        .success();
+    cmd_with_prefix(&db, &prefix)
+        .args(["config", "set", "solidtime.token", "test-token"])
+        .assert()
+        .success();
+
+    cmd_with_prefix(&db, &prefix)
+        .args(["pull"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("+0 entries, ~0 updates, -0 deletes"));
+}
