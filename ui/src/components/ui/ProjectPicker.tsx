@@ -23,8 +23,11 @@ export default function ProjectPicker(props: {
   });
 
   const selected = createMemo<PickerOption | null>(() => {
-    const v = props.value ?? "";
-    return options().find((o) => o.id === v) ?? null;
+    // When value is null, surface the placeholder rather than the
+    // synthetic NO_PROJECT row (which has id="" and would otherwise
+    // match an "absent" value and pre-fill the input with "No project").
+    if (props.value == null) return null;
+    return options().find((o) => o.id === props.value) ?? null;
   });
 
   const sizeClass = () =>
