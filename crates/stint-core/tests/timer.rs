@@ -274,6 +274,49 @@ async fn delete_local_only_entry_removes_row_without_delete_queue_op() {
 }
 
 #[tokio::test]
+async fn delete_pending_create_also_clears_queued_create_op() {
+    // Regression guard: TimerService::start enqueues a create_entry op.
+    // Deleting that entry locally before it ever reaches Solidtime must
+    // also drop the queue row — otherwise it stays forever, retrying a
+    // POST whose target row no longer exists.
+    let env = common::setup().await;
+    let timer = TimerService::new(env.store.clone());
+    let id = timer
+        .start(StartArgs {
+            description: "x".into(),
+            project_id: None,
+            task_id: None,
+            billable: false,
+            source: "cli".into(),
+            start_at: None,
+        })
+        .await
+        .unwrap();
+    let queue = Queue::new(env.store.clone());
+    assert_eq!(
+        queue.take_due(10).await.unwrap().len(),
+        1,
+        "start should have enqueued create_entry"
+    );
+
+    timer.delete(&id).await.unwrap();
+
+    assert!(Entries::new(env.store.clone())
+        .get(&id)
+        .await
+        .unwrap()
+        .is_none());
+    let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM sync_queue")
+        .fetch_one(env.store.pool())
+        .await
+        .unwrap();
+    assert_eq!(
+        count, 0,
+        "queue should be empty after deleting unsynced entry"
+    );
+}
+
+#[tokio::test]
 async fn delete_missing_entry_returns_not_found() {
     let env = common::setup().await;
     let timer = TimerService::new(env.store.clone());

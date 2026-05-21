@@ -145,6 +145,10 @@ impl TimerService {
                 .await?;
             entries.delete(local_uuid).await?;
         } else {
+            // Never reached Solidtime — drop the pending create_entry op so
+            // the worker doesn't keep trying to push a row that's about to
+            // disappear locally.
+            queue.delete_for_entry(local_uuid).await?;
             entries.delete(local_uuid).await?;
         }
 
