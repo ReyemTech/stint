@@ -177,6 +177,35 @@ async fn calendar_calendars_set_and_clear_default_project_round_trip() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn calendar_add_rejects_unknown_provider() {
+    // clap's value_parser is the gate — the inner `unknown provider` arm
+    // is only reachable via direct API. Verify the gate.
+    let tmp = TempDir::new().unwrap();
+    let db = tmp.path().join("stint.db");
+
+    cmd(&db)
+        .args(["calendar", "add", "outlook"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("invalid value 'outlook'"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn calendar_refresh_errors_without_oauth_blob() {
+    // Account exists in the DB but no Keychain blob — `build_provider_from_blob`
+    // should fail with a clear error rather than a panic.
+    let tmp = TempDir::new().unwrap();
+    let db = tmp.path().join("stint.db");
+    let prefix = unique_test_prefix();
+    seed_account_with_calendars(&db, "acc-1", &[("cal-1", "Personal")]).await;
+
+    cmd_with_prefix(&db, &prefix)
+        .args(["calendar", "refresh", "acc-1"])
+        .assert()
+        .failure();
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn calendar_remove_deletes_account_row() {
     let tmp = TempDir::new().unwrap();
     let db = tmp.path().join("stint.db");
