@@ -47,7 +47,20 @@ impl TimerService {
         // concurrent pull adoption can't slip between the existence check
         // and the running_timer set.
         let mut tx = self.store.pool().begin().await?;
-        let start_at = time::now_utc();
+        let start_at = match args.start_at.as_deref() {
+            Some(provided) => {
+                let parsed = time::parse(provided)?;
+                if parsed > time::now() {
+                    return Err(Error::Invariant(
+                        "start time cannot be in the future".into(),
+                    ));
+                }
+                // Re-format so storage form matches the rest of the codebase
+                // (UTC, second precision, literal Z).
+                time::format(&parsed)
+            }
+            None => time::now_utc(),
+        };
         let local_uuid = Entries::create_with(
             &mut *tx,
             NewTimeEntry {

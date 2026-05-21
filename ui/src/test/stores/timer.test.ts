@@ -75,7 +75,13 @@ describe("useTimerStore", () => {
       vi.mocked(api.getRunningTimer).mockClear();
 
       await store.start("write tests", "p-1", true);
-      expect(api.startTimer).toHaveBeenCalledWith("write tests", "p-1", null, true);
+      expect(api.startTimer).toHaveBeenCalledWith(
+        "write tests",
+        "p-1",
+        null,
+        true,
+        null,
+      );
       // refresh fires after start.
       expect(api.getRunningTimer).toHaveBeenCalled();
       dispose();
@@ -87,7 +93,13 @@ describe("useTimerStore", () => {
       const store = useTimerStore();
       await flushMicrotasks();
       await store.start("solo");
-      expect(api.startTimer).toHaveBeenCalledWith("solo", null, null, false);
+      expect(api.startTimer).toHaveBeenCalledWith(
+        "solo",
+        null,
+        null,
+        false,
+        null,
+      );
       dispose();
     });
   });

@@ -48,6 +48,10 @@ pub struct StartTimerArgs {
     pub task_id: Option<String>,
     #[serde(default)]
     pub billable: bool,
+    /// Optional ISO 8601 UTC timestamp. None → start "now". Rejected if in
+    /// the future (validated downstream by `TimerService::start`).
+    #[serde(default)]
+    pub start_at: Option<String>,
 }
 
 #[tauri::command]
@@ -65,7 +69,7 @@ pub async fn start_timer<R: Runtime>(
             task_id: args.task_id,
             billable: args.billable,
             source: "gui".into(),
-            start_at: None,
+            start_at: args.start_at,
         })
         .await?;
     announce_change(&app);

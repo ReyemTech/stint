@@ -82,7 +82,12 @@ describe("<Popover> — idle state", () => {
     fireEvent.input(input);
     fireEvent.submit(container.querySelector("form")!);
     await flushMicrotasks();
-    expect(storeMock.start).toHaveBeenCalledWith("deep work", undefined, false);
+    expect(storeMock.start).toHaveBeenCalledWith(
+      "deep work",
+      undefined,
+      false,
+      undefined,
+    );
   });
 });
 

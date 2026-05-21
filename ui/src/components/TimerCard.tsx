@@ -1,6 +1,7 @@
 import { Show, createResource, createSignal } from "solid-js";
 import { api } from "~/api";
 import Duration from "./Duration";
+import StartAtPicker, { type StartAtValue } from "./StartAtPicker";
 import Button from "./ui/Button";
 import ProjectPicker from "./ui/ProjectPicker";
 import SectionLabel from "./ui/SectionLabel";
@@ -13,6 +14,7 @@ export default function TimerCard() {
   const [description, setDescription] = createSignal("");
   const [projectId, setProjectId] = createSignal<string>("");
   const [billable, setBillable] = createSignal(false);
+  const [startAt, setStartAt] = createSignal<StartAtValue>(null);
   const [projects] = createResource(() => api.listProjects(), {
     initialValue: [],
   });
@@ -29,10 +31,18 @@ export default function TimerCard() {
               e.preventDefault();
               const d = description().trim();
               if (!d) return;
-              timer.start(d, projectId() || undefined, billable()).then(() => {
-                setDescription("");
-                setBillable(false);
-              });
+              timer
+                .start(
+                  d,
+                  projectId() || undefined,
+                  billable(),
+                  startAt() ?? undefined,
+                )
+                .then(() => {
+                  setDescription("");
+                  setBillable(false);
+                  setStartAt(null);
+                });
             }}
           >
             <input
@@ -42,6 +52,7 @@ export default function TimerCard() {
               onInput={(e) => setDescription(e.currentTarget.value)}
               autofocus
             />
+            <StartAtPicker value={startAt()} onChange={setStartAt} />
             <div class="flex items-center gap-2">
               <div class="min-w-0 flex-1">
                 <ProjectPicker

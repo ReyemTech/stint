@@ -28,14 +28,15 @@ describe("api (timer commands)", () => {
     expect(mockInvoke).toHaveBeenCalledWith("get_running_timer");
   });
 
-  it("startTimer wraps args in { args: { description, project_id, task_id, billable } }", async () => {
-    await api.startTimer("write tests", "p-1", "t-1", true);
+  it("startTimer wraps args in { args: { description, project_id, task_id, billable, start_at } }", async () => {
+    await api.startTimer("write tests", "p-1", "t-1", true, "2026-05-20T08:00:00Z");
     expect(mockInvoke).toHaveBeenCalledWith("start_timer", {
       args: {
         description: "write tests",
         project_id: "p-1",
         task_id: "t-1",
         billable: true,
+        start_at: "2026-05-20T08:00:00Z",
       },
     });
   });
@@ -48,6 +49,7 @@ describe("api (timer commands)", () => {
         project_id: null,
         task_id: null,
         billable: false,
+        start_at: null,
       },
     });
   });
