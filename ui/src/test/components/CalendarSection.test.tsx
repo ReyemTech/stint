@@ -16,6 +16,7 @@ vi.mock("~/api", () => ({
     listEventsInRange: vi.fn(),
     logEvent: vi.fn().mockResolvedValue("uuid-1"),
     ignoreEvent: vi.fn().mockResolvedValue(undefined),
+    revertEvent: vi.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -61,6 +62,7 @@ beforeEach(() => {
   vi.mocked(api.listProjects).mockResolvedValue([]);
   vi.mocked(calendarApi.logEvent).mockClear();
   vi.mocked(calendarApi.ignoreEvent).mockClear();
+  vi.mocked(calendarApi.revertEvent).mockClear();
 });
 
 describe("<CalendarSection>", () => {
@@ -166,5 +168,40 @@ describe("<CalendarSection>", () => {
     expect(await findByText("Logged")).toBeDefined();
     expect(queryByRole("button", { name: /Log this/ })).toBeNull();
     expect(queryByRole("button", { name: /Ignore/ })).toBeNull();
+  });
+
+  it("clicking Revert on a logged event invokes calendarApi.revertEvent and the onEntriesChanged callback", async () => {
+    vi.mocked(calendarApi.listAccounts).mockResolvedValue([account]);
+    vi.mocked(calendarApi.listEventsInRange).mockResolvedValue([
+      event({ decision: "logged_manual", linked_local_uuid: "uuid-x" }),
+    ]);
+    const onChanged = vi.fn();
+    const { findByRole } = render(() => (
+      <CalendarSection onEntriesChanged={onChanged} />
+    ));
+    fireEvent.click(await findByRole("button", { name: /Calendar/ }));
+    const revertBtn = await findByRole("button", { name: /Revert|Undo/ });
+    fireEvent.click(revertBtn);
+    await flushMicrotasks();
+    expect(calendarApi.revertEvent).toHaveBeenCalledWith(
+      "acc-1",
+      "evt-1",
+      "2026-05-20T09:00:00Z",
+    );
+    expect(onChanged).toHaveBeenCalled();
+  });
+
+  it("clicking Revert on an ignored event invokes calendarApi.revertEvent", async () => {
+    vi.mocked(calendarApi.listAccounts).mockResolvedValue([account]);
+    vi.mocked(calendarApi.listEventsInRange).mockResolvedValue([
+      event({ decision: "ignored" }),
+    ]);
+    const { findByRole } = render(() => (
+      <CalendarSection onEntriesChanged={() => {}} />
+    ));
+    fireEvent.click(await findByRole("button", { name: /Calendar/ }));
+    fireEvent.click(await findByRole("button", { name: /Revert|Undo/ }));
+    await flushMicrotasks();
+    expect(calendarApi.revertEvent).toHaveBeenCalled();
   });
 });

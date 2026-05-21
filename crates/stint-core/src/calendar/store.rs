@@ -253,6 +253,24 @@ impl CalendarStore {
         Ok(())
     }
 
+    pub async fn clear_decision(
+        &self,
+        account_id: &str,
+        event_id: &str,
+        event_start: &str,
+    ) -> Result<()> {
+        sqlx::query(
+            "DELETE FROM event_decisions
+             WHERE account_id = ? AND event_id = ? AND event_start = ?",
+        )
+        .bind(account_id)
+        .bind(event_id)
+        .bind(event_start)
+        .execute(self.store.pool())
+        .await?;
+        Ok(())
+    }
+
     pub async fn get_decision(
         &self,
         account_id: &str,

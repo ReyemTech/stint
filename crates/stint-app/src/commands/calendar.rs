@@ -326,6 +326,45 @@ pub async fn calendar_log_event<R: Runtime>(
 }
 
 #[tauri::command]
+pub async fn calendar_revert_event<R: Runtime>(
+    state: State<'_, RwLock<AppState>>,
+    app: tauri::AppHandle<R>,
+    account_id: String,
+    event_id: String,
+    event_start: String,
+) -> Result<(), AppError> {
+    let store = store(&state).await;
+    let cs = CalendarStore::new((*store).clone());
+
+    // If the decision linked a time entry, delete it. Cleared regardless of
+    // whether deletion succeeds (a manual delete of the entry by the user
+    // shouldn't strand the calendar row in a "logged" state forever).
+    if let Some(decision) = cs
+        .get_decision(&account_id, &event_id, &event_start)
+        .await?
+    {
+        if let Some(uuid) = decision.linked_local_uuid() {
+            let timer = stint_core::timer::TimerService::new((*store).clone());
+            if let Err(e) = timer.delete(uuid).await {
+                tracing::warn!(
+                    error = %e,
+                    local_uuid = uuid,
+                    "revert: linked entry delete failed; clearing decision anyway"
+                );
+            }
+        }
+    }
+
+    cs.clear_decision(&account_id, &event_id, &event_start)
+        .await?;
+
+    crate::sync_worker::nudge(app.clone(), store);
+    let _ = app.emit("entries:changed", 1);
+    let _ = app.emit(EVENT_CALENDAR_CHANGED, &account_id);
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn calendar_ignore_event<R: Runtime>(
     state: State<'_, RwLock<AppState>>,
     app: tauri::AppHandle<R>,

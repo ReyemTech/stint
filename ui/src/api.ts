@@ -123,4 +123,6 @@ export const calendarApi = {
     invoke<string>("calendar_log_event", { accountId, eventId, eventStart }),
   ignoreEvent: (accountId: string, eventId: string, eventStart: string) =>
     invoke<void>("calendar_ignore_event", { accountId, eventId, eventStart }),
+  revertEvent: (accountId: string, eventId: string, eventStart: string) =>
+    invoke<void>("calendar_revert_event", { accountId, eventId, eventStart }),
 };

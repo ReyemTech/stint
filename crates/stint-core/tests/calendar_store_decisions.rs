@@ -169,3 +169,41 @@ async fn list_decisions_filters_by_range() {
     assert_eq!(list.len(), 1);
     assert_eq!(list[0].0, "e1");
 }
+
+#[tokio::test]
+async fn clear_decision_deletes_existing_row() {
+    let env = common::setup().await;
+    let s = CalendarStore::new(env.store.clone());
+    seed(&s).await;
+    s.record_decision(
+        "acc-1",
+        "e1",
+        "2026-05-19T09:00:00Z",
+        &EventDecision::Ignored,
+    )
+    .await
+    .unwrap();
+
+    s.clear_decision("acc-1", "e1", "2026-05-19T09:00:00Z")
+        .await
+        .unwrap();
+
+    let d = s
+        .get_decision("acc-1", "e1", "2026-05-19T09:00:00Z")
+        .await
+        .unwrap();
+    assert!(d.is_none(), "decision should be cleared");
+}
+
+#[tokio::test]
+async fn clear_decision_is_idempotent_when_no_row_exists() {
+    // Clearing a non-existent decision is a no-op rather than an error so
+    // the revert flow stays trivial on the caller side.
+    let env = common::setup().await;
+    let s = CalendarStore::new(env.store.clone());
+    seed(&s).await;
+
+    s.clear_decision("acc-1", "e1", "2026-05-19T09:00:00Z")
+        .await
+        .unwrap();
+}

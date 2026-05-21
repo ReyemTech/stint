@@ -117,6 +117,16 @@ export default function CalendarSection(props: { onEntriesChanged: () => void })
     }
   }
 
+  async function handleRevert(g: EventByAccount, e: CalendarEventWithDecision) {
+    try {
+      await calendarApi.revertEvent(g.account.id, e.id, e.start_at);
+      props.onEntriesChanged();
+      refetch();
+    } catch (err) {
+      console.error("Revert failed:", err);
+    }
+  }
+
   return (
     <Show when={total() > 0}>
       <div class="mt-8">
@@ -138,6 +148,7 @@ export default function CalendarSection(props: { onEntriesChanged: () => void })
                       defaultProjectName={defaultProjectForCalendar(e.calendar_id)}
                       onLog={() => handleLog(g, e)}
                       onIgnore={() => handleIgnore(g, e)}
+                      onRevert={() => handleRevert(g, e)}
                     />
                   )}
                 </For>
@@ -155,6 +166,7 @@ function EventRow(props: {
   defaultProjectName: string | null;
   onLog: () => void;
   onIgnore: () => void;
+  onRevert: () => void;
 }) {
   const decided = () => props.event.decision !== null;
   const logged = () =>
@@ -196,6 +208,33 @@ function EventRow(props: {
             Ignore
           </Button>
         </div>
+      </Show>
+      <Show when={decided()}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={props.onRevert}
+          title={
+            logged()
+              ? "Undo: delete the logged entry and restore Log/Ignore"
+              : "Undo: restore Log this / Ignore actions"
+          }
+        >
+          <svg
+            class="h-4 w-4"
+            viewBox="0 0 20 20"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M8 13L3 8l5-5" />
+            <path d="M3 8h8a5 5 0 0 1 0 10h-1" />
+          </svg>
+          <span class="sr-only">Undo</span>
+        </Button>
       </Show>
     </div>
   );
