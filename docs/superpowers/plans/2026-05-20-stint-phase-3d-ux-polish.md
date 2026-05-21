@@ -91,8 +91,9 @@
 | `ui/src/types.ts` | `Project` gains `client_name: string \| null`. `CalendarRow` gains `default_project_id: string \| null`. |
 | `ui/src/components/TimerCard.tsx` | Replace `<select>` with `ProjectPicker`; add `StartAtPicker` toggle. |
 | `ui/src/routes/Popover.tsx` | Replace `<select>` with `ProjectPicker`; add `StartAtPicker` toggle. |
+| `ui/src/components/ui/Accordion.tsx` | Rewrite to use `@kobalte/core/collapsible` internally; same API (title, hint, right, defaultOpen, children). |
 | `ui/src/components/EntryRow.tsx` | Replace inline edit panel with click-to-open `EditEntryDialog`; running timer also gets time-edit access. |
-| `ui/src/routes/Settings.tsx` | `CalendarsManager` gains a per-calendar `ProjectPicker` for the default-project assignment. |
+| `ui/src/routes/Settings.tsx` | `CalendarsManager` gains a per-calendar `ProjectPicker`; replace hand-rolled calendars popover with `@kobalte/core/popover`. |
 
 ---
 
@@ -100,8 +101,8 @@
 
 Four commits, each shippable on its own:
 
-1. **Tasks 1.1–1.11 — ProjectPicker + clients data plumbing** (`feat(ui): searchable client-grouped project picker`).
-2. **Tasks 2.1–2.6 — Per-calendar default project** (`feat(core): per-calendar default project; calendar_log_event prefills`).
+1. **Tasks 1.1–1.12 — ProjectPicker + @kobalte/core primitives** (`feat(ui): searchable client-grouped project picker; collapsible replacement`).
+2. **Tasks 2.1–2.7 — Per-calendar default project + popover** (`feat(core): per-calendar default project; calendar_log_event prefills; popover replacement`).
 3. **Tasks 3.1–3.7 — Entry edit dialog with editable start/end times** (`feat(app): edit dialog for entry times`).
 4. **Tasks 4.1–4.6 — Backdate start option** (`feat(core): backdate-able timer start`).
 
@@ -1056,6 +1057,89 @@ Expected: all green.
 
 ---
 
+### Task 1.12: Replace Accordion with `@kobalte/core/collapsible`
+
+**Files:**
+- Modify: `ui/src/components/ui/Accordion.tsx`
+
+- [ ] **Step 1: Rewrite Accordion.tsx**
+
+Open `ui/src/components/ui/Accordion.tsx` and replace with:
+
+```tsx
+import { JSX, Show } from "solid-js";
+import { Collapsible } from "@kobalte/core/collapsible";
+
+export default function Accordion(props: {
+  title: string;
+  hint?: string;
+  right?: JSX.Element;
+  defaultOpen?: boolean;
+  children: JSX.Element;
+}) {
+  return (
+    <Collapsible.Root
+      class="rounded-2xl border border-black/[0.06] bg-white dark:border-white/[0.06] dark:bg-zinc-900"
+      defaultOpen={props.defaultOpen}
+    >
+      <Collapsible.Trigger class="flex w-full items-center justify-between gap-3 px-6 py-4 text-left">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              {props.title}
+            </h2>
+            <Show when={props.right}>
+              <div class="ml-auto flex items-center gap-2">{props.right}</div>
+            </Show>
+          </div>
+          <Show when={props.hint}>
+            <p class="mt-1 text-xs text-zinc-500">{props.hint}</p>
+          </Show>
+        </div>
+        <svg
+          class="h-4 w-4 shrink-0 text-zinc-400 transition-transform group-data-[expanded]:rotate-90"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <path
+            fill-rule="evenodd"
+            d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.17 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z"
+            clip-rule="evenodd"
+          />
+        </svg>
+      </Collapsible.Trigger>
+      <Collapsible.Content class="border-t border-black/[0.05] px-6 pb-6 pt-5 data-[closed]:animate-collapse-up data-[expanded]:animate-collapse-down dark:border-white/[0.04]">
+        {props.children}
+      </Collapsible.Content>
+    </Collapsible.Root>
+  );
+}
+```
+
+> **API note:** The `Collapsible` component uses a `data-expanded` / `data-closed` attribute pattern instead of `classList` toggle. The animation classes (`animate-collapse-up` / `animate-collapse-down`) should be added to `tailwind.config` if smooth open/close is desired; they're optional and the default instant toggle works fine without them.
+
+- [ ] **Step 2: Verify consumers still compile**
+
+```bash
+cd ui && pnpm typecheck && pnpm build && cd ..
+```
+
+Expected: PASS. The three consumers (`Settings.tsx` ×2, `CalendarSection.tsx` ×1) pass the same props — no API change, the component interface is identical.
+
+- [ ] **Step 3: Visual check**
+
+`scripts/dev-app.sh`. Open Settings and confirm both accordion sections (Server, Calendar) expand/collapse on click. Open Today and confirm the CalendarSection accordion works.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add ui/src/components/ui/Accordion.tsx
+git commit -m "feat(ui): replace Accordion with @kobalte/core/collapsible"
+```
+
+---
+
 ## Commit 2 — Per-calendar default project
 
 ### Task 2.1: Migration 0005 — `calendars.default_project_id`
@@ -1548,11 +1632,100 @@ Expected: PASS.
 ```bash
 git add ui/src/routes/Settings.tsx
 git commit -m "feat(ui): per-calendar default project picker"
+
+---
+
+### Task 2.6: Replace hand-rolled calendars popover with `@kobalte/core/popover`
+
+**Files:**
+- Modify: `ui/src/routes/Settings.tsx`
+
+- [ ] **Step 1: Replace the CalendarsManager popover**
+
+Open `ui/src/routes/Settings.tsx`. Add the import at the top:
+
+```tsx
+import { Popover } from "@kobalte/core/popover";
+```
+
+Then replace the `CalendarsManager` return block (currently a `<div class="relative">` wrapping a `Button` + `<Show when={open()}>` div) with:
+
+```tsx
+return (
+  <Popover.Root open={open()} onOpenChange={setOpen}>
+    <Popover.Trigger
+      class="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm font-medium text-zinc-700 outline-none transition hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-indigo-400 dark:text-zinc-300 dark:hover:bg-zinc-800"
+    >
+      Calendars
+      <svg class="h-3.5 w-3.5 text-zinc-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd" />
+      </svg>
+    </Popover.Trigger>
+    <Popover.Portal>
+      <Popover.Content class="z-50 mt-1 w-72 rounded-md border border-black/[0.08] bg-white p-3 shadow-lg outline-none data-[expanded]:animate-in data-[closed]:animate-out dark:border-white/[0.08] dark:bg-zinc-950">
+        <Show
+          when={(cals() ?? []).length > 0}
+          fallback={
+            <p class="text-xs text-zinc-500">
+              {cals.loading ? "Loading…" : "No calendars."}
+            </p>
+          }
+        >
+          <ul class="space-y-1">
+            <For each={cals() ?? []}>
+              {(c) => (
+                <li>
+                  <label class="flex cursor-pointer items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={c.included}
+                      onChange={(e) =>
+                        toggle(c.id, e.currentTarget.checked)
+                      }
+                    />
+                    <span>{c.name}</span>
+                  </label>
+                </li>
+              )}
+            </For>
+          </ul>
+        </Show>
+      </Popover.Content>
+    </Popover.Portal>
+  </Popover.Root>
+);
+```
+
+Keep the existing `open()` signal and `setOpen` toggle — `Popover.Root` now controls them. The original `onClick` on the `Button` is gone; `Popover.Trigger` handles opening/closing.
+
+Remove the unused `<div class="relative">` wrapper and the `<Show when={open()}>` condition — `Popover.Content` is only rendered when open per Kobalte convention.
+
+- [ ] **Step 2: Verify it compiles**
+
+```bash
+cd ui && pnpm typecheck && pnpm build && cd ..
+```
+
+Expected: PASS.
+
+- [ ] **Step 3: Visual check**
+
+`scripts/dev-app.sh`. Open Settings → an account. Click the "Calendars" trigger. Confirm:
+- The popover opens below the trigger.
+- Click outside or press Escape → popover closes.
+- Tab focus cycles inside the popover.
+- The `open()` signal is still wired to the `ProjectPicker` (from Task 2.5) for persistence.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add ui/src/routes/Settings.tsx
+git commit -m "feat(ui): replace calendars popover with @kobalte/core/popover"
 ```
 
 ---
 
-### Task 2.6: CLI — `--set-default-project` / `--clear-default-project`
+### Task 2.7: CLI — `--set-default-project` / `--clear-default-project`
 
 **Files:**
 - Modify: `crates/stint-cli/src/cmd/calendar.rs`
