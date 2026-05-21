@@ -119,4 +119,31 @@ impl Queue {
         .await?;
         Ok(())
     }
+
+    /// Mark a queue item as abandoned: parks `next_try_at` ~1 year out so
+    /// the worker stops picking it up. The row is preserved (with the
+    /// error message) so the user can see why sync gave up. Use this for
+    /// permanent 4xx rejections from Solidtime — retrying validation /
+    /// business-rule errors just floods logs without resolving anything.
+    pub async fn mark_abandoned(&self, id: i64, err: &str) -> Result<()> {
+        let (attempts,): (i64,) = sqlx::query_as("SELECT attempts FROM sync_queue WHERE id = ?")
+            .bind(id)
+            .fetch_one(self.store.pool())
+            .await?;
+        let next_try = Utc::now() + Duration::days(365);
+        let next_try_str = time::format(&next_try);
+
+        sqlx::query(
+            "UPDATE sync_queue
+             SET attempts = ?, last_error = ?, next_try_at = ?
+             WHERE id = ?",
+        )
+        .bind(attempts + 1)
+        .bind(err)
+        .bind(next_try_str)
+        .bind(id)
+        .execute(self.store.pool())
+        .await?;
+        Ok(())
+    }
 }
