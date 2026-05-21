@@ -8,7 +8,7 @@ use stint_core::solidtime::SolidtimeClient;
 use stint_core::sync::pull::{
     pull, resolve_conflict, ConflictAction, ConflictInfo, PullReport, Trigger,
 };
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Runtime, State};
 use tokio::sync::RwLock;
 
 #[derive(Debug, Serialize)]
@@ -54,8 +54,8 @@ impl From<PullReport> for PullReportDto {
 }
 
 #[tauri::command]
-pub async fn pull_now(
-    app: AppHandle,
+pub async fn pull_now<R: Runtime>(
+    app: AppHandle<R>,
     state: State<'_, RwLock<AppState>>,
 ) -> Result<PullReportDto, AppError> {
     let store = store(&state).await;
@@ -105,8 +105,8 @@ pub struct ConflictResolveArgs {
 }
 
 #[tauri::command]
-pub async fn conflict_resolve(
-    app: AppHandle,
+pub async fn conflict_resolve<R: Runtime>(
+    app: AppHandle<R>,
     state: State<'_, RwLock<AppState>>,
     args: ConflictResolveArgs,
 ) -> Result<(), AppError> {

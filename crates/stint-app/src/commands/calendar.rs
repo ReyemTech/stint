@@ -24,7 +24,7 @@ use stint_core::solidtime::auth::login_interactive;
 use stint_core::store::entries::{Entries, NewCompletedEntry};
 use stint_core::store::queue::{Queue, QueueOp};
 use stint_core::time;
-use tauri::{Emitter, State};
+use tauri::{Emitter, Runtime, State};
 use tokio::sync::RwLock;
 
 pub const EVENT_CALENDAR_CHANGED: &str = "calendar:changed";
@@ -63,9 +63,9 @@ pub async fn calendar_oauth_status(account_id: String) -> Result<CalendarOAuthSt
 }
 
 #[tauri::command]
-pub async fn calendar_add_google(
+pub async fn calendar_add_google<R: Runtime>(
     state: State<'_, RwLock<AppState>>,
-    app: tauri::AppHandle,
+    app: tauri::AppHandle<R>,
 ) -> Result<CalendarAccount, AppError> {
     if !is_configured() {
         return Err(AppError::msg(
@@ -138,9 +138,9 @@ pub async fn calendar_add_google(
 }
 
 #[tauri::command]
-pub async fn calendar_remove_account(
+pub async fn calendar_remove_account<R: Runtime>(
     state: State<'_, RwLock<AppState>>,
-    app: tauri::AppHandle,
+    app: tauri::AppHandle<R>,
     account_id: String,
 ) -> Result<(), AppError> {
     let store = store(&state).await;
@@ -162,9 +162,9 @@ pub async fn calendar_list_calendars(
 }
 
 #[tauri::command]
-pub async fn calendar_set_calendar_included(
+pub async fn calendar_set_calendar_included<R: Runtime>(
     state: State<'_, RwLock<AppState>>,
-    app: tauri::AppHandle,
+    app: tauri::AppHandle<R>,
     calendar_id: String,
     included: bool,
 ) -> Result<(), AppError> {
@@ -176,9 +176,9 @@ pub async fn calendar_set_calendar_included(
 }
 
 #[tauri::command]
-pub async fn calendar_refresh_account(
+pub async fn calendar_refresh_account<R: Runtime>(
     state: State<'_, RwLock<AppState>>,
-    app: tauri::AppHandle,
+    app: tauri::AppHandle<R>,
     account_id: String,
 ) -> Result<usize, AppError> {
     let store = store(&state).await;
@@ -220,9 +220,9 @@ pub async fn calendar_list_events_in_range(
 }
 
 #[tauri::command]
-pub async fn calendar_log_event(
+pub async fn calendar_log_event<R: Runtime>(
     state: State<'_, RwLock<AppState>>,
-    app: tauri::AppHandle,
+    app: tauri::AppHandle<R>,
     account_id: String,
     event_id: String,
     event_start: String,
@@ -288,9 +288,9 @@ pub async fn calendar_log_event(
 }
 
 #[tauri::command]
-pub async fn calendar_ignore_event(
+pub async fn calendar_ignore_event<R: Runtime>(
     state: State<'_, RwLock<AppState>>,
-    app: tauri::AppHandle,
+    app: tauri::AppHandle<R>,
     account_id: String,
     event_id: String,
     event_start: String,
