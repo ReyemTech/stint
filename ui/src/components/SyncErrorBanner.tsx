@@ -1,9 +1,28 @@
-import { For, Show, createMemo, createResource, createSignal, onCleanup } from "solid-js";
+import {
+  For,
+  Show,
+  createEffect,
+  createMemo,
+  createResource,
+  createSignal,
+  onCleanup,
+} from "solid-js";
 import { listen } from "@tauri-apps/api/event";
 import { api } from "~/api";
-import type { Entry, SyncError } from "~/types";
+import type { Entry, OverlapCandidate, SyncError } from "~/types";
 import EditEntryDialog from "./EditEntryDialog";
 import Button from "./ui/Button";
+
+function fmtTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleTimeString(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return iso;
+  }
+}
 
 /// Translate a raw Solidtime error body into something a user can act on.
 /// Currently focuses on overlapping_time_entry (the most common stuck
@@ -27,6 +46,10 @@ export default function SyncErrorBanner() {
   const [expanded, setExpanded] = createSignal(false);
   const [editing, setEditing] = createSignal<Entry | null>(null);
   const [busyUuid, setBusyUuid] = createSignal<string | null>(null);
+  // Overlap lookups are lazy — only fetched once the user expands the
+  // banner. Keyed by local_uuid; null means "fetching", undefined means
+  // "not yet requested", [] means "fetched, nothing overlaps".
+  const [overlaps, setOverlaps] = createSignal<Record<string, OverlapCandidate[] | null>>({});
 
   // Re-fetch whenever sync state changes — covers fresh failures, manual
   // sync-now, and the worker's periodic drain.
@@ -40,6 +63,26 @@ export default function SyncErrorBanner() {
   // Only show the banner once an entry hits the abandoned-permanently state
   // — transient retries (server 5xx, network flakes) don't need user attention.
   const visible = createMemo(() => abandoned().length > 0);
+
+  // Trigger one overlap fetch per abandoned row whenever the banner is
+  // expanded. Each row's result is cached in the `overlaps` signal so
+  // collapsing + re-expanding doesn't re-request.
+  createEffect(() => {
+    if (!expanded()) return;
+    for (const row of abandoned()) {
+      const uuid = row.local_uuid;
+      if (!uuid) continue;
+      if (overlaps()[uuid] !== undefined) continue;
+      setOverlaps((m) => ({ ...m, [uuid]: null }));
+      api
+        .getSyncErrorOverlaps(uuid)
+        .then((list) => setOverlaps((m) => ({ ...m, [uuid]: list })))
+        .catch((err) => {
+          console.error("getSyncErrorOverlaps failed:", err);
+          setOverlaps((m) => ({ ...m, [uuid]: [] }));
+        });
+    }
+  });
 
   async function dismissAndDelete(uuid: string | null) {
     if (!uuid) return;
@@ -128,6 +171,12 @@ export default function SyncErrorBanner() {
                   <p class="text-xs text-red-800 dark:text-red-200">
                     {friendlyMessage(err.last_error)}
                   </p>
+                  <Show when={err.local_uuid}>
+                    <OverlapList
+                      uuid={err.local_uuid!}
+                      state={overlaps()[err.local_uuid!]}
+                    />
+                  </Show>
                   <details class="text-[11px] text-red-700/80 dark:text-red-300/70">
                     <summary class="cursor-pointer select-none">
                       Solidtime error detail
@@ -175,5 +224,62 @@ export default function SyncErrorBanner() {
         )}
       </Show>
     </Show>
+  );
+}
+
+function OverlapList(props: {
+  uuid: string;
+  state: OverlapCandidate[] | null | undefined;
+}) {
+  return (
+    <div class="rounded-md bg-red-100/60 px-2.5 py-1.5 text-[11px] text-red-900 dark:bg-red-950/60 dark:text-red-100">
+      <Show
+        when={props.state !== undefined}
+        fallback={
+          <span class="text-red-700/70 dark:text-red-300/70">
+            Checking Solidtime…
+          </span>
+        }
+      >
+        <Show
+          when={props.state === null}
+          fallback={
+            <Show
+              when={(props.state ?? []).length > 0}
+              fallback={
+                <span class="text-red-700/70 dark:text-red-300/70">
+                  Solidtime reports no overlapping entries — try{" "}
+                  <code class="rounded bg-red-200/60 px-1 dark:bg-red-900/60">
+                    stint sync diagnose
+                  </code>{" "}
+                  for raw details, or delete this entry.
+                </span>
+              }
+            >
+              <div class="mb-1 font-medium">Conflicts with:</div>
+              <ul class="space-y-0.5">
+                <For each={props.state ?? []}>
+                  {(o) => (
+                    <li class="flex items-baseline gap-2">
+                      <span class="truncate font-medium">
+                        {o.description.trim() || "(no description)"}
+                      </span>
+                      <span class="font-mono text-[10px] text-red-700/70 dark:text-red-300/70">
+                        {fmtTime(o.start)}
+                        {o.end ? ` → ${fmtTime(o.end)}` : " (running)"}
+                      </span>
+                    </li>
+                  )}
+                </For>
+              </ul>
+            </Show>
+          }
+        >
+          <span class="text-red-700/70 dark:text-red-300/70">
+            Checking Solidtime…
+          </span>
+        </Show>
+      </Show>
+    </div>
   );
 }

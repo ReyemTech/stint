@@ -69,6 +69,7 @@ async fn main() -> Result<()> {
             commands::calendar::calendar_revert_event,
             commands::sync::sync_now,
             commands::sync::list_sync_errors,
+            commands::sync::get_sync_error_overlaps,
             commands::ui::show_main_window,
         ])
         .setup(move |app| {

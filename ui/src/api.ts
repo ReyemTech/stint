@@ -7,6 +7,7 @@ import type {
   ConfigEntry,
   Entry,
   OrgChoice,
+  OverlapCandidate,
   Project,
   RunningTimer,
   SyncError,
@@ -60,6 +61,8 @@ export const api = {
 
   syncNow: () => invoke<number>("sync_now"),
   listSyncErrors: () => invoke<SyncError[]>("list_sync_errors"),
+  getSyncErrorOverlaps: (localUuid: string) =>
+    invoke<OverlapCandidate[]>("get_sync_error_overlaps", { localUuid }),
 };
 
 export type SolidtimeAuthStatus = {

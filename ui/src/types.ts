@@ -103,3 +103,11 @@ export type SyncError = {
   start_at: string | null;
   end_at: string | null;
 };
+
+export type OverlapCandidate = {
+  id: string;
+  description: string;
+  start: string;
+  /// `null` means the remote entry is still running.
+  end: string | null;
+};
