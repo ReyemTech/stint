@@ -110,7 +110,12 @@ async fn calendar_oauth_status_is_signed_out_when_blob_missing() {
 async fn calendar_list_calendars_returns_seeded_rows() {
     let ctx = common::make_app().await;
     seed_account(&ctx.store, "acc-1").await;
-    seed_calendars(&ctx.store, "acc-1", &[("cal-1", "Personal"), ("cal-2", "Work")]).await;
+    seed_calendars(
+        &ctx.store,
+        "acc-1",
+        &[("cal-1", "Personal"), ("cal-2", "Work")],
+    )
+    .await;
 
     let handle = ctx.handle();
     let cals = calendar_list_calendars(handle.state(), "acc-1".into())
@@ -222,7 +227,10 @@ async fn calendar_log_event_creates_time_entry_and_marks_logged() {
     .await
     .unwrap();
     assert_eq!(events[0].decision.as_deref(), Some("logged_manual"));
-    assert_eq!(events[0].linked_local_uuid.as_deref(), Some(local_uuid.as_str()));
+    assert_eq!(
+        events[0].linked_local_uuid.as_deref(),
+        Some(local_uuid.as_str())
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]

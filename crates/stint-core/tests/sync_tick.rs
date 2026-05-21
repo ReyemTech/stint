@@ -69,8 +69,15 @@ async fn tick_count_zero_drains_queue_and_refreshes_reference() {
     assert!(due.is_empty(), "queue should be drained on tick");
 
     // Reference refresh ran: projects table has the seeded row.
-    let projects = Reference::new(env.store.clone()).list_projects().await.unwrap();
-    assert_eq!(projects.len(), 1, "reference data should be refreshed on tick 0");
+    let projects = Reference::new(env.store.clone())
+        .list_projects()
+        .await
+        .unwrap();
+    assert_eq!(
+        projects.len(),
+        1,
+        "reference data should be refreshed on tick 0"
+    );
     assert_eq!(projects[0].id, "p1");
 }
 
@@ -101,7 +108,10 @@ async fn tick_count_one_drains_queue_without_refreshing_reference() {
         .unwrap();
     assert!(due.is_empty(), "queue should be drained");
 
-    let projects = Reference::new(env.store.clone()).list_projects().await.unwrap();
+    let projects = Reference::new(env.store.clone())
+        .list_projects()
+        .await
+        .unwrap();
     assert!(
         projects.is_empty(),
         "reference data should NOT be refreshed on non-multiple-of-15 ticks",
@@ -158,5 +168,8 @@ async fn tick_swallows_reference_refresh_failure() {
         .take_due(10)
         .await
         .unwrap();
-    assert!(due.is_empty(), "queue still drained even when refresh failed");
+    assert!(
+        due.is_empty(),
+        "queue still drained even when refresh failed"
+    );
 }

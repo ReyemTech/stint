@@ -12,10 +12,7 @@ use tauri::Manager;
 use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-async fn seed_solidtime_config(
-    store: &std::sync::Arc<stint_core::store::Store>,
-    url: &str,
-) {
+async fn seed_solidtime_config(store: &std::sync::Arc<stint_core::store::Store>, url: &str) {
     let settings = Settings::new((**store).clone());
     settings.set("solidtime.url", url).await.unwrap();
     settings.set("solidtime.org", "org-1").await.unwrap();
@@ -30,7 +27,11 @@ async fn pull_now_errors_when_solidtime_url_missing() {
     let ctx = common::make_app().await;
     let handle = ctx.handle();
     let err = pull_now(handle.clone(), handle.state()).await.unwrap_err();
-    assert!(err.message.contains("solidtime.url"), "got: {}", err.message);
+    assert!(
+        err.message.contains("solidtime.url"),
+        "got: {}",
+        err.message
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -42,7 +43,11 @@ async fn pull_now_errors_when_org_missing() {
         .unwrap();
     let handle = ctx.handle();
     let err = pull_now(handle.clone(), handle.state()).await.unwrap_err();
-    assert!(err.message.contains("solidtime.org"), "got: {}", err.message);
+    assert!(
+        err.message.contains("solidtime.org"),
+        "got: {}",
+        err.message
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]

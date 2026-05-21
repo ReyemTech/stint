@@ -22,7 +22,10 @@ fn cmd_with_prefix(db: &std::path::Path, prefix: &str) -> Command {
 }
 
 fn unique_test_prefix() -> String {
-    format!("tech.reyem.stint.test.{}", stint_core::ids::new_local_uuid())
+    format!(
+        "tech.reyem.stint.test.{}",
+        stint_core::ids::new_local_uuid()
+    )
 }
 
 async fn seed_account_with_calendars(

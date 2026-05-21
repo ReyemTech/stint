@@ -1,12 +1,12 @@
 use async_trait::async_trait;
 use chrono::{TimeZone, Utc};
 use std::sync::Arc;
-use stint_core::calendar::google::{build_provider_from_blob, resolve_account_identifier};
 use stint_core::calendar::google::client::GoogleClient;
+use stint_core::calendar::google::GoogleProvider;
+use stint_core::calendar::google::{build_provider_from_blob, resolve_account_identifier};
+use stint_core::calendar::provider::CalendarProvider;
 use stint_core::calendar::provider::RemoteCalendar;
 use stint_core::calendar::store::{calendar_blob_delete, calendar_blob_save, CalendarOAuthBlob};
-use stint_core::calendar::google::GoogleProvider;
-use stint_core::calendar::provider::CalendarProvider;
 use stint_core::calendar::types::{ProviderKind, TimeRange};
 use stint_core::config::secrets::Secrets;
 use stint_core::oauth::tokens::TokenSet;

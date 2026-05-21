@@ -3,8 +3,8 @@ mod common;
 use stint_core::store::entries::{Entries, NewCompletedEntry};
 use stint_core::store::queue::Queue;
 use stint_core::store::running::RunningTimer;
-use stint_core::Error;
 use stint_core::timer::{StartArgs, TimerService};
+use stint_core::Error;
 
 #[tokio::test]
 async fn start_creates_entry_sets_running_and_enqueues_sync() {
@@ -255,7 +255,11 @@ async fn delete_local_only_entry_removes_row_without_delete_queue_op() {
 
     timer.delete(&id).await.unwrap();
 
-    assert!(Entries::new(env.store.clone()).get(&id).await.unwrap().is_none());
+    assert!(Entries::new(env.store.clone())
+        .get(&id)
+        .await
+        .unwrap()
+        .is_none());
     assert!(Queue::new(env.store.clone())
         .take_due(10)
         .await
@@ -280,7 +284,11 @@ async fn update_description_on_synced_entry_marks_dirty_and_enqueues_update() {
 
     timer.update_description(&id, "reworded").await.unwrap();
 
-    let row = Entries::new(env.store.clone()).get(&id).await.unwrap().unwrap();
+    let row = Entries::new(env.store.clone())
+        .get(&id)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(row.description, "reworded");
     assert_eq!(row.sync_state, "dirty");
 
@@ -297,7 +305,10 @@ async fn synced_mutations_enqueue_updates_and_pending_create_mutations_do_not() 
     let timer = TimerService::new(env.store.clone());
     let synced_id = create_synced_entry(&env).await;
 
-    timer.set_project(&synced_id, Some("project-b")).await.unwrap();
+    timer
+        .set_project(&synced_id, Some("project-b"))
+        .await
+        .unwrap();
     timer.set_billable(&synced_id, true).await.unwrap();
 
     let synced_row = Entries::new(env.store.clone())
@@ -360,9 +371,6 @@ async fn missing_entry_mutations_return_not_found() {
         .unwrap_err();
     assert!(matches!(err, Error::NotFound(ref msg) if msg == "entry missing-entry"));
 
-    let err = timer
-        .set_billable("missing-entry", true)
-        .await
-        .unwrap_err();
+    let err = timer.set_billable("missing-entry", true).await.unwrap_err();
     assert!(matches!(err, Error::NotFound(ref msg) if msg == "entry missing-entry"));
 }

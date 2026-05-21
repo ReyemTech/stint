@@ -26,7 +26,9 @@ async fn config_show_marks_secret_keys_separately() {
         .set("solidtime.url", "https://example.com")
         .await
         .unwrap();
-    Secrets::default().set("solidtime.token", "tok-abc").unwrap();
+    Secrets::default()
+        .set("solidtime.token", "tok-abc")
+        .unwrap();
 
     let entries = config_show(handle.state()).await.unwrap();
     let url = entries.iter().find(|e| e.key == "solidtime.url").unwrap();
@@ -54,13 +56,9 @@ async fn config_set_routes_secrets_to_keychain_and_settings_to_db() {
     )
     .await
     .unwrap();
-    config_set(
-        handle.state(),
-        "solidtime.token".into(),
-        "tok-xyz".into(),
-    )
-    .await
-    .unwrap();
+    config_set(handle.state(), "solidtime.token".into(), "tok-xyz".into())
+        .await
+        .unwrap();
 
     // Non-secret persisted to the settings table.
     let settings = Settings::new((*ctx.store).clone());
@@ -70,7 +68,10 @@ async fn config_set_routes_secrets_to_keychain_and_settings_to_db() {
     );
     // Secret persisted to Keychain (synthetic prefix via common::make_app).
     assert_eq!(
-        Secrets::default().get("solidtime.token").unwrap().as_deref(),
+        Secrets::default()
+            .get("solidtime.token")
+            .unwrap()
+            .as_deref(),
         Some("tok-xyz")
     );
 }
@@ -109,7 +110,9 @@ async fn config_test_returns_user_email_on_successful_connection() {
         .set("solidtime.url", &server.uri())
         .await
         .unwrap();
-    Secrets::default().set("solidtime.token", "tok-abc").unwrap();
+    Secrets::default()
+        .set("solidtime.token", "tok-abc")
+        .unwrap();
 
     let handle = ctx.handle();
     let who = config_test(handle.state()).await.unwrap();
@@ -121,7 +124,11 @@ async fn config_test_errors_when_url_unset() {
     let ctx = common::make_app().await;
     let handle = ctx.handle();
     let err = config_test(handle.state()).await.unwrap_err();
-    assert!(err.message.contains("solidtime.url"), "got: {}", err.message);
+    assert!(
+        err.message.contains("solidtime.url"),
+        "got: {}",
+        err.message
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]

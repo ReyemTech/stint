@@ -23,7 +23,10 @@ fn cmd(db: &std::path::Path) -> Command {
 /// a macOS keychain prompt. The leakage is bounded (one entry per test
 /// per `cargo test` invocation, all under tech.reyem.stint.test.*).
 fn unique_test_prefix() -> String {
-    format!("tech.reyem.stint.test.{}", stint_core::ids::new_local_uuid())
+    format!(
+        "tech.reyem.stint.test.{}",
+        stint_core::ids::new_local_uuid()
+    )
 }
 
 fn cmd_with_prefix(db: &std::path::Path, prefix: &str) -> Command {
@@ -40,10 +43,7 @@ async fn first_entry_id(db: &std::path::Path) -> String {
         .list_between(from, to)
         .await
         .expect("list entries in wide range");
-    rows.first()
-        .expect("entry row present")
-        .local_uuid
-        .clone()
+    rows.first().expect("entry row present").local_uuid.clone()
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -115,7 +115,9 @@ fn config_show_round_trips_non_secret_settings() {
         .args(["config", "show"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("solidtime.url = https://time.example.com"))
+        .stdout(predicate::str::contains(
+            "solidtime.url = https://time.example.com",
+        ))
         .stdout(predicate::str::contains("solidtime.org = org-1"));
 }
 
@@ -128,9 +130,7 @@ fn config_set_requires_value_for_non_secret_keys() {
         .args(["config", "set", "solidtime.url"])
         .assert()
         .failure()
-        .stderr(predicate::str::contains(
-            "value required for solidtime.url",
-        ));
+        .stderr(predicate::str::contains("value required for solidtime.url"));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -178,7 +178,7 @@ async fn config_test_succeeds_against_solidtime_and_masks_secret_in_show() {
         .args(["config", "show"])
         .assert()
         .success()
-        .stdout(predicate::str::contains(&format!(
+        .stdout(predicate::str::contains(format!(
             "solidtime.url = {}",
             server.uri()
         )))
@@ -232,16 +232,10 @@ async fn today_reports_empty_state_and_lists_completed_and_running_entries() {
         .success()
         .stdout(predicate::str::contains("No entries today."));
 
-    cmd(&db)
-        .args(["start", "finished task"])
-        .assert()
-        .success();
+    cmd(&db).args(["start", "finished task"]).assert().success();
     cmd(&db).args(["stop"]).assert().success();
 
-    cmd(&db)
-        .args(["start", "running task"])
-        .assert()
-        .success();
+    cmd(&db).args(["start", "running task"]).assert().success();
 
     cmd(&db)
         .args(["today"])
@@ -261,10 +255,7 @@ async fn list_shows_entries_in_range_and_nothing_outside_it() {
     let tmp = TempDir::new().unwrap();
     let db = tmp.path().join("stint.db");
 
-    cmd(&db)
-        .args(["start", "listed task"])
-        .assert()
-        .success();
+    cmd(&db).args(["start", "listed task"]).assert().success();
     cmd(&db).args(["stop"]).assert().success();
 
     let [from, to] = wide_range();
@@ -314,7 +305,7 @@ async fn edit_description_updates_the_entry() {
         .args(["edit", &entry_id, "--description", "edited description"])
         .assert()
         .success()
-        .stdout(predicate::str::contains(&format!(
+        .stdout(predicate::str::contains(format!(
             "Updated description for {entry_id}."
         )));
 
@@ -344,10 +335,7 @@ async fn delete_removes_existing_entries_and_reports_missing_ones() {
     let tmp = TempDir::new().unwrap();
     let db = tmp.path().join("stint.db");
 
-    cmd(&db)
-        .args(["start", "delete me"])
-        .assert()
-        .success();
+    cmd(&db).args(["start", "delete me"]).assert().success();
     cmd(&db).args(["stop"]).assert().success();
 
     let entry_id = first_entry_id(&db).await;
@@ -356,7 +344,7 @@ async fn delete_removes_existing_entries_and_reports_missing_ones() {
         .args(["delete", &entry_id])
         .assert()
         .success()
-        .stdout(predicate::str::contains(&format!("Deleted {entry_id}.")));
+        .stdout(predicate::str::contains(format!("Deleted {entry_id}.")));
 
     let [from, to] = wide_range();
     cmd(&db)
@@ -492,7 +480,10 @@ async fn sync_drains_one_pending_create() {
         .args(["start", "deep work"])
         .assert()
         .success();
-    cmd_with_prefix(&db, &prefix).args(["stop"]).assert().success();
+    cmd_with_prefix(&db, &prefix)
+        .args(["stop"])
+        .assert()
+        .success();
 
     cmd_with_prefix(&db, &prefix)
         .args(["sync"])
@@ -540,5 +531,7 @@ async fn pull_with_empty_remote_reports_zero_changes() {
         .args(["pull"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("+0 entries, ~0 updates, -0 deletes"));
+        .stdout(predicate::str::contains(
+            "+0 entries, ~0 updates, -0 deletes",
+        ));
 }
