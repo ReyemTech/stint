@@ -14,7 +14,7 @@ use stint_core::{
     store::Store,
     sync::drain_once,
 };
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Runtime};
 use tokio::time::sleep;
 use tracing::{debug, info, warn};
 
@@ -42,7 +42,7 @@ pub fn spawn(app: AppHandle, store: Arc<Store>) {
 
 /// Fire-and-forget one-shot drain. Use after a local mutation so the
 /// user doesn't have to wait for the next periodic tick.
-pub fn nudge(app: AppHandle, store: Arc<Store>) {
+pub fn nudge<R: Runtime>(app: AppHandle<R>, store: Arc<Store>) {
     tokio::spawn(async move {
         match tick(&store).await {
             Ok(n) if n > 0 => {
