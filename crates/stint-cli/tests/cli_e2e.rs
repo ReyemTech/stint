@@ -13,6 +13,21 @@ fn cmd(db: &std::path::Path) -> Command {
     c
 }
 
+/// Per-test secret namespace. Threaded through both the spawned `stint`
+/// binary (via STINT_SECRET_PREFIX) and the in-process `Secrets` helper
+/// so tests never touch the developer's real `tech.reyem.stint.*`
+/// keychain entries. Each test gets a fresh UUID-suffixed prefix; the
+/// Drop on SecretRestoreGuard cleans the synthetic entry afterwards.
+fn unique_test_prefix() -> String {
+    format!("tech.reyem.stint.test.{}", stint_core::ids::new_local_uuid())
+}
+
+fn cmd_with_prefix(db: &std::path::Path, prefix: &str) -> Command {
+    let mut c = cmd(db);
+    c.env("STINT_SECRET_PREFIX", prefix);
+    c
+}
+
 static KEYCHAIN_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
 struct SecretRestoreGuard {
@@ -22,8 +37,12 @@ struct SecretRestoreGuard {
 }
 
 impl SecretRestoreGuard {
-    fn capture(key: &'static str) -> Self {
-        let secrets = Secrets::default();
+    /// Bind to a synthetic test prefix. The Drop deletes the synthetic
+    /// entry; `prior` is captured in case a previous test under the same
+    /// prefix left state behind (in practice always None for unique
+    /// per-test prefixes — but kept for symmetry / defensive cleanup).
+    fn capture_with_prefix(prefix: &str, key: &'static str) -> Self {
+        let secrets = Secrets::with_service_prefix(prefix);
         let prior = secrets.get(key).expect("read prior secret");
         Self { secrets, key, prior }
     }
@@ -165,7 +184,8 @@ async fn config_test_succeeds_against_solidtime_and_masks_secret_in_show() {
     }
 
     let _lock = KEYCHAIN_LOCK.lock().unwrap();
-    let _restore = SecretRestoreGuard::capture("solidtime.token");
+    let prefix = unique_test_prefix();
+    let _restore = SecretRestoreGuard::capture_with_prefix(&prefix, "solidtime.token");
 
     let tmp = TempDir::new().unwrap();
     let db = tmp.path().join("stint.db");
@@ -180,11 +200,11 @@ async fn config_test_succeeds_against_solidtime_and_masks_secret_in_show() {
         .mount(&server)
         .await;
 
-    cmd(&db)
+    cmd_with_prefix(&db, &prefix)
         .args(["config", "set", "solidtime.url", &server.uri()])
         .assert()
         .success();
-    cmd(&db)
+    cmd_with_prefix(&db, &prefix)
         .args(["config", "set", "solidtime.token", "test-token"])
         .assert()
         .success()
@@ -192,7 +212,7 @@ async fn config_test_succeeds_against_solidtime_and_masks_secret_in_show() {
             "Saved solidtime.token to Keychain.",
         ));
 
-    cmd(&db)
+    cmd_with_prefix(&db, &prefix)
         .args(["config", "show"])
         .assert()
         .success()
@@ -202,7 +222,7 @@ async fn config_test_succeeds_against_solidtime_and_masks_secret_in_show() {
         )))
         .stdout(predicate::str::contains("solidtime.token = ••••"));
 
-    cmd(&db)
+    cmd_with_prefix(&db, &prefix)
         .args(["config", "test"])
         .assert()
         .success()
@@ -410,7 +430,8 @@ async fn projects_refresh_populates_cached_projects() {
     }
 
     let _lock = KEYCHAIN_LOCK.lock().unwrap();
-    let _restore = SecretRestoreGuard::capture("solidtime.token");
+    let prefix = unique_test_prefix();
+    let _restore = SecretRestoreGuard::capture_with_prefix(&prefix, "solidtime.token");
 
     let tmp = TempDir::new().unwrap();
     let db = tmp.path().join("stint.db");
@@ -444,26 +465,26 @@ async fn projects_refresh_populates_cached_projects() {
         .mount(&server)
         .await;
 
-    cmd(&db)
+    cmd_with_prefix(&db, &prefix)
         .args(["config", "set", "solidtime.url", &server.uri()])
         .assert()
         .success();
-    cmd(&db)
+    cmd_with_prefix(&db, &prefix)
         .args(["config", "set", "solidtime.org", "org-1"])
         .assert()
         .success();
-    cmd(&db)
+    cmd_with_prefix(&db, &prefix)
         .args(["config", "set", "solidtime.token", "test-token"])
         .assert()
         .success();
 
-    cmd(&db)
+    cmd_with_prefix(&db, &prefix)
         .args(["projects", "refresh"])
         .assert()
         .success()
         .stdout(predicate::str::contains("refreshed"));
 
-    cmd(&db)
+    cmd_with_prefix(&db, &prefix)
         .args(["projects", "list"])
         .assert()
         .success()

@@ -10,9 +10,15 @@ pub struct Secrets {
 
 impl Default for Secrets {
     fn default() -> Self {
-        Self {
-            prefix: DEFAULT_SERVICE_PREFIX.to_string(),
-        }
+        // STINT_SECRET_PREFIX lets test harnesses redirect keychain writes
+        // to a synthetic prefix so they never touch a developer's real
+        // tech.reyem.stint.* entries (and the ACLs that go with them).
+        // Mirrors how STINT_DB redirects the database path.
+        let prefix = std::env::var("STINT_SECRET_PREFIX")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| DEFAULT_SERVICE_PREFIX.to_string());
+        Self { prefix }
     }
 }
 
