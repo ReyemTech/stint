@@ -191,11 +191,40 @@ function EventRow(props: {
         <Show when={!decided() && props.defaultProjectName}>
           <Pill tone="indigo">→ {props.defaultProjectName}</Pill>
         </Show>
-        <Show when={logged()}>
-          <Pill tone="emerald">Logged</Pill>
-        </Show>
-        <Show when={props.event.decision === "ignored"}>
-          <Pill tone="neutral">Ignored</Pill>
+        <Show when={decided()}>
+          <div class="ml-2 flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={props.onRevert}
+              title={
+                logged()
+                  ? "Undo: delete the logged entry and restore Log/Ignore"
+                  : "Undo: restore Log this / Ignore actions"
+              }
+            >
+              <svg
+                class="h-4 w-4"
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M8 13L3 8l5-5" />
+                <path d="M3 8h8a5 5 0 0 1 0 10h-1" />
+              </svg>
+              <span class="sr-only">Undo</span>
+            </Button>
+            <Show when={logged()}>
+              <Pill tone="emerald">Logged</Pill>
+            </Show>
+            <Show when={props.event.decision === "ignored"}>
+              <Pill tone="neutral">Ignored</Pill>
+            </Show>
+          </div>
         </Show>
       </div>
 
@@ -208,33 +237,6 @@ function EventRow(props: {
             Ignore
           </Button>
         </div>
-      </Show>
-      <Show when={decided()}>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={props.onRevert}
-          title={
-            logged()
-              ? "Undo: delete the logged entry and restore Log/Ignore"
-              : "Undo: restore Log this / Ignore actions"
-          }
-        >
-          <svg
-            class="h-4 w-4"
-            viewBox="0 0 20 20"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.75"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M8 13L3 8l5-5" />
-            <path d="M3 8h8a5 5 0 0 1 0 10h-1" />
-          </svg>
-          <span class="sr-only">Undo</span>
-        </Button>
       </Show>
     </div>
   );
