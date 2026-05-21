@@ -380,3 +380,47 @@ async fn missing_entry_mutations_return_not_found() {
     let err = timer.set_billable("missing-entry", true).await.unwrap_err();
     assert!(matches!(err, Error::NotFound(ref msg) if msg == "entry missing-entry"));
 }
+
+#[tokio::test]
+async fn start_with_explicit_start_at_uses_provided_time() {
+    let env = common::setup().await;
+    let timer = stint_core::timer::TimerService::new(env.store.clone());
+    let entries = stint_core::store::entries::Entries::new(env.store.clone());
+
+    let backdate = "2026-05-20T08:30:00Z";
+    let id = timer
+        .start(stint_core::timer::StartArgs {
+            description: "x".into(),
+            project_id: None,
+            task_id: None,
+            billable: false,
+            source: "cli".into(),
+            start_at: Some(backdate.into()),
+        })
+        .await
+        .unwrap();
+
+    let row = entries.get(&id).await.unwrap().unwrap();
+    assert_eq!(row.start_at, backdate);
+}
+
+#[tokio::test]
+async fn start_with_future_start_at_is_rejected() {
+    let env = common::setup().await;
+    let timer = stint_core::timer::TimerService::new(env.store.clone());
+
+    let future = (chrono::Utc::now() + chrono::Duration::hours(1))
+        .to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+    let err = timer
+        .start(stint_core::timer::StartArgs {
+            description: "x".into(),
+            project_id: None,
+            task_id: None,
+            billable: false,
+            source: "cli".into(),
+            start_at: Some(future),
+        })
+        .await
+        .unwrap_err();
+    assert!(matches!(err, stint_core::Error::Invariant(_)));
+}

@@ -78,7 +78,12 @@ describe("<TimerCard> — start form (no timer running)", () => {
     const form = container.querySelector("form")!;
     fireEvent.submit(form);
     await flushMicrotasks();
-    expect(storeMock.start).toHaveBeenCalledWith("design review", undefined, true);
+    expect(storeMock.start).toHaveBeenCalledWith(
+      "design review",
+      undefined,
+      true,
+      undefined,
+    );
   });
 
   it("does not call start when the description is blank", async () => {

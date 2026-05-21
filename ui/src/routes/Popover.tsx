@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { api } from "~/api";
 import Duration from "~/components/Duration";
+import StartAtPicker, { type StartAtValue } from "~/components/StartAtPicker";
 import Button from "~/components/ui/Button";
 import ProjectPicker from "~/components/ui/ProjectPicker";
 import SectionLabel from "~/components/ui/SectionLabel";
@@ -17,6 +18,7 @@ export default function Popover() {
   const [description, setDescription] = createSignal("");
   const [projectId, setProjectId] = createSignal<string>("");
   const [billable, setBillable] = createSignal(false);
+  const [startAt, setStartAt] = createSignal<StartAtValue>(null);
   const [entries, { refetch: refetchEntries }] = createResource(
     () => api.listToday(),
     { initialValue: [] },
@@ -77,10 +79,16 @@ export default function Popover() {
                   const d = description().trim();
                   if (!d) return;
                   timer
-                    .start(d, projectId() || undefined, billable())
+                    .start(
+                      d,
+                      projectId() || undefined,
+                      billable(),
+                      startAt() ?? undefined,
+                    )
                     .then(() => {
                       setDescription("");
                       setBillable(false);
+                      setStartAt(null);
                     });
                 }}
               >
@@ -91,6 +99,7 @@ export default function Popover() {
                   value={description()}
                   onInput={(e) => setDescription(e.currentTarget.value)}
                 />
+                <StartAtPicker value={startAt()} onChange={setStartAt} />
                 <div class="flex items-center gap-2">
                   <div class="min-w-0 flex-1">
                     <ProjectPicker

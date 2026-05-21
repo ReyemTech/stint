@@ -18,6 +18,7 @@ export const api = {
     projectId?: string | null,
     taskId?: string | null,
     billable = false,
+    startAt?: string | null,
   ) =>
     invoke<string>("start_timer", {
       args: {
@@ -25,6 +26,7 @@ export const api = {
         project_id: projectId ?? null,
         task_id: taskId ?? null,
         billable,
+        start_at: startAt ?? null,
       },
     }),
   stopTimer: () => invoke<string>("stop_timer"),
