@@ -160,35 +160,36 @@ export default function EditEntryDialog(props: {
           <Show
             when={confirmingDelete()}
             fallback={
-              <Button variant="ghost" size="sm" onClick={destroy}>
-                Delete
-              </Button>
+              <>
+                <Button variant="ghost" size="sm" onClick={destroy}>
+                  Delete
+                </Button>
+                <div class="flex gap-2">
+                  <Button variant="ghost" onClick={props.onClose}>
+                    Cancel
+                  </Button>
+                  <Button onClick={save}>Save</Button>
+                </div>
+              </>
             }
           >
-            <div class="flex items-center gap-2">
-              <span class="text-xs text-red-600 dark:text-red-400">
-                Delete this entry?
-              </span>
+            <span class="text-sm text-red-600 dark:text-red-400">
+              Delete this entry?
+            </span>
+            <div class="flex gap-2">
               <Button
                 variant="ghost"
-                size="sm"
                 onClick={() => {
                   setConfirmingDelete(false);
                 }}
               >
                 Cancel
               </Button>
-              <Button variant="danger" size="sm" onClick={destroy}>
+              <Button variant="danger" onClick={destroy}>
                 Yes, delete
               </Button>
             </div>
           </Show>
-          <div class="flex gap-2">
-            <Button variant="ghost" onClick={props.onClose}>
-              Cancel
-            </Button>
-            <Button onClick={save}>Save</Button>
-          </div>
         </div>
       </div>
     </div>
