@@ -1,12 +1,63 @@
 use crate::app_state::AppState;
 use crate::commands::{store, AppError};
 use crate::sync_worker::EVENT_ENTRIES_CHANGED;
+use serde::Serialize;
 use stint_core::config::{secrets::Secrets, Settings};
 use stint_core::solidtime::auth::build_token_provider;
 use stint_core::solidtime::SolidtimeClient;
+use stint_core::store::queue::{FailedQueueRow, Queue};
 use stint_core::sync::{drain_once, refresh::refresh_reference_data};
 use tauri::{AppHandle, Emitter, Runtime, State};
 use tokio::sync::RwLock;
+
+#[derive(Serialize)]
+pub struct SyncErrorView {
+    pub queue_id: i64,
+    pub local_uuid: Option<String>,
+    pub op: String,
+    pub attempts: i64,
+    pub last_error: Option<String>,
+    pub next_try_at: String,
+    /// True when next_try_at is >30 days out — i.e. mark_abandoned set it
+    /// to ~1 year in the future. These need user attention; transient
+    /// failures (5xx, timeouts) keep `abandoned=false` and self-recover.
+    pub abandoned: bool,
+    pub description: Option<String>,
+    pub start_at: Option<String>,
+    pub end_at: Option<String>,
+}
+
+impl From<FailedQueueRow> for SyncErrorView {
+    fn from(r: FailedQueueRow) -> Self {
+        // Compute the abandoned flag at conversion time so the UI doesn't
+        // have to know the 30-day convention.
+        let cutoff = stint_core::time::format(&(chrono::Utc::now() + chrono::Duration::days(30)));
+        let abandoned = r.next_try_at.as_str() > cutoff.as_str();
+        SyncErrorView {
+            queue_id: r.queue_id,
+            local_uuid: r.local_uuid,
+            op: r.op,
+            attempts: r.attempts,
+            last_error: r.last_error,
+            next_try_at: r.next_try_at,
+            abandoned,
+            description: r.description,
+            start_at: r.start_at,
+            end_at: r.end_at,
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn list_sync_errors(
+    state: State<'_, RwLock<AppState>>,
+) -> Result<Vec<SyncErrorView>, AppError> {
+    let store = store(&state).await;
+    let rows = Queue::new((*store).clone())
+        .list_failed_with_entry(3)
+        .await?;
+    Ok(rows.into_iter().map(SyncErrorView::from).collect())
+}
 
 #[tauri::command]
 pub async fn sync_now<R: Runtime>(

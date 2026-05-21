@@ -31,6 +31,20 @@ pub struct QueueRow {
     pub entry_uuid: Option<String>,
 }
 
+/// Queue row + joined time_entries metadata for UI surfacing.
+#[derive(Debug, Clone, serde::Serialize, sqlx::FromRow)]
+pub struct FailedQueueRow {
+    pub queue_id: i64,
+    pub local_uuid: Option<String>,
+    pub op: String,
+    pub attempts: i64,
+    pub last_error: Option<String>,
+    pub next_try_at: String,
+    pub description: Option<String>,
+    pub start_at: Option<String>,
+    pub end_at: Option<String>,
+}
+
 pub struct Queue {
     store: Store,
 }
@@ -137,6 +151,33 @@ impl Queue {
         .execute(self.store.pool())
         .await?;
         Ok(result.rows_affected())
+    }
+
+    /// Return queue rows that have failed at least `min_attempts` times,
+    /// joined with their time_entries row (description/start/end) so the
+    /// UI can render a meaningful "sync failed" banner without further
+    /// lookups. Ordered by `next_try_at` descending (abandoned rows
+    /// first, since they sit further in the future).
+    pub async fn list_failed_with_entry(&self, min_attempts: i64) -> Result<Vec<FailedQueueRow>> {
+        let rows: Vec<FailedQueueRow> = sqlx::query_as(
+            r#"SELECT q.id            AS queue_id,
+                      q.entry_uuid    AS local_uuid,
+                      q.op            AS op,
+                      q.attempts      AS attempts,
+                      q.last_error    AS last_error,
+                      q.next_try_at   AS next_try_at,
+                      e.description   AS description,
+                      e.start_at      AS start_at,
+                      e.end_at        AS end_at
+               FROM sync_queue q
+               LEFT JOIN time_entries e ON e.local_uuid = q.entry_uuid
+               WHERE q.attempts >= ?
+               ORDER BY q.next_try_at DESC"#,
+        )
+        .bind(min_attempts)
+        .fetch_all(self.store.pool())
+        .await?;
+        Ok(rows)
     }
 
     /// Delete every queued op tied to a specific local entry. Used by

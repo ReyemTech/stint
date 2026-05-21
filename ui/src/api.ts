@@ -9,6 +9,7 @@ import type {
   OrgChoice,
   Project,
   RunningTimer,
+  SyncError,
 } from "./types";
 
 export const api = {
@@ -58,6 +59,7 @@ export const api = {
   solidtimeUrl: () => invoke<string | null>("solidtime_url"),
 
   syncNow: () => invoke<number>("sync_now"),
+  listSyncErrors: () => invoke<SyncError[]>("list_sync_errors"),
 };
 
 export type SolidtimeAuthStatus = {
