@@ -120,6 +120,25 @@ impl Queue {
         Ok(())
     }
 
+    /// Reset `next_try_at` to now on any rows parked >30 days in the
+    /// future — i.e. rows previously parked by `mark_abandoned`. Used by
+    /// `stint sync retry-abandoned` after the user fixes whatever made
+    /// the abandonment necessary (e.g. they stopped the remote timer
+    /// that was causing overlap). Returns the number of rows revived.
+    pub async fn resurrect_abandoned(&self) -> Result<u64> {
+        let cutoff_str = time::format(&(Utc::now() + Duration::days(30)));
+        let now = time::now_utc();
+        let result = sqlx::query(
+            "UPDATE sync_queue SET next_try_at = ?, attempts = 0
+             WHERE next_try_at > ?",
+        )
+        .bind(now)
+        .bind(cutoff_str)
+        .execute(self.store.pool())
+        .await?;
+        Ok(result.rows_affected())
+    }
+
     /// Mark a queue item as abandoned: parks `next_try_at` ~1 year out so
     /// the worker stops picking it up. The row is preserved (with the
     /// error message) so the user can see why sync gave up. Use this for

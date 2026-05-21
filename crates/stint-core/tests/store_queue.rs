@@ -46,3 +46,52 @@ async fn mark_failed_increments_attempts_and_delays() {
     let due_now = q.take_due(10).await.unwrap();
     assert!(due_now.is_empty(), "should be backed off");
 }
+
+#[tokio::test]
+async fn mark_abandoned_parks_row_far_in_future_and_resurrect_revives_it() {
+    let env = common::setup().await;
+    let q = Queue::new(env.store.clone());
+
+    q.enqueue(QueueOp::CreateEntry, "{}", None).await.unwrap();
+    let due = q.take_due(10).await.unwrap();
+    let id = due[0].id;
+    q.mark_abandoned(id, "validation rejected").await.unwrap();
+
+    // Abandoned rows are not due — take_due returns empty.
+    assert!(q.take_due(10).await.unwrap().is_empty());
+    // The row itself still exists.
+    let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM sync_queue")
+        .fetch_one(env.store.pool())
+        .await
+        .unwrap();
+    assert_eq!(count, 1);
+
+    // Resurrect resets next_try_at to now and clears attempts.
+    let revived = q.resurrect_abandoned().await.unwrap();
+    assert_eq!(revived, 1);
+
+    let due_again = q.take_due(10).await.unwrap();
+    assert_eq!(
+        due_again.len(),
+        1,
+        "row should be picked up after resurrect"
+    );
+    assert_eq!(due_again[0].id, id);
+    assert_eq!(due_again[0].attempts, 0);
+}
+
+#[tokio::test]
+async fn resurrect_abandoned_does_not_touch_normally_backed_off_rows() {
+    let env = common::setup().await;
+    let q = Queue::new(env.store.clone());
+
+    q.enqueue(QueueOp::CreateEntry, "{}", None).await.unwrap();
+    let due = q.take_due(10).await.unwrap();
+    let id = due[0].id;
+    // Plain transient failure — backoff is short, well under the 30-day
+    // cutoff resurrect uses to identify abandoned rows.
+    q.mark_failed(id, "transient 500").await.unwrap();
+
+    let revived = q.resurrect_abandoned().await.unwrap();
+    assert_eq!(revived, 0, "transient backoff is not abandonment");
+}
