@@ -57,3 +57,56 @@ impl Secrets {
         }
     }
 }
+
+#[cfg(test)]
+impl Secrets {
+    /// Test-only accessor for the resolved prefix. Lets us cover
+    /// `Default::default()`'s env-var branch without driving a real
+    /// Keychain access.
+    pub(crate) fn prefix(&self) -> &str {
+        &self.prefix
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Mutex;
+
+    // Serialise env-var manipulation across tests in this module: the
+    // process env is global, so racing tests would observe each other's
+    // mutations.
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    #[test]
+    fn default_falls_back_to_canonical_prefix_when_env_unset() {
+        let _g = ENV_LOCK.lock().unwrap();
+        std::env::remove_var("STINT_SECRET_PREFIX");
+        let s = Secrets::default();
+        assert_eq!(s.prefix(), DEFAULT_SERVICE_PREFIX);
+    }
+
+    #[test]
+    fn default_honours_stint_secret_prefix_when_set() {
+        let _g = ENV_LOCK.lock().unwrap();
+        std::env::set_var("STINT_SECRET_PREFIX", "tech.reyem.stint.test.demo");
+        let s = Secrets::default();
+        assert_eq!(s.prefix(), "tech.reyem.stint.test.demo");
+        std::env::remove_var("STINT_SECRET_PREFIX");
+    }
+
+    #[test]
+    fn default_ignores_empty_stint_secret_prefix() {
+        let _g = ENV_LOCK.lock().unwrap();
+        std::env::set_var("STINT_SECRET_PREFIX", "");
+        let s = Secrets::default();
+        assert_eq!(s.prefix(), DEFAULT_SERVICE_PREFIX);
+        std::env::remove_var("STINT_SECRET_PREFIX");
+    }
+
+    #[test]
+    fn with_service_prefix_overrides_default() {
+        let s = Secrets::with_service_prefix("custom.prefix");
+        assert_eq!(s.prefix(), "custom.prefix");
+    }
+}
