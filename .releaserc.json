@@ -1,0 +1,65 @@
+{
+  "branches": [
+    "main",
+    { "name": "beta", "prerelease": true }
+  ],
+  "tagFormat": "v${version}",
+  "plugins": [
+    [
+      "@semantic-release/commit-analyzer",
+      {
+        "preset": "conventionalcommits",
+        "releaseRules": [
+          { "type": "docs", "release": false },
+          { "type": "test", "release": false },
+          { "type": "ci",   "release": false },
+          { "type": "chore","release": false },
+          { "type": "refactor", "release": "patch" },
+          { "type": "perf", "release": "patch" }
+        ]
+      }
+    ],
+    [
+      "@semantic-release/release-notes-generator",
+      { "preset": "conventionalcommits" }
+    ],
+    [
+      "@semantic-release/changelog",
+      { "changelogFile": "CHANGELOG.md" }
+    ],
+    [
+      "@semantic-release/exec",
+      {
+        "prepareCmd": "scripts/release/bump-versions.sh ${nextRelease.version}"
+      }
+    ],
+    [
+      "@semantic-release/git",
+      {
+        "assets": [
+          "CHANGELOG.md",
+          "Cargo.toml",
+          "Cargo.lock",
+          "crates/stint-app/tauri.conf.json",
+          "ui/package.json",
+          "ui/pnpm-lock.yaml",
+          "package.json"
+        ],
+        "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+      }
+    ],
+    [
+      "@semantic-release/github",
+      {
+        "assets": [
+          { "path": "target/release-artifacts/Stint-*.dmg",  "label": "macOS DMG (universal)" },
+          { "path": "target/release-artifacts/stint-*-universal-apple-darwin.tar.gz", "label": "CLI tarball (universal)" },
+          { "path": "target/release-artifacts/Stint.app.tar.gz", "label": "App bundle for tauri-plugin-updater" },
+          { "path": "target/release-artifacts/Stint.app.tar.gz.sig", "label": "Updater signature" },
+          { "path": "target/release-artifacts/latest.json", "label": "Updater manifest" },
+          { "path": "target/release-artifacts/checksums.txt", "label": "SHA256 checksums (for stint update)" }
+        ]
+      }
+    ]
+  ]
+}
