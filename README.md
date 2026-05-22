@@ -13,10 +13,39 @@ that sync with a self-hosted Solidtime instance.
 - **Phase 3c** ✅ — Solidtime down-sync (`phase-3c-complete` tag)
 - **Phase 3.5** ✅ — Test coverage uplift across core / CLI / app / UI (`phase-3.5-complete` tag)
 - **Phase 3d** ✅ — Post-3b UX polish + sync resilience (project picker, calendar default project, editable times, backdate start, restart-from-entry, undo logged/ignored calendar events, billable inherited from project, sync-retry storm fix, adopt-on-overlap, in-app `SyncErrorBanner` showing the conflicting Solidtime entry, `stint sync` diagnostic subcommands, workspace coverage CI job) (`phase-3d-complete` tag)
-- **Phase 4** — Distribution (Homebrew cask) + release CD pipeline
+- **Phase 4** — Distribution: Homebrew cask + DMG + curl|sh installer + tauri-plugin-updater auto-update + semantic-release CD
 - **Phase 5** — Documentation site (GitHub Pages)
 
-## Run the CLI
+## Install
+
+stint ships for macOS 13 Ventura and newer. All channels are signed and notarized.
+
+**Homebrew (recommended):**
+
+    brew tap reyemtech/tap
+    brew install --cask stint
+
+**Direct DMG download:** [latest release](https://github.com/reyemtech/stint/releases/latest)
+
+**curl | sh (CLI only):**
+
+    curl -fsSL https://stint.reyem.tech/install.sh | sh
+
+**curl | sh (CLI + GUI):**
+
+    curl -fsSL https://stint.reyem.tech/install.sh | sh -s -- --gui
+
+**Pre-release builds:**
+
+    brew install --cask reyemtech/tap/stint-beta
+
+Updates are delivered automatically inside the app (Settings → Updates).
+You can disable auto-update or switch the update channel there.
+
+For standalone-CLI installs (no GUI), run `stint update` to self-update.
+`stint update --check` reports the available version without applying.
+
+## Run the CLI (from source)
 
 ```bash
 cargo install --path crates/stint-cli
