@@ -27,9 +27,14 @@ async fn main() -> Result<()> {
     let app_state = AppState::init().await?;
     let store_for_worker = app_state.store.clone();
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_positioner::init())
-        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_opener::init());
+
+    #[cfg(feature = "updater")]
+    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+
+    builder
         .menu(menu::build)
         .on_menu_event(|app, event| menu::handle(app, event.id.as_ref()))
         .manage(RwLock::new(app_state))
