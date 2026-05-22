@@ -96,5 +96,23 @@ PR_URL="$(gh pr create \
   --body "Automated bump from stint release v${VERSION}. Auto-merged after brew audit passes." \
   --head "$BRANCH" --base main)"
 
-gh pr merge --auto --squash "$PR_URL"
-echo "✓ opened + auto-merge: $PR_URL"
+# Try auto-merge first (waits for required checks). If the PR is already
+# in clean status (no required checks configured, or all already green),
+# gh refuses `--auto` with "Pull request is in clean status" because
+# there is nothing to wait on — in that case merge directly so the tap
+# doesn't sit on an open PR that will never auto-resolve.
+MERGE_LOG="$(mktemp)"
+if gh pr merge --auto --squash "$PR_URL" >"$MERGE_LOG" 2>&1; then
+  cat "$MERGE_LOG"
+  echo "✓ opened + auto-merge enabled: $PR_URL"
+elif grep -qi "clean status" "$MERGE_LOG"; then
+  cat "$MERGE_LOG"
+  echo "→ auto-merge n/a (PR already mergeable); merging directly"
+  gh pr merge --squash "$PR_URL"
+  echo "✓ opened + merged: $PR_URL"
+else
+  cat "$MERGE_LOG" >&2
+  echo "error: auto-merge failed for $PR_URL" >&2
+  exit 1
+fi
+rm -f "$MERGE_LOG"
