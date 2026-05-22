@@ -67,7 +67,9 @@ jobs:
   publish:
     needs: [determine-version, build]
     if: needs.determine-version.outputs.version != ''
-    runs-on: macos-14
+    # Publish only runs gh/git/bash — no macOS-only tooling. Ubuntu is
+    # ~10× cheaper per-minute and starts faster.
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
