@@ -1,3 +1,10 @@
+## [0.1.1](https://github.com/ReyemTech/stint/compare/v0.1.0...v0.1.1) (2026-05-22)
+
+### Bug Fixes
+
+* **release:** proper macOS signing for embedded CLI + remove broken entitlement ([9b7a5a0](https://github.com/ReyemTech/stint/commit/9b7a5a06ed2d6de0a81304251b85b2da5c38bb15))
+* **release:** push-tap-pr idempotent — delete stale branch/PR before retry ([65b6a21](https://github.com/ReyemTech/stint/commit/65b6a214f3c0b595639e6304c51b1532d856402a))
+
 ## [0.1.0](https://github.com/ReyemTech/stint/compare/v0.0.0...v0.1.0) (2026-05-22)
 
 ### Features
