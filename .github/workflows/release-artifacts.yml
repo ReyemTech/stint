@@ -1,0 +1,212 @@
+# .github/workflows/release-artifacts.yml
+name: Build release artifacts
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      channel:
+        required: false
+        type: string
+        default: stable
+
+jobs:
+  build:
+    runs-on: macos-14
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "13.0"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@1.95.0
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Install create-dmg
+        run: brew install create-dmg
+
+      - name: Cache cargo + pnpm
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+            ~/Library/pnpm
+          key: release-${{ runner.os }}-${{ hashFiles('Cargo.lock','ui/pnpm-lock.yaml','pnpm-lock.yaml') }}
+
+      - name: pnpm install
+        run: pnpm install --frozen-lockfile
+
+      - name: Set up ephemeral keychain
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/build.keychain"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security default-keychain -s "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+
+          echo "$APPLE_CERTIFICATE" | base64 -d > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" -A \
+            -t cert -f pkcs12
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          rm -f "$RUNNER_TEMP/cert.p12"
+
+          echo "KEYCHAIN_PATH=$KEYCHAIN" >> "$GITHUB_ENV"
+
+      - name: Build CLI for both archs
+        run: |
+          cargo build --release --target aarch64-apple-darwin -p stint-cli
+          cargo build --release --target x86_64-apple-darwin  -p stint-cli
+          mkdir -p target/universal-apple-darwin/release
+          lipo -create -output target/universal-apple-darwin/release/stint \
+            target/aarch64-apple-darwin/release/stint \
+            target/x86_64-apple-darwin/release/stint
+
+      - name: Build universal Tauri app
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          STINT_GOOGLE_CLIENT_ID: ${{ secrets.STINT_GOOGLE_CLIENT_ID }}
+          STINT_GOOGLE_CLIENT_SECRET: ${{ secrets.STINT_GOOGLE_CLIENT_SECRET }}
+        run: |
+          cd crates/stint-app
+          cargo tauri build --target universal-apple-darwin
+
+      - name: Embed CLI in .app
+        run: |
+          APP="crates/stint-app/target/universal-apple-darwin/release/bundle/macos/Stint.app"
+          cp target/universal-apple-darwin/release/stint "$APP/Contents/MacOS/stint"
+          echo "APP_PATH=$APP" >> "$GITHUB_ENV"
+
+      - name: Sign .app (covers embedded CLI)
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          codesign --deep --force --options runtime \
+            --sign "$APPLE_SIGNING_IDENTITY" \
+            --entitlements crates/stint-app/entitlements.plist \
+            "$APP_PATH"
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+
+      - name: Notarize .app
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: scripts/release/notarize.sh "$APP_PATH"
+
+      - name: Build .dmg
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          OUT="$RUNNER_TEMP/Stint-${VERSION}.dmg"
+          create-dmg \
+            --volname "Stint ${VERSION}" \
+            --window-size 540 380 \
+            --icon-size 96 \
+            --icon "Stint.app" 140 180 \
+            --app-drop-link 400 180 \
+            "$OUT" "$APP_PATH"
+          echo "DMG_PATH=$OUT" >> "$GITHUB_ENV"
+
+      - name: Sign + notarize .dmg
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          codesign --force --sign "$APPLE_SIGNING_IDENTITY" "$DMG_PATH"
+          scripts/release/notarize.sh "$DMG_PATH"
+
+      - name: Tar CLI for curl installer
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          OUT="$RUNNER_TEMP/stint-${VERSION}-universal-apple-darwin.tar.gz"
+          tar -czf "$OUT" -C target/universal-apple-darwin/release stint
+          echo "TARBALL_PATH=$OUT" >> "$GITHUB_ENV"
+
+      - name: Sign update bundle (Tauri updater)
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          BUNDLE="$RUNNER_TEMP/Stint.app.tar.gz"
+          tar -czf "$BUNDLE" -C "$(dirname "$APP_PATH")" "$(basename "$APP_PATH")"
+          cargo tauri signer sign "$BUNDLE"
+          echo "BUNDLE_PATH=$BUNDLE" >> "$GITHUB_ENV"
+          echo "BUNDLE_SIG_PATH=${BUNDLE}.sig" >> "$GITHUB_ENV"
+
+      - name: Generate latest.json
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          OUT="$RUNNER_TEMP/latest.json"
+          URL="https://github.com/reyemtech/stint/releases/download/v${VERSION}/Stint.app.tar.gz"
+          scripts/release/generate-latest-json.sh \
+            --version "${VERSION}" \
+            --signature-path "$BUNDLE_SIG_PATH" \
+            --bundle-url "$URL" \
+            --output "$OUT"
+          echo "LATEST_JSON_PATH=$OUT" >> "$GITHUB_ENV"
+
+      - name: Render install.sh
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          OUT="$RUNNER_TEMP/install.sh"
+          TARBALL_SHA=$(shasum -a 256 "$TARBALL_PATH" | awk '{print $1}')
+          DMG_SHA=$(shasum -a 256 "$DMG_PATH" | awk '{print $1}')
+          scripts/release/render-install-script.sh \
+            --version "${VERSION}" \
+            --tarball-sha256 "$TARBALL_SHA" \
+            --dmg-sha256 "$DMG_SHA" \
+            --output "$OUT"
+          echo "INSTALL_SH_PATH=$OUT" >> "$GITHUB_ENV"
+
+      - name: Stage artifacts
+        run: |
+          mkdir -p target/release-artifacts
+          cp "$DMG_PATH" target/release-artifacts/
+          cp "$TARBALL_PATH" target/release-artifacts/
+          cp "$BUNDLE_PATH" target/release-artifacts/Stint.app.tar.gz
+          cp "$BUNDLE_SIG_PATH" target/release-artifacts/Stint.app.tar.gz.sig
+          cp "$LATEST_JSON_PATH" target/release-artifacts/latest.json
+          cp "$INSTALL_SH_PATH" target/release-artifacts/install.sh
+          cp "${INSTALL_SH_PATH}.sha256" target/release-artifacts/install.sh.sha256
+
+      - name: Generate checksums.txt
+        run: |
+          cd target/release-artifacts
+          shasum -a 256 ./*.dmg ./*.tar.gz install.sh > checksums.txt
+          cat checksums.txt
+
+      - name: Cleanup keychain
+        if: always()
+        run: security delete-keychain "$KEYCHAIN_PATH" || true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts
+          path: target/release-artifacts/*
+          if-no-files-found: error
+          retention-days: 7
