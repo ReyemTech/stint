@@ -13,6 +13,7 @@ import Accordion from "~/components/ui/Accordion";
 import Button from "~/components/ui/Button";
 import Pill from "~/components/ui/Pill";
 import ProjectPicker from "~/components/ui/ProjectPicker";
+import UpdatesPanel from "~/routes/Settings/UpdatesPanel";
 import type { CalendarAccount, CalendarRow, OrgChoice, Project } from "~/types";
 
 const LABELS: Record<string, string> = {
@@ -404,6 +405,13 @@ export default function Settings() {
         <div class="mt-4 border-t border-black/[0.05] pt-4 dark:border-white/[0.04]">
           <Button onClick={handleAddGoogle}>Add Google account</Button>
         </div>
+      </Accordion>
+
+      <Accordion
+        title="Updates"
+        hint="Choose a release channel and check for new versions."
+      >
+        <UpdatesPanel />
       </Accordion>
       </div>
       </div>
