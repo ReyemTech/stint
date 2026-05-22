@@ -97,6 +97,22 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
         run: pnpm exec semantic-release
 
+      - name: Verify release was published
+        env:
+          VERSION: ${{ needs.determine-version.outputs.version }}
+        run: |
+          set -euo pipefail
+          # semantic-release may exit 0 without publishing if the branch state
+          # shifted between the dry-run in determine-version and this real run
+          # (e.g. another commit landed, or a previous publish raced ahead).
+          # Without this guard, the tap-PR and install.sh steps below would run
+          # against a version that has no GitHub Release behind it.
+          if ! git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "error: semantic-release did not create tag v$VERSION — aborting before tap/install.sh publish"
+            exit 1
+          fi
+          echo "Verified: tag v$VERSION exists locally"
+
       - name: Mirror to beta-latest (beta only)
         if: needs.determine-version.outputs.channel == 'beta'
         env:
