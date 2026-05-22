@@ -57,5 +57,15 @@
       "entitlements": "entitlements.plist",
       "minimumSystemVersion": "13.0"
     }
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://github.com/reyemtech/stint/releases/latest/download/latest.json"
+      ],
+      "pubkey": "REPLACE_ME_WITH_OUTPUT_OF_TAURI_SIGNER_GENERATE",
+      "dialog": false
+    }
   }
 }

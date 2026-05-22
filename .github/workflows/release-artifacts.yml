@@ -37,6 +37,17 @@ jobs:
           VERSION: ${{ inputs.version }}
         run: scripts/release/bump-versions.sh "$VERSION"
 
+      - name: Verify Tauri updater pubkey is configured
+        run: |
+          set -euo pipefail
+          if grep -q 'REPLACE_ME_WITH_OUTPUT_OF_TAURI_SIGNER_GENERATE' crates/stint-app/tauri.conf.json; then
+            echo "error: tauri.conf.json still has placeholder pubkey." >&2
+            echo "       Run scripts/release/bootstrap-secrets.sh on a maintainer machine to" >&2
+            echo "       generate the Tauri updater key pair and substitute the public key." >&2
+            exit 1
+          fi
+          echo "✓ tauri.conf.json plugins.updater.pubkey is configured"
+
       - name: Install create-dmg
         run: brew install create-dmg
 

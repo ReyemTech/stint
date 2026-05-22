@@ -129,28 +129,50 @@ prompt_keychain_password() {
   echo "  (auto-generated 24-byte random string)"
 }
 
+substitute_tauri_pubkey() {
+  local pubkey_path="$1"
+  local conf_path="crates/stint-app/tauri.conf.json"
+  if [[ ! -f "$conf_path" ]]; then
+    echo "warn: $conf_path not found; skipping in-file substitution" >&2
+    echo "      manually paste the contents of $pubkey_path into plugins.updater.pubkey" >&2
+    return 0
+  fi
+  if [[ ! -f "$pubkey_path" ]]; then
+    echo "error: pubkey file $pubkey_path not found" >&2
+    return 1
+  fi
+  # The pubkey is a base64-ish blob on one or more lines; collapse to one.
+  local pubkey
+  pubkey=$(tr -d '\n' < "$pubkey_path")
+  if [[ -z "$pubkey" ]]; then
+    echo "error: pubkey file is empty" >&2
+    return 1
+  fi
+  # The placeholder is unique enough that a plain sed substitution is safe.
+  # Use a sentinel delimiter (`|`) to avoid escaping slashes in the pubkey.
+  local tmp
+  tmp=$(mktemp)
+  sed "s|REPLACE_ME_WITH_OUTPUT_OF_TAURI_SIGNER_GENERATE|${pubkey}|" "$conf_path" > "$tmp"
+  mv "$tmp" "$conf_path"
+  if grep -q 'REPLACE_ME_WITH_OUTPUT_OF_TAURI_SIGNER_GENERATE' "$conf_path"; then
+    echo "warn: placeholder still present in $conf_path — substitution may have failed" >&2
+  else
+    echo "✓ substituted pubkey into $conf_path"
+  fi
+}
+
 prompt_tauri_signing_private_key() {
   if [[ -f "$HOME/.tauri/stint.key" ]]; then
     read -r -p "Existing key at ~/.tauri/stint.key — regenerate? [y/N] " resp
     if [[ "$resp" =~ ^[Yy]$ ]]; then
       cargo tauri signer generate -w "$HOME/.tauri/stint.key" --force
-      echo
-      echo "NEW PUBLIC KEY (paste into crates/stint-app/tauri.conf.json under plugins.updater.pubkey):"
-      cat "$HOME/.tauri/stint.key.pub"
-      echo
-      read -r -p "Paste confirmed into tauri.conf.json? [y/N] " resp2
-      [[ "$resp2" =~ ^[Yy]$ ]] || { echo "aborted; rerun once tauri.conf.json is updated"; return 1; }
+      substitute_tauri_pubkey "$HOME/.tauri/stint.key.pub"
     fi
   else
     echo "Generating Tauri updater key pair…"
     mkdir -p "$HOME/.tauri"
     cargo tauri signer generate -w "$HOME/.tauri/stint.key"
-    echo
-    echo "PUBLIC KEY (paste into crates/stint-app/tauri.conf.json under plugins.updater.pubkey):"
-    cat "$HOME/.tauri/stint.key.pub"
-    echo
-    read -r -p "Paste confirmed into tauri.conf.json? [y/N] " resp
-    [[ "$resp" =~ ^[Yy]$ ]] || { echo "aborted; rerun once tauri.conf.json is updated"; return 1; }
+    substitute_tauri_pubkey "$HOME/.tauri/stint.key.pub"
   fi
   set_secret TAURI_SIGNING_PRIVATE_KEY "$(base64 < "$HOME/.tauri/stint.key")"
 }
@@ -188,7 +210,8 @@ Done with secrets. Remaining manual steps:
 
   □ Create the public repo github.com/reyemtech/homebrew-tap (Task 6.1).
   □ Add DNS record: stint.reyem.tech CNAME reyemtech.github.io (Task 5.4).
-  □ Verify tauri.conf.json contains the public key under plugins.updater.pubkey.
+  □ Commit the tauri.conf.json pubkey substitution if you rotated TAURI_SIGNING_PRIVATE_KEY
+    (bootstrap-secrets.sh substitutes in-place; you still need to commit the change).
 
 EOF
 }
