@@ -3,9 +3,10 @@ import Button from "~/components/ui/Button";
 import {
   type Channel,
   type UpdateInfo,
-  applyUpdate,
   checkForUpdates,
   getChannel,
+  installUpdate,
+  restartApp,
   setChannel,
 } from "~/lib/updates";
 
@@ -19,11 +20,14 @@ export default function UpdatesPanel() {
   const [info, setInfo] = createSignal<UpdateInfo | undefined>();
   const [checking, setChecking] = createSignal(false);
   const [installing, setInstalling] = createSignal(false);
+  const [installed, setInstalled] = createSignal(false);
+  const [restarting, setRestarting] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
 
   const check = async () => {
     setChecking(true);
     setError(null);
+    setInstalled(false);
     try {
       setInfo(await checkForUpdates());
     } catch (e) {
@@ -39,6 +43,7 @@ export default function UpdatesPanel() {
       await refetchChannel();
       setInfo(undefined);
       setError(null);
+      setInstalled(false);
     } catch (e) {
       setError((e as { message?: string }).message ?? String(e));
     }
@@ -48,11 +53,23 @@ export default function UpdatesPanel() {
     setInstalling(true);
     setError(null);
     try {
-      await applyUpdate();
+      await installUpdate();
+      setInstalled(true);
     } catch (e) {
       setError((e as { message?: string }).message ?? String(e));
     } finally {
       setInstalling(false);
+    }
+  };
+
+  const restart = async () => {
+    setRestarting(true);
+    try {
+      await restartApp();
+      // Process exits before this resolves; nothing to do on success.
+    } catch (e) {
+      setError((e as { message?: string }).message ?? String(e));
+      setRestarting(false);
     }
   };
 
@@ -96,22 +113,47 @@ export default function UpdatesPanel() {
       }>
         <div class="rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm dark:border-emerald-900 dark:bg-emerald-950">
           <p class="font-medium text-emerald-900 dark:text-emerald-200">
-            Update available: {info()!.latest_version}
+            <Show
+              when={installed()}
+              fallback={<>Update available: {info()!.latest_version}</>}
+            >
+              Update installed: {info()!.latest_version}
+            </Show>
           </p>
-          <Show when={info()!.notes}>
+          <Show when={!installed() && info()!.notes}>
             <pre class="mt-1 whitespace-pre-wrap text-xs text-zinc-700 dark:text-zinc-300">
               {info()!.notes}
             </pre>
           </Show>
+          <Show when={installed()}>
+            <p class="mt-1 text-xs text-emerald-800 dark:text-emerald-300">
+              Restart Stint to run {info()!.latest_version}, or quit and reopen
+              later — the new bundle is already on disk.
+            </p>
+          </Show>
           <div class="mt-3">
-            <Button
-              variant="primary"
-              size="sm"
-              disabled={installing()}
-              onClick={install}
+            <Show
+              when={installed()}
+              fallback={
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={installing()}
+                  onClick={install}
+                >
+                  {installing() ? "Installing…" : "Install"}
+                </Button>
+              }
             >
-              {installing() ? "Installing…" : "Install & restart"}
-            </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={restarting()}
+                onClick={restart}
+              >
+                {restarting() ? "Restarting…" : "Restart Stint"}
+              </Button>
+            </Show>
           </div>
         </div>
       </Show>

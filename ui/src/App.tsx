@@ -4,7 +4,6 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useHotkey } from "./lib/useHotkey";
 import { useUpdateBanner } from "./lib/updateBanner";
-import { applyUpdate } from "./lib/updates";
 import About from "./routes/About";
 import Popover from "./routes/Popover";
 import Settings from "./routes/Settings";
@@ -62,13 +61,9 @@ export default function App() {
           <button
             type="button"
             class="rounded bg-sky-700 px-2 py-0.5 font-medium hover:bg-sky-800 dark:bg-sky-800 dark:hover:bg-sky-900"
-            onClick={() => {
-              applyUpdate().catch((err) => {
-                console.error("applyUpdate failed:", err);
-              });
-            }}
+            onClick={() => navigate("/settings")}
           >
-            Install now
+            View update
           </button>
         </div>
       </Show>
