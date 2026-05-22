@@ -165,7 +165,7 @@ git checkout -b phase-2.5
 | 3b | Calendar (Google + MS + CalDAV) | ✅ shipped (`phase-3b-complete`) |
 | 3c | Solidtime down-sync | ✅ shipped (`phase-3c-complete`) |
 | 3.5 | Test coverage uplift across core / CLI / app / UI | ✅ shipped (`phase-3.5-complete`) |
-| 3d | Post-3b UX polish (picker / calendar defaults / editable times / backdate) | ✅ shipped (`phase-3d-complete`) |
+| 3d | Post-3b UX polish + sync resilience + in-app error surfacing (picker / calendar defaults / editable times / backdate / restart-from-entry / calendar undo / 4xx-abandon / adopt-on-overlap / SyncErrorBanner + coverage CI) | ✅ shipped (`phase-3d-complete`) |
 | 4 | Distribution (Homebrew cask + signing + release CD) | planned |
 | 5 | Documentation site (GitHub Pages) | planned |
 
