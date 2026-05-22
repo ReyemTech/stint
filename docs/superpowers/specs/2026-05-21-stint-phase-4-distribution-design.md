@@ -468,9 +468,27 @@ All updater errors route through the Phase 3d `SyncErrorBanner` infrastructure. 
 | Disk full | Plugin restores from temp; original app stays runnable. Surfaces "insufficient disk space." |
 | `minimumSystemVersion` not met | Update refused with clear "requires macOS X+." |
 
-### CLI doesn't self-update
+### CLI update story by install method
 
-`stint update` prints upgrade instructions tailored to the install method but never modifies itself. macOS exclusive file locks on running binaries make self-replacement fragile. Users update via `brew upgrade`, re-running `curl | sh`, or letting the GUI updater replace the bundle (which also updates the embedded CLI).
+The CLI's update path depends on how it was installed:
+
+| Install method | CLI update mechanism |
+|---|---|
+| Homebrew cask | Updated automatically when the GUI auto-updates. The cask creates a symlink `/opt/homebrew/bin/stint → /Applications/Stint.app/Contents/MacOS/stint`; `tauri-plugin-updater` swaps the `.app` bundle in place, and the symlink resolves to the new binary on next invocation. `brew upgrade --cask stint` also works for users who prefer pulling. |
+| `curl \| sh --gui` | Same as cask. The embedded CLI inside the installed `.app` is replaced by the GUI updater. |
+| `curl \| sh` (CLI only) | `stint update` performs an actual self-update: detects it's a standalone install, downloads the latest universal tarball, verifies SHA256 against the release's `checksums.txt`, atomically renames the new binary over the running one. macOS handles open-file inode semantics cleanly — the running process keeps its inode, subsequent invocations get the new binary. |
+
+`stint update` shape:
+
+- **Default** — detect install method. If `.app`-managed, print a message pointing at brew/GUI. If standalone, perform the self-update.
+- **`--check`** — print available version, do not apply.
+- **`--force`** — apply even when already on latest (useful for repair).
+
+The CLI self-update verification chain is intentionally simpler than the GUI's:
+
+- HTTPS to `api.github.com` and `github.com/releases/download` is the transport trust anchor.
+- A `checksums.txt` asset in each release (one line per artifact, SHA256-format) is the integrity check.
+- No Tauri-key signature on the standalone tarball. The trust gap (compromised GitHub Releases assets could serve a malicious binary plus a matching `checksums.txt`) is left open and accepted for Phase 4. Hardening to a separately-signed standalone CLI is a future phase if/when the threat model demands it.
 
 ## 9. Rollback procedure
 
@@ -526,7 +544,7 @@ Explicitly deferred:
 - **Crash reporting / telemetry.** No Sentry, no analytics. Separate phase later.
 - **Update verification UI for paranoid users** (e.g., "show me the SHA256 of what was downloaded").
 - **Delta updates.** Tauri plugin downloads full bundles each release (~20 MB). Acceptable.
-- **Standalone CLI self-update.** CLI prints instructions, never modifies itself.
+- **Ed25519-signed standalone CLI binaries.** Standalone CLI self-update verifies via SHA256 only, not a Tauri-key-style signature. Hardening deferred.
 - **Side-by-side stable + beta install.** Same-install model only. Beta installs over stable; channel is a runtime setting.
 - **Per-version GitHub Release notes for beta.** The `beta-latest` Release shows only the most recent beta's notes; archaeology lives at the `vX.Y.Z-beta.N` tag.
 - **`brew install --formula stint`.** CLI-only installs go through `curl | sh`. No formula maintained.
@@ -575,7 +593,8 @@ scripts/release/
   test-cask-locally.sh
 scripts/install.sh.tpl                    # source for the rendered install script
 crates/stint-app/entitlements.plist
-crates/stint-app/src/updater.rs           # Tauri commands for the updater
+crates/stint-app/src/updater.rs           # Tauri commands for the GUI updater
+crates/stint-cli/src/commands/update.rs   # `stint update` self-update for standalone CLI
 ui/src/routes/Settings/UpdatesPanel.tsx
 ui/src/lib/updates.ts                     # signals + Tauri IPC for the updater
 docs-pages/                               # new branch; minimal Pages stub
@@ -608,3 +627,4 @@ Phase 4 ships when all of the following are true:
 9. The key-rotation runbook has been walked through end-to-end at least once (even if no rotation was performed).
 10. `scripts/release/bootstrap-secrets.sh` has been run successfully to set up all twelve GitHub secrets, and a second dry-run confirms it's idempotent.
 11. README updated with all four install methods.
+12. `stint update` self-updates a standalone curl-installed CLI from v0.0.0-test to v0.0.1-test cleanly, verified during Task 10.2.
