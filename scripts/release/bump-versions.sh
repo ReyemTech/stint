@@ -16,22 +16,28 @@ fi
 
 echo "→ bumping workspace to $VERSION"
 
-# Cargo.toml — replace [workspace.package].version
+# Cargo.toml — replace version under [workspace.package]
 python3 - "$VERSION" <<'PY'
-import re, sys, pathlib
+import sys, pathlib, re
 version = sys.argv[1]
 p = pathlib.Path("Cargo.toml")
-text = p.read_text()
-new = re.sub(
-    r'(\[workspace\.package\][^\[]*?\nversion\s*=\s*")[^"]+(")',
-    rf'\g<1>{version}\g<2>',
-    text,
-    count=1,
-    flags=re.DOTALL,
-)
-if new == text:
+lines = p.read_text().splitlines(keepends=True)
+in_pkg = False
+updated = False
+for i, line in enumerate(lines):
+    stripped = line.lstrip()
+    if stripped.startswith("["):
+        in_pkg = stripped.rstrip().rstrip("]").endswith("workspace.package")
+        continue
+    if in_pkg and re.match(r"\s*version\s*=", line):
+        lines[i] = f'version = "{version}"\n'
+        updated = True
+        break
+if not updated:
+    print(f"--- Cargo.toml content (cwd={pathlib.Path.cwd()}) ---", file=sys.stderr)
+    sys.stderr.write(p.read_text())
     raise SystemExit("error: Cargo.toml [workspace.package].version not found")
-p.write_text(new)
+p.write_text("".join(lines))
 PY
 
 # tauri.conf.json — top-level version
