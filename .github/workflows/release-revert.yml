@@ -1,0 +1,58 @@
+name: Release revert
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Last-known-good version (e.g., 0.1.5). The latest Release's latest.json will be replaced with this version's manifest."
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  revert:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download good latest.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/revert
+          gh release download "v${VERSION}" \
+            -p latest.json -D /tmp/revert
+          [[ -s /tmp/revert/latest.json ]] || { echo "error: latest.json empty/missing"; exit 1; }
+
+      - name: Replace asset on releases/latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          LATEST_TAG=$(gh release list --limit 50 --json tagName,isPrerelease \
+            -q 'map(select(.isPrerelease|not)) | .[0].tagName')
+          [[ -n "$LATEST_TAG" ]] || { echo "error: no stable release found"; exit 1; }
+          echo "Replacing latest.json on $LATEST_TAG with v${VERSION}'s manifest"
+          gh release upload "$LATEST_TAG" /tmp/revert/latest.json --clobber
+
+      - name: Annotate bad release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          LATEST_TAG=$(gh release list --limit 50 --json tagName,isPrerelease \
+            -q 'map(select(.isPrerelease|not)) | .[0].tagName')
+          PREV_BODY=$(gh release view "$LATEST_TAG" --json body -q .body)
+          NOTES_FILE="$RUNNER_TEMP/revert-notes.md"
+          {
+            printf 'This release has been reverted. Auto-update users will receive\n'
+            printf 'v%s on their next check. Direct downloads of this\n' "$VERSION"
+            printf 'release are not recommended.\n\n'
+            printf '%s\n' "$PREV_BODY"
+          } > "$NOTES_FILE"
+          gh release edit "$LATEST_TAG" --notes-file "$NOTES_FILE"
