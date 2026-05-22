@@ -5,7 +5,8 @@ mod menu;
 mod pull_worker;
 mod sync_worker;
 mod tray;
-#[allow(dead_code)]
+mod updater;
+#[cfg_attr(not(feature = "updater"), allow(dead_code))]
 mod updater_endpoint;
 mod windows;
 
@@ -78,6 +79,8 @@ async fn main() -> Result<()> {
             commands::sync::list_sync_errors,
             commands::sync::get_sync_error_overlaps,
             commands::ui::show_main_window,
+            updater::check_for_updates,
+            updater::apply_update,
         ])
         .setup(move |app| {
             tray::build(app.handle())?;

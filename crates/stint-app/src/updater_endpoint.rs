@@ -12,6 +12,7 @@ impl Channel {
         }
     }
 
+    #[allow(dead_code)]
     pub fn as_setting(self) -> &'static str {
         match self {
             Channel::Stable => "stable",
