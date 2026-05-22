@@ -10,6 +10,12 @@
 
 set -euo pipefail
 
+if (( BASH_VERSINFO[0] < 4 )); then
+  echo "error: bash 4+ required (you have $BASH_VERSION)." >&2
+  echo "On macOS, install via: brew install bash" >&2
+  exit 1
+fi
+
 readonly REPO="reyemtech/stint"
 readonly SECRETS=(
   APPLE_CERTIFICATE
@@ -37,6 +43,14 @@ require_gh() {
   fi
 }
 
+require_tauri() {
+  if ! command -v cargo >/dev/null || ! cargo tauri --version >/dev/null 2>&1; then
+    echo "warn: cargo-tauri not found; TAURI_SIGNING_PRIVATE_KEY prompts will fail." >&2
+    echo "      Install via: cargo install tauri-cli --version '^2.0' --locked" >&2
+    echo "      Continuing — skip the TAURI_* secrets if not needed yet." >&2
+  fi
+}
+
 secret_exists() {
   gh secret list --repo "$REPO" --json name -q '.[].name' | grep -qx "$1"
 }
@@ -59,6 +73,13 @@ prompt_apple_certificate() {
   read -r -e -p "Path to developer-id.p12: " p12_path
   [[ -f "$p12_path" ]] || { echo "error: file not found" >&2; return 1; }
   set_secret APPLE_CERTIFICATE "$(base64 < "$p12_path")"
+  read -r -p "Securely delete $p12_path now? [y/N] " resp
+  if [[ "$resp" =~ ^[Yy]$ ]]; then
+    rm -P "$p12_path" 2>/dev/null || rm -f "$p12_path"
+    echo "✓ removed $p12_path"
+  else
+    echo "  reminder: $p12_path contains private key material; delete manually when done"
+  fi
 }
 
 prompt_apple_certificate_password() {
@@ -109,10 +130,21 @@ prompt_keychain_password() {
 }
 
 prompt_tauri_signing_private_key() {
-  if [[ ! -f "$HOME/.tauri/stint.key" ]]; then
+  if [[ -f "$HOME/.tauri/stint.key" ]]; then
+    read -r -p "Existing key at ~/.tauri/stint.key — regenerate? [y/N] " resp
+    if [[ "$resp" =~ ^[Yy]$ ]]; then
+      cargo tauri signer generate -w "$HOME/.tauri/stint.key" --force
+      echo
+      echo "NEW PUBLIC KEY (paste into crates/stint-app/tauri.conf.json under plugins.updater.pubkey):"
+      cat "$HOME/.tauri/stint.key.pub"
+      echo
+      read -r -p "Paste confirmed into tauri.conf.json? [y/N] " resp2
+      [[ "$resp2" =~ ^[Yy]$ ]] || { echo "aborted; rerun once tauri.conf.json is updated"; return 1; }
+    fi
+  else
     echo "Generating Tauri updater key pair…"
     mkdir -p "$HOME/.tauri"
-    cargo tauri signer generate -w "$HOME/.tauri/stint.key" --force
+    cargo tauri signer generate -w "$HOME/.tauri/stint.key"
     echo
     echo "PUBLIC KEY (paste into crates/stint-app/tauri.conf.json under plugins.updater.pubkey):"
     cat "$HOME/.tauri/stint.key.pub"
@@ -163,7 +195,13 @@ EOF
 
 main() {
   require_gh
-  local targets=("${@:-${SECRETS[@]}}")
+  require_tauri
+  local targets=()
+  if (( $# == 0 )); then
+    targets=("${SECRETS[@]}")
+  else
+    targets=("$@")
+  fi
   for name in "${targets[@]}"; do
     local fn="prompt_${name,,}"
     if declare -F "$fn" >/dev/null; then
