@@ -41,7 +41,24 @@ for attempt in $(seq 1 $MAX_ATTEMPTS); do
   echo "$output"
 
   if [[ $rc -eq 0 ]]; then
-    status=$(echo "$output" | python3 -c 'import json,sys; print(json.loads(sys.stdin.read().splitlines()[-1])["status"])')
+    # Defensive parse: notarytool's --output-format json emits the final
+    # JSON object at the end of stdout, but progress lines can interleave
+    # depending on buffering. Pull the LAST {...} block containing a
+    # "status" field rather than relying on tail-line position.
+    parsed=$(python3 - <<'PY' "$output"
+import json, re, sys
+text = sys.argv[1]
+# Find balanced single-level JSON objects (no nesting in notarytool output).
+matches = re.findall(r'\{[^{}]*"status"[^{}]*\}', text, re.DOTALL)
+if not matches:
+    sys.exit("no JSON object containing 'status' found")
+obj = json.loads(matches[-1])
+print(obj.get("status", ""))
+print(obj.get("id", ""))
+PY
+)
+    status=$(echo "$parsed" | sed -n '1p')
+    submission_id=$(echo "$parsed" | sed -n '2p')
     if [[ "$status" == "Accepted" ]]; then
       echo "✓ notarized"
       xcrun stapler staple "$ARTIFACT"
@@ -49,9 +66,10 @@ for attempt in $(seq 1 $MAX_ATTEMPTS); do
       exit 0
     fi
     echo "error: notarization status: $status" >&2
-    submission_id=$(echo "$output" | python3 -c 'import json,sys; print(json.loads(sys.stdin.read().splitlines()[-1])["id"])')
-    xcrun notarytool log "$submission_id" \
-      --apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID"
+    if [[ -n "$submission_id" ]]; then
+      xcrun notarytool log "$submission_id" \
+        --apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID"
+    fi
     exit 1
   fi
 

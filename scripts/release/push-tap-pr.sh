@@ -58,13 +58,13 @@ WORK="$(mktemp -d)"
 readonly WORK
 trap 'rm -rf "$WORK"' EXIT
 
-git config --global user.email "release@reyem.tech"
-git config --global user.name  "stint-release-bot"
-
 git clone --depth 1 \
   "https://x-access-token:${GH_TOKEN}@github.com/reyemtech/homebrew-tap.git" \
   "$WORK"
 cd "$WORK"
+# Scope identity to this clone — avoid leaking into a shared runner config.
+git config user.email "release@reyem.tech"
+git config user.name  "stint-release-bot"
 
 BRANCH="update-${CASK_NAME}-${VERSION//[^A-Za-z0-9.-]/-}"
 readonly BRANCH
