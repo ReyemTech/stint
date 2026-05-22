@@ -167,6 +167,25 @@ CI creates a fresh keychain per run, imports the cert, signs, and deletes the ke
 
 The three `cs.*` entitlements are required by WebView2/wry under hardened runtime. No App Sandbox — that's Phase 4.5 territory.
 
+### Bootstrap script
+
+Setting up twelve secrets by hand is error-prone — the most likely first-release failure mode is "I typo'd a base64-encoded cert." Phase 4 includes `scripts/release/bootstrap-secrets.sh`, an interactive walkthrough that:
+
+1. Verifies `gh` CLI is authenticated and has write access to the repo.
+2. Generates the Tauri updater key pair via `tauri signer generate` (interactive prompt for passphrase), prints the public key for manual paste into `tauri.conf.json`, and pushes the private key + passphrase to GitHub secrets.
+3. For each Apple secret, walks the user through the manual step (e.g., "open Keychain Access, find your Developer ID Application cert, export as .p12"), waits for the resulting file, base64-encodes, and pushes to GitHub.
+4. Detects existing secrets and prompts before overwriting (idempotent re-runs are safe).
+5. Verifies each secret was set successfully via `gh secret list`.
+6. Prints a final checklist of manual one-time steps that can't be scripted (DNS record for `stint.reyem.tech`, creating the empty `reyemtech/homebrew-tap` repo, registering Apple Notary credentials at appleid.apple.com).
+
+Not scripted because they're too security-sensitive to automate:
+
+- Generating the Apple Developer ID Application cert (must happen in Xcode → Settings → Accounts → Manage Certificates with explicit user action).
+- Creating the app-specific password at appleid.apple.com (Apple does not expose an API for this).
+- Reviewing the public key against the committed `tauri.conf.json` before merging the first release.
+
+The script is run once per maintainer setup, not per release. It's also the recovery tool when rotating any of the credentials (re-run with the specific secret name as an arg: `./bootstrap-secrets.sh APPLE_PASSWORD`).
+
 ### Key rotation runbook
 
 Lives at `docs/runbooks/release-key-rotation.md`. Covers:
@@ -547,6 +566,7 @@ package.json                              # root, only for semrelease devDeps
 pnpm-lock.yaml                            # already exists at root; semrelease deps will land here
 .releaserc.json                           # semantic-release config
 scripts/release/
+  bootstrap-secrets.sh                    # interactive walkthrough for §4 secret setup
   bump-versions.sh
   notarize.sh
   generate-latest-json.sh
@@ -586,4 +606,5 @@ Phase 4 ships when all of the following are true:
 7. `brew install --cask stint-beta` installs the latest prerelease.
 8. `gh workflow run release-revert.yml -f version=<prior>` rolls `latest.json` back to a prior version's manifest.
 9. The key-rotation runbook has been walked through end-to-end at least once (even if no rotation was performed).
-10. README updated with all four install methods.
+10. `scripts/release/bootstrap-secrets.sh` has been run successfully to set up all twelve GitHub secrets, and a second dry-run confirms it's idempotent.
+11. README updated with all four install methods.
