@@ -75,6 +75,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # RELEASE_TOKEN is a fine-grained PAT from a user who's listed as a
+          # bypass actor on main's ruleset. semantic-release's git plugin pushes
+          # the version-bump commit back to main, which require-PR rules block
+          # unless the pusher bypasses them. Falls back to GITHUB_TOKEN if not
+          # configured (for forks / first-run scenarios).
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
       - uses: pnpm/action-setup@v4
@@ -88,13 +94,13 @@ jobs:
 
       - name: semantic-release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
         run: pnpm exec semantic-release
 
       - name: Mirror to beta-latest (beta only)
         if: needs.determine-version.outputs.channel == 'beta'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.determine-version.outputs.version }}
         run: scripts/release/sync-beta-latest.sh "$VERSION"
 
@@ -107,5 +113,5 @@ jobs:
 
       - name: Publish install.sh to docs-pages
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
         run: scripts/release/publish-install-script.sh
