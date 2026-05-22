@@ -18,7 +18,9 @@ that sync with a self-hosted Solidtime instance.
 
 ## Install
 
-stint ships for macOS 13 Ventura and newer. All channels are signed and notarized.
+> **Requires macOS 13 (Ventura) or later** for `Stint.app`. The CLI may run on
+> macOS 12, but only macOS 13+ is officially supported. All channels are
+> signed and notarized.
 
 **Homebrew (recommended):**
 
