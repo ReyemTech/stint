@@ -12,6 +12,10 @@ build = "build.rs"
 name = "stint-app"
 path = "src/main.rs"
 
+[features]
+default = ["updater"]
+updater = ["dep:tauri-plugin-updater"]
+
 [dependencies]
 stint-core = { path = "../stint-core" }
 tokio.workspace = true
@@ -23,8 +27,9 @@ tracing-subscriber.workspace = true
 chrono.workspace = true
 
 tauri = { version = "2.1", features = ["macos-private-api", "tray-icon", "image-png"] }
-tauri-plugin-positioner = { version = "2.3", features = ["tray-icon"] }
 tauri-plugin-opener = "2.2"
+tauri-plugin-positioner = { version = "2.3", features = ["tray-icon"] }
+tauri-plugin-updater = { version = "2", optional = true }
 
 [build-dependencies]
 tauri-build = { version = "2.0", features = [] }
