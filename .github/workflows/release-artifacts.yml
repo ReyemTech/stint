@@ -32,6 +32,13 @@ jobs:
         with:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
 
+      - name: Cache cargo build (Swatinem/rust-cache)
+        uses: Swatinem/rust-cache@v2
+        with:
+          # Include the target triples in the cache key so x86_64 + aarch64 caches don't fight.
+          key: release-universal
+          cache-on-failure: true
+
       - name: Bump versions to match release input
         env:
           VERSION: ${{ inputs.version }}
@@ -56,15 +63,11 @@ jobs:
       - name: Install create-dmg
         run: brew install create-dmg
 
-      - name: Cache cargo + pnpm
+      - name: Cache pnpm store
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-            ~/Library/pnpm
-          key: release-${{ runner.os }}-${{ hashFiles('Cargo.lock','ui/pnpm-lock.yaml','pnpm-lock.yaml') }}
+          path: ~/Library/pnpm
+          key: release-pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml','ui/pnpm-lock.yaml') }}
 
       - name: pnpm install
         run: pnpm install --frozen-lockfile
