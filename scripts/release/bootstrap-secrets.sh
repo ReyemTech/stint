@@ -174,7 +174,9 @@ prompt_tauri_signing_private_key() {
     cargo tauri signer generate -w "$HOME/.tauri/stint.key"
     substitute_tauri_pubkey "$HOME/.tauri/stint.key.pub"
   fi
-  set_secret TAURI_SIGNING_PRIVATE_KEY "$(base64 < "$HOME/.tauri/stint.key")"
+  # The .key file is already a single base64 line (minisign format).
+  # `cargo tauri signer sign` expects that content verbatim, NOT base64-of-base64.
+  set_secret TAURI_SIGNING_PRIVATE_KEY "$(cat "$HOME/.tauri/stint.key")"
 }
 
 prompt_tauri_signing_private_key_password() {
