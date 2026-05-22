@@ -196,7 +196,13 @@ jobs:
       - name: Generate checksums.txt
         run: |
           cd target/release-artifacts
-          shasum -a 256 ./*.dmg ./*.tar.gz install.sh > checksums.txt
+          # Iterate per-file so output is `<hash>  <bare-filename>` (no `./` prefix).
+          # The CLI self-updater (stint update) and install.sh parse `<hash>  <filename>`
+          # and look up by bare filename — `./` prefix would break the match.
+          : > checksums.txt
+          for f in *.dmg *.tar.gz install.sh; do
+            shasum -a 256 "$f" >> checksums.txt
+          done
           cat checksums.txt
 
       - name: Cleanup keychain
