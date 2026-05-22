@@ -1,0 +1,108 @@
+# .github/workflows/release.yml
+name: Release
+
+on:
+  push:
+    branches: [main, beta]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  determine-version:
+    runs-on: macos-14
+    outputs:
+      version: ${{ steps.semrelease.outputs.version }}
+      channel: ${{ steps.semrelease.outputs.channel }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - run: pnpm install --frozen-lockfile
+
+      - id: semrelease
+        name: semantic-release --dry-run
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          pnpm exec semantic-release --dry-run 2>&1 | tee /tmp/sr.log || true
+          if grep -q 'no new version is released' /tmp/sr.log; then
+            echo "version=" >> "$GITHUB_OUTPUT"
+            echo "channel=" >> "$GITHUB_OUTPUT"
+            echo "no release"; exit 0
+          fi
+          VERSION=$(grep -oE 'The next release version is [0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.]+)?' /tmp/sr.log | awk '{print $NF}')
+          if [[ -z "$VERSION" ]]; then
+            echo "error: could not determine version" >&2
+            cat /tmp/sr.log >&2
+            exit 1
+          fi
+          CHANNEL=stable
+          [[ "$GITHUB_REF_NAME" == "beta" ]] && CHANNEL=beta
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION channel=$CHANNEL"
+
+  build:
+    needs: determine-version
+    if: needs.determine-version.outputs.version != ''
+    uses: ./.github/workflows/release-artifacts.yml
+    with:
+      version: ${{ needs.determine-version.outputs.version }}
+      channel: ${{ needs.determine-version.outputs.channel }}
+    secrets: inherit
+
+  publish:
+    needs: [determine-version, build]
+    if: needs.determine-version.outputs.version != ''
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - run: pnpm install --frozen-lockfile
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-artifacts
+          path: target/release-artifacts
+
+      - name: semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: pnpm exec semantic-release
+
+      - name: Mirror to beta-latest (beta only)
+        if: needs.determine-version.outputs.channel == 'beta'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.determine-version.outputs.version }}
+        run: scripts/release/sync-beta-latest.sh "$VERSION"
+
+      - name: Update Homebrew tap
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          VERSION: ${{ needs.determine-version.outputs.version }}
+          CHANNEL: ${{ needs.determine-version.outputs.channel }}
+        run: scripts/release/push-tap-pr.sh "$VERSION" "$CHANNEL"
+
+      - name: Publish install.sh to docs-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/release/publish-install-script.sh
