@@ -48,6 +48,11 @@ jobs:
           fi
           echo "✓ tauri.conf.json plugins.updater.pubkey is configured"
 
+      - name: Install Tauri CLI (prebuilt binary)
+        uses: taiki-e/install-action@v2
+        with:
+          tool: tauri-cli@2
+
       - name: Install create-dmg
         run: brew install create-dmg
 
