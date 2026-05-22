@@ -43,7 +43,7 @@ jobs:
             echo "channel=" >> "$GITHUB_OUTPUT"
             echo "no release"; exit 0
           fi
-          VERSION=$(grep -oE 'The next release version is [0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.]+)?' /tmp/sr.log | awk '{print $NF}')
+          VERSION=$(grep -oiE '(the )?next release version is [0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.]+)?' /tmp/sr.log | awk '{print $NF}' | tail -1)
           if [[ -z "$VERSION" ]]; then
             echo "error: could not determine version" >&2
             cat /tmp/sr.log >&2
