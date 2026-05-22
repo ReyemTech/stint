@@ -111,7 +111,7 @@ Keep messages tight. Body explains the *why* if the diff doesn't already.
 ### Branching
 
 - `main` — current shipped state
-- `phase-N` — feature branches; merged fast-forward to `main` once tagged
+- `phase-N` — feature branches; merged into `main` via a merge commit once tagged
 - `phase-N-complete` — annotated tag marking each phase's release
 
 For new phases, branch from `main`:
@@ -288,8 +288,14 @@ git checkout -b phase-2.5
 5. Run the full test suite (`cargo test --workspace -- --test-threads=1`)
    and `pnpm typecheck` before tagging.
 6. Open a PR from your phase branch to `main`. Wait for CI to go green.
-   Merge via "Rebase and merge" in the GitHub UI (preserves linear
-   history equivalent to a fast-forward). Then locally fetch, pull
-   `main`, and tag `phase-N-complete` and push the tag.
+   Merge via "Create a merge commit" in the GitHub UI. This is the
+   project standard because it's the only GH merge mode that both runs
+   the change through the PR/CI gate *and* preserves GPG signatures on
+   each underlying commit (rebase- and squash-merge re-author commits
+   and lose signatures; local fast-forward keeps signatures but
+   bypasses the ruleset and skips CI on the merge result). The trade-off
+   is a non-linear history — accept the bushiness; the signed history
+   matters more here. Then locally fetch, pull `main`, and tag
+   `phase-N-complete` and push the tag.
 
 When in doubt about scope, push back rather than build extra.
