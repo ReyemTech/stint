@@ -12,7 +12,7 @@ that sync with a self-hosted Solidtime instance.
 - **Phase 3b** ✅ — Calendar integration (Google + Microsoft + CalDAV) (`phase-3b-complete` tag)
 - **Phase 3c** ✅ — Solidtime down-sync (`phase-3c-complete` tag)
 - **Phase 3.5** ✅ — Test coverage uplift across core / CLI / app / UI (`phase-3.5-complete` tag)
-- **Phase 3d** ✅ — Post-3b UX polish (project picker, calendar default project, editable times, backdate start) (`phase-3d-complete` tag)
+- **Phase 3d** ✅ — Post-3b UX polish + sync resilience (project picker, calendar default project, editable times, backdate start, restart-from-entry, undo logged/ignored calendar events, billable inherited from project, sync-retry storm fix, adopt-on-overlap, in-app `SyncErrorBanner` showing the conflicting Solidtime entry, `stint sync` diagnostic subcommands, workspace coverage CI job) (`phase-3d-complete` tag)
 - **Phase 4** — Distribution (Homebrew cask) + release CD pipeline
 - **Phase 5** — Documentation site (GitHub Pages)
 
