@@ -68,6 +68,21 @@ git config user.name  "stint-release-bot"
 
 BRANCH="update-${CASK_NAME}-${VERSION//[^A-Za-z0-9.-]/-}"
 readonly BRANCH
+
+# Idempotence: if a stale branch exists on the tap remote from a prior failed
+# run (e.g., post-merge cleanup didn't fire, or this is a re-run), delete it
+# first. Otherwise `git push` rejects with "remote contains work". Same idea
+# for any existing PR — close it before opening a fresh one.
+if gh api "/repos/reyemtech/homebrew-tap/branches/$BRANCH" >/dev/null 2>&1; then
+  echo "→ stale remote branch $BRANCH detected; deleting"
+  gh api -X DELETE "/repos/reyemtech/homebrew-tap/git/refs/heads/$BRANCH" || true
+fi
+existing_pr="$(gh pr list --repo reyemtech/homebrew-tap --head "$BRANCH" --state open --json number -q '.[0].number')"
+if [[ -n "$existing_pr" ]]; then
+  echo "→ closing stale PR #$existing_pr"
+  gh pr close "$existing_pr" --repo reyemtech/homebrew-tap || true
+fi
+
 git checkout -b "$BRANCH"
 
 "$UPDATE_CASK" "Casks/${CASK_NAME}.rb" "$VERSION" "$SHA"
