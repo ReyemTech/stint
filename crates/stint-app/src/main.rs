@@ -5,6 +5,8 @@ mod menu;
 mod pull_worker;
 mod sync_worker;
 mod tray;
+#[allow(dead_code)]
+mod updater_endpoint;
 mod windows;
 
 use anyhow::Result;
