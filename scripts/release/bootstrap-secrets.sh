@@ -28,6 +28,7 @@ readonly SECRETS=(
   TAURI_SIGNING_PRIVATE_KEY
   TAURI_SIGNING_PRIVATE_KEY_PASSWORD
   HOMEBREW_TAP_TOKEN
+  RELEASE_TOKEN
   STINT_GOOGLE_CLIENT_ID
   STINT_GOOGLE_CLIENT_SECRET
 )
@@ -193,6 +194,22 @@ Create a fine-grained PAT at github.com/settings/personal-access-tokens/new:
 TIP
   read -r -s -p "PAT: " pat; echo
   set_secret HOMEBREW_TAP_TOKEN "$pat"
+}
+
+prompt_release_token() {
+  cat <<'TIP'
+Create a fine-grained PAT for semantic-release to push CHANGELOG + version
+bumps back to main. Required because main has a "require pull request"
+ruleset; the PAT must come from a user who's listed as a bypass actor on
+that ruleset.
+
+  - github.com/settings/personal-access-tokens/new
+  - Resource owner: reyemtech
+  - Repository access: select reyemtech/stint only
+  - Permissions: Contents (RW), Pull requests (RW), Issues (RW), Metadata (RO)
+TIP
+  read -r -s -p "PAT: " pat; echo
+  set_secret RELEASE_TOKEN "$pat"
 }
 
 prompt_stint_google_client_id() {
