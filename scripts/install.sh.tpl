@@ -76,6 +76,17 @@ case "$ARCH" in
   *) err "unsupported architecture: $ARCH" ;;
 esac
 
+# Stint.app requires macOS 13 (Ventura) or later. Fail fast before any
+# download — without this guard the DMG installs and launch then fails with
+# kLSIncompatibleSystemVersionErr, which is harder to diagnose.
+if [ "$INSTALL_GUI" -eq 1 ]; then
+  MACOS_VER="$(sw_vers -productVersion 2>/dev/null || echo "")"
+  MACOS_MAJOR="${MACOS_VER%%.*}"
+  if [ -n "$MACOS_MAJOR" ] && [ "$MACOS_MAJOR" -lt 13 ] 2>/dev/null; then
+    err "Stint.app requires macOS 13 (Ventura) or later — detected macOS $MACOS_VER. Rerun without --gui to install just the CLI."
+  fi
+fi
+
 require curl
 require shasum
 
