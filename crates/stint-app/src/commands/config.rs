@@ -67,6 +67,29 @@ pub async fn config_set(
     Ok(())
 }
 
+/// Fetch a single non-secret setting by key. Returns `None` if unset.
+#[tauri::command]
+pub async fn settings_get(
+    state: State<'_, RwLock<AppState>>,
+    key: String,
+) -> Result<Option<String>, AppError> {
+    let store = store(&state).await;
+    Ok(Settings::new((*store).clone()).get(&key).await?)
+}
+
+/// Write a single non-secret setting by key. Synonym for `config_set` for
+/// non-secret keys; secrets must continue to go through `config_set`.
+#[tauri::command]
+pub async fn settings_set(
+    state: State<'_, RwLock<AppState>>,
+    key: String,
+    value: String,
+) -> Result<(), AppError> {
+    let store = store(&state).await;
+    Settings::new((*store).clone()).set(&key, &value).await?;
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn solidtime_url(state: State<'_, RwLock<AppState>>) -> Result<Option<String>, AppError> {
     let store = store(&state).await;
