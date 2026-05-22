@@ -185,7 +185,8 @@ if [ "$INSTALL_GUI" -eq 1 ]; then
     ok "dmg checksum verified"
   fi
 
-  MOUNT="$(hdiutil attach -nobrowse -quiet "$TMPDIR/$DMG" | grep -o '/Volumes/[^[:cntrl:]]*' | tail -1)"
+  # `hdiutil attach -quiet` suppresses ALL stdout including the volume path; omit -quiet so we can parse.
+  MOUNT="$(hdiutil attach -nobrowse "$TMPDIR/$DMG" 2>/dev/null | grep -o '/Volumes/[^[:cntrl:]]*' | tail -1)"
   [ -n "$MOUNT" ] && [ -d "$MOUNT" ] || err "failed to mount $DMG"
   trap 'hdiutil detach "$MOUNT" -quiet 2>/dev/null || true; rm -rf "$TMPDIR"' EXIT
   cp -R "$MOUNT/Stint.app" /Applications/

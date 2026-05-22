@@ -127,7 +127,7 @@ jobs:
             target/aarch64-apple-darwin/release/stint \
             target/x86_64-apple-darwin/release/stint
 
-      - name: Build universal Tauri app
+      - name: Build universal Tauri app (.app only — DMG is built later from embedded version)
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -135,11 +135,13 @@ jobs:
           STINT_GOOGLE_CLIENT_SECRET: ${{ secrets.STINT_GOOGLE_CLIENT_SECRET }}
         run: |
           cd crates/stint-app
-          cargo tauri build --target universal-apple-darwin
+          cargo tauri build --target universal-apple-darwin --bundles app
 
       - name: Embed CLI in .app
         run: |
-          APP="crates/stint-app/target/universal-apple-darwin/release/bundle/macos/Stint.app"
+          # Tauri bundles to the workspace target dir, not crates/stint-app/target
+          APP="target/universal-apple-darwin/release/bundle/macos/Stint.app"
+          test -d "$APP" || { echo "error: $APP not found"; find target -name 'Stint.app' -type d; exit 1; }
           cp target/universal-apple-darwin/release/stint "$APP/Contents/MacOS/stint"
           echo "APP_PATH=$APP" >> "$GITHUB_ENV"
 
