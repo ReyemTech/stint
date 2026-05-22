@@ -41,7 +41,10 @@ while [ $# -gt 0 ]; do
     --gui)       INSTALL_GUI=1 ;;
     --uninstall) UNINSTALL=1 ;;
     --force)     FORCE=1 ;;
-    --version)   VERSION_OVERRIDE="$2"; shift ;;
+    --version)
+      [ $# -ge 2 ] || err "--version requires a value (e.g. --version v0.1.2)"
+      VERSION_OVERRIDE="$2"; shift
+      ;;
     --help)
       cat <<'HELP'
 Usage: install.sh [options]
@@ -91,11 +94,9 @@ fi
 
 if [ "$UNINSTALL" -eq 1 ]; then
   bold "stint uninstaller"
-  for prefix in /usr/local/bin "$HOME/.local/bin"; do
-    if [ -x "$prefix/stint" ]; then
-      rm -f "$prefix/stint"
-      ok "removed $prefix/stint"
-    fi
+  for prefix in "${STINT_INSTALL_DIR:-}" /usr/local/bin "$HOME/.local/bin"; do
+    [ -n "$prefix" ] && [ -x "$prefix/stint" ] || continue
+    rm -f "$prefix/stint" && ok "removed $prefix/stint"
   done
   if [ -d "/Applications/Stint.app" ]; then
     if [ "$FORCE" -eq 1 ]; then
@@ -113,6 +114,9 @@ User data was NOT removed. To delete it manually:
   rm -rf ~/Library/Application\ Support/stint
   security delete-generic-password -s tech.reyem.stint.solidtime.token
   security delete-generic-password -s tech.reyem.stint.solidtime.oauth
+  # Calendar accounts each have their own Keychain entry:
+  security find-generic-password -s tech.reyem.stint.calendar
+  # (one for each Google/MS/CalDAV account that was added)
 
 EOF
   exit 0
@@ -167,6 +171,12 @@ esac
 # ── GUI install (optional) ────────────────────────────────────────────────────
 
 if [ "$INSTALL_GUI" -eq 1 ]; then
+  if [ -e "/Applications/Stint.app" ] && [ "$FORCE" -eq 0 ]; then
+    printf '/Applications/Stint.app exists. Overwrite? [y/N] '
+    read -r resp
+    case "$resp" in y|Y) ;; *) warn "GUI install skipped"; exit 0 ;; esac
+  fi
+
   DMG="Stint-${STINT_VERSION}.dmg"
   echo "→ downloading $DMG"
   curl -fsSL "${STINT_RELEASE_URL}/${DMG}" -o "$TMPDIR/$DMG"
@@ -175,17 +185,13 @@ if [ "$INSTALL_GUI" -eq 1 ]; then
     ok "dmg checksum verified"
   fi
 
-  if [ -e "/Applications/Stint.app" ] && [ "$FORCE" -eq 0 ]; then
-    printf '/Applications/Stint.app exists. Overwrite? [y/N] '
-    read -r resp
-    case "$resp" in y|Y) ;; *) warn "GUI install skipped"; exit 0 ;; esac
-  fi
-
-  MOUNT="$(hdiutil attach -nobrowse -quiet "$TMPDIR/$DMG" | awk '/\/Volumes\// {print $NF}' | tail -1)"
+  MOUNT="$(hdiutil attach -nobrowse -quiet "$TMPDIR/$DMG" | grep -o '/Volumes/[^[:cntrl:]]*' | tail -1)"
+  [ -n "$MOUNT" ] && [ -d "$MOUNT" ] || err "failed to mount $DMG"
   trap 'hdiutil detach "$MOUNT" -quiet 2>/dev/null || true; rm -rf "$TMPDIR"' EXIT
   cp -R "$MOUNT/Stint.app" /Applications/
   xattr -dr com.apple.quarantine /Applications/Stint.app 2>/dev/null || true
   hdiutil detach "$MOUNT" -quiet
+  echo "→ launching Stint.app in background (menu-bar icon will appear)"
   open -g /Applications/Stint.app
   ok "installed /Applications/Stint.app"
 fi

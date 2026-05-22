@@ -20,6 +20,11 @@ grep -q 'STINT_TARBALL_SHA256="deadbeef1234567890"' "$SANDBOX/install.sh" || { e
 grep -q 'STINT_DMG_SHA256="cafef00d1234567890"' "$SANDBOX/install.sh" || { echo "FAIL: dmg"; exit 1; }
 # No leftover placeholders.
 ! grep -q '@@' "$SANDBOX/install.sh" || { echo "FAIL: leftover placeholder"; exit 1; }
+# Rendered output must parse as valid POSIX sh
+sh -n "$SANDBOX/install.sh" || { echo "FAIL: rendered install.sh has syntax errors"; exit 1; }
+
+# Rendered output must be shellcheck-clean (POSIX mode)
+shellcheck -s sh "$SANDBOX/install.sh" || { echo "FAIL: rendered install.sh has shellcheck warnings"; exit 1; }
 # Sibling checksum file written.
 [[ -f "$SANDBOX/install.sh.sha256" ]] || { echo "FAIL: missing sha256 sibling"; exit 1; }
 

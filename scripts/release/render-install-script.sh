@@ -35,7 +35,6 @@ sed \
   -e "s|@@STINT_VERSION@@|$VERSION|g" \
   -e "s|@@TARBALL_SHA256@@|$TARBALL_SHA|g" \
   -e "s|@@DMG_SHA256@@|$DMG_SHA|g" \
-  -e "s|STINT_VERSION installer|v$VERSION installer|g" \
   "$TPL" > "$OUTPUT"
 
 chmod +x "$OUTPUT"
