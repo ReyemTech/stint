@@ -32,6 +32,11 @@ jobs:
         with:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
 
+      - name: Bump versions to match release input
+        env:
+          VERSION: ${{ inputs.version }}
+        run: scripts/release/bump-versions.sh "$VERSION"
+
       - name: Install create-dmg
         run: brew install create-dmg
 
@@ -94,6 +99,23 @@ jobs:
           APP="crates/stint-app/target/universal-apple-darwin/release/bundle/macos/Stint.app"
           cp target/universal-apple-darwin/release/stint "$APP/Contents/MacOS/stint"
           echo "APP_PATH=$APP" >> "$GITHUB_ENV"
+
+      - name: Smoke-test embedded version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          actual=$("$APP_PATH/Contents/MacOS/stint" --version | awk '{print $2}')
+          if [[ "$actual" != "$VERSION" ]]; then
+            echo "error: embedded stint --version=$actual, expected $VERSION" >&2
+            exit 1
+          fi
+          plist_ver=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP_PATH/Contents/Info.plist")
+          if [[ "$plist_ver" != "$VERSION" ]]; then
+            echo "error: Info.plist version=$plist_ver, expected $VERSION" >&2
+            exit 1
+          fi
+          echo "✓ embedded version matches: $VERSION"
 
       - name: Sign .app (covers embedded CLI)
         env:
