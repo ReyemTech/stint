@@ -79,7 +79,8 @@ async fn main() -> Result<()> {
             commands::sync::get_sync_error_overlaps,
             commands::ui::show_main_window,
             updater::check_for_updates,
-            updater::apply_update,
+            updater::install_update,
+            updater::restart_app,
         ])
         .setup(move |app| {
             tray::build(app.handle())?;
