@@ -4634,6 +4634,7 @@ dependencies = [
  "chrono",
  "clap",
  "dirs 5.0.1",
+ "embed_plist",
  "flate2",
  "predicates",
  "reqwest 0.12.28",

@@ -13,6 +13,10 @@ path = "src/main.rs"
 
 [dependencies]
 stint-core = { path = "../stint-core" }
+# embed-plist injects Info.plist into the binary's __TEXT,__info_plist Mach-O
+# section. Required for the CLI to satisfy hardened-runtime kernel validation
+# when distributed inside Stint.app/Contents/MacOS/.
+embed_plist = "1.2"
 tokio.workspace = true
 anyhow.workspace = true
 clap.workspace = true

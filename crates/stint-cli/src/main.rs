@@ -1,3 +1,9 @@
+// Inject Info.plist into the binary's __TEXT,__info_plist Mach-O section so
+// macOS hardened runtime accepts the binary when embedded in Stint.app —
+// without this, taskgated kills the CLI on launch with "Invalid Signature".
+#[cfg(target_os = "macos")]
+embed_plist::embed_info_plist!("../Info.plist");
+
 mod at_parse;
 mod cmd;
 mod format;

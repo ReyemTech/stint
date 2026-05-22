@@ -165,15 +165,40 @@ jobs:
           fi
           echo "✓ embedded version matches: $VERSION"
 
-      - name: Sign .app (covers embedded CLI)
+      - name: Sign embedded CLI individually (hardened runtime, own identifier)
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: |
-          codesign --deep --force --options runtime \
+          # The CLI is a Mach-O without a separate bundle. embed_plist in
+          # stint-cli's main.rs injects its Info.plist into the binary's
+          # __TEXT,__info_plist section so hardened runtime's kernel
+          # validation accepts it. We sign with an explicit identifier
+          # (tech.reyem.stint.cli) so the binary's signed identity matches
+          # its embedded plist.
+          codesign --force --options runtime \
+            --identifier tech.reyem.stint.cli \
+            --sign "$APPLE_SIGNING_IDENTITY" \
+            --entitlements crates/stint-app/entitlements.plist \
+            "$APP_PATH/Contents/MacOS/stint"
+
+      - name: Sign GUI binary + .app bundle (hardened runtime + entitlements)
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          # Sign the GUI binary first (inner), then the bundle wrapper
+          # (which seals CodeResources including the CLI's hash). Avoid
+          # --deep so the per-binary signatures we did individually
+          # aren't overwritten.
+          codesign --force --options runtime \
+            --sign "$APPLE_SIGNING_IDENTITY" \
+            --entitlements crates/stint-app/entitlements.plist \
+            "$APP_PATH/Contents/MacOS/stint-app"
+          codesign --force --options runtime \
             --sign "$APPLE_SIGNING_IDENTITY" \
             --entitlements crates/stint-app/entitlements.plist \
             "$APP_PATH"
-          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+          codesign --verify --strict --verbose=2 "$APP_PATH"
+          codesign --verify --strict --verbose=2 "$APP_PATH/Contents/MacOS/stint"
 
       - name: Notarize .app
         env:

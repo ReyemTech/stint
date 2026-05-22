@@ -10,9 +10,12 @@
   <true/>
   <key>com.apple.security.network.client</key>
   <true/>
-  <key>keychain-access-groups</key>
-  <array>
-    <string>$(AppIdentifierPrefix)tech.reyem.stint</string>
-  </array>
+  <!-- keychain-access-groups removed: the $(AppIdentifierPrefix) template is
+       an Xcode-only substitution that codesign doesn't process, so the
+       literal string ends up in the binary's entitlements and macOS kernel
+       rejects launch with "Taskgated Invalid Signature". Non-sandboxed
+       CLI + GUI share Keychain entries via the standard one-prompt-per-binary
+       ACL flow; the entitlement isn't required for that to work. Phase 4.5
+       will revisit when App Sandbox lands for MAS. -->
 </dict>
 </plist>
