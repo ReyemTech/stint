@@ -11,7 +11,6 @@ pub mod start;
 pub mod stop;
 pub mod sync;
 pub mod today;
-#[allow(dead_code)] // wired up by 9.1b/c/d
 pub mod update;
 
 use anyhow::Result;

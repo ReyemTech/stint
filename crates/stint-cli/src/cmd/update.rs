@@ -104,6 +104,102 @@ pub fn atomic_replace(staging: &Path, target: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Orchestrating entry point for `stint update [--check] [--force]`.
+///
+/// Detects how the running binary was installed; for `.app`-bundled installs
+/// we defer to the GUI/brew. For standalone installs we fetch the latest
+/// release from GitHub, verify its checksum, and atomically swap the binary.
+pub fn run(check_only: bool, force: bool) -> anyhow::Result<()> {
+    let exe = std::env::current_exe()?;
+    let resolved = exe.canonicalize().unwrap_or(exe);
+    let method = install_method(&resolved);
+
+    let current = env!("CARGO_PKG_VERSION");
+
+    if method == InstallMethod::AppBundled {
+        println!("stint {current} is bundled inside {}.", resolved.display());
+        println!();
+        println!("To upgrade:");
+        println!("  • If installed via Homebrew:  brew upgrade --cask stint");
+        println!("  • If installed via curl|sh --gui: rerun the install script, or");
+        println!("    open the GUI app → Settings → Updates → Check now");
+        return Ok(());
+    }
+
+    // Standalone — fetch latest from GitHub.
+    if std::env::var("STINT_UPDATE_SKIP_NETWORK").is_ok() {
+        println!("stint {current} (network check skipped)");
+        return Ok(());
+    }
+
+    println!("Checking for updates…");
+    let latest = match fetch_latest_release_blocking("https://api.github.com") {
+        Ok(r) => r,
+        Err(e) => {
+            println!("Could not check for updates: {e}");
+            return Ok(());
+        }
+    };
+    let current_ver = semver::Version::parse(current)?;
+    let latest_ver = semver::Version::parse(&latest.version)?;
+
+    if !force && latest_ver <= current_ver {
+        println!("stint {current} is the latest version.");
+        return Ok(());
+    }
+
+    println!("Update available: {current} → {}", latest.version);
+    if check_only {
+        return Ok(());
+    }
+
+    // Download tarball + checksums.
+    let tmp = tempfile::tempdir()?;
+    let tarball_path = tmp.path().join("stint.tar.gz");
+    let checksums_path = tmp.path().join("checksums.txt");
+
+    println!("Downloading…");
+    download_to(&latest.tarball_url, &tarball_path)?;
+    download_to(&latest.checksums_url, &checksums_path)?;
+
+    // Verify.
+    let raw = std::fs::read_to_string(&checksums_path)?;
+    let tarball_name = format!("stint-{}-universal-apple-darwin.tar.gz", latest.version);
+    let expected = parse_checksum_for(&raw, &tarball_name)?;
+    verify_sha256(&tarball_path, &expected)?;
+    println!("✓ checksum verified");
+
+    // Extract the binary.
+    let extracted = tmp.path().join("stint");
+    {
+        let tar_gz = fs::File::open(&tarball_path)?;
+        let tar = flate2::read::GzDecoder::new(tar_gz);
+        let mut archive = tar::Archive::new(tar);
+        archive.unpack(tmp.path())?;
+    }
+    if !extracted.exists() {
+        anyhow::bail!("tarball did not contain expected binary `stint`");
+    }
+
+    // Stage + atomic rename.
+    let staging = resolved.with_extension("new");
+    fs::copy(&extracted, &staging)?;
+    atomic_replace(&staging, &resolved)?;
+
+    println!("✓ updated to stint {}", latest.version);
+    Ok(())
+}
+
+fn download_to(url: &str, dest: &Path) -> anyhow::Result<()> {
+    let client = reqwest::blocking::Client::builder()
+        .user_agent(concat!("stint/", env!("CARGO_PKG_VERSION")))
+        .build()?;
+    let mut resp = client.get(url).send()?.error_for_status()?;
+    let mut f = fs::File::create(dest)?;
+    resp.copy_to(&mut f)?;
+    Ok(())
+}
+
 /// Detect how the running stint binary was installed, based on its resolved
 /// executable path.
 pub fn install_method(resolved_exe: &Path) -> InstallMethod {
