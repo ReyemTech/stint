@@ -1,6 +1,7 @@
 mod app_state;
 mod calendar_worker;
 mod commands;
+mod logging;
 mod menu;
 mod pull_worker;
 mod sync_worker;
@@ -17,13 +18,9 @@ use tokio::sync::RwLock;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_env("STINT_LOG")
-                .unwrap_or_else(|_| "info".into()),
-        )
-        .with_writer(std::io::stderr)
-        .init();
+    // Hold the non-blocking log writer guard for the program lifetime; dropping
+    // it would flush + close the file appender mid-run.
+    let _log_guard = logging::init();
 
     let app_state = AppState::init().await?;
     let store_for_worker = app_state.store.clone();
@@ -82,7 +79,8 @@ async fn main() -> Result<()> {
             commands::sync::get_sync_error_overlaps,
             commands::ui::show_main_window,
             updater::check_for_updates,
-            updater::apply_update,
+            updater::install_update,
+            updater::restart_app,
         ])
         .setup(move |app| {
             tray::build(app.handle())?;

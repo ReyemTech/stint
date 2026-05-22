@@ -14,9 +14,13 @@ export async function checkForUpdates(): Promise<UpdateInfo> {
   return invoke<UpdateInfo>("check_for_updates", { channel });
 }
 
-export async function applyUpdate(): Promise<void> {
+export async function installUpdate(): Promise<void> {
   const channel = await getChannel();
-  await invoke("apply_update", { channel });
+  await invoke("install_update", { channel });
+}
+
+export async function restartApp(): Promise<void> {
+  await invoke("restart_app");
 }
 
 export async function getChannel(): Promise<Channel> {
