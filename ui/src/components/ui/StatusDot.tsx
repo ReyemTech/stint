@@ -1,4 +1,10 @@
-export type DotTone = "emerald" | "amber" | "red" | "zinc" | "indigo";
+export type DotTone =
+  | "emerald"
+  | "amber"
+  | "red"
+  | "zinc"
+  | "indigo"
+  | "sky";
 
 const FILL: Record<DotTone, string> = {
   emerald: "bg-emerald-500",
@@ -6,6 +12,7 @@ const FILL: Record<DotTone, string> = {
   red: "bg-red-500",
   zinc: "bg-zinc-300 dark:bg-zinc-600",
   indigo: "bg-indigo-500",
+  sky: "bg-sky-500",
 };
 
 const PING: Record<DotTone, string> = {
@@ -14,7 +21,15 @@ const PING: Record<DotTone, string> = {
   red: "bg-red-400",
   zinc: "bg-zinc-300",
   indigo: "bg-indigo-400",
+  sky: "bg-sky-400",
 };
+
+/**
+ * Semantic tone for the "an update is available" state. Exported so
+ * popover / header chrome can render the dot without re-encoding the
+ * mapping (and so the meaning is greppable across the codebase).
+ */
+export const TONE_UPDATE_READY: DotTone = "sky";
 
 /**
  * A small colored dot used to encode state across the UI: sync state on
