@@ -1,3 +1,11 @@
+## [0.1.3](https://github.com/ReyemTech/stint/compare/v0.1.2...v0.1.3) (2026-05-22)
+
+### Bug Fixes
+
+* **app:** write tracing logs to ~/Library/Logs/tech.reyem.stint/ ([ace0f07](https://github.com/ReyemTech/stint/commit/ace0f070944d3732debe18f389b5a1d449226811))
+* **updater-ui:** two-step Install → Restart Stint button flow ([3ebf887](https://github.com/ReyemTech/stint/commit/3ebf887d808f5575f20006c84dadf30265a726ee))
+* **updater:** split install + restart into separate Tauri commands ([1f4dc9e](https://github.com/ReyemTech/stint/commit/1f4dc9eb6f33216e3de1c3653199c73e26f2885f))
+
 ## [0.1.2](https://github.com/ReyemTech/stint/compare/v0.1.1...v0.1.2) (2026-05-22)
 
 ### Bug Fixes
