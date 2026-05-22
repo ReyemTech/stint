@@ -1,3 +1,10 @@
+## [0.1.2](https://github.com/ReyemTech/stint/compare/v0.1.1...v0.1.2) (2026-05-22)
+
+### Bug Fixes
+
+* **install:** fail fast on --gui when macOS <13 ([72b4133](https://github.com/ReyemTech/stint/commit/72b41330efffb3d9922036440c367f0c7de26da7))
+* **release:** fall back to direct merge when tap PR is in clean status ([a8a8811](https://github.com/ReyemTech/stint/commit/a8a8811892762502edaf953174452b25c65e260e))
+
 ## [0.1.1](https://github.com/ReyemTech/stint/compare/v0.1.0...v0.1.1) (2026-05-22)
 
 ### Bug Fixes
