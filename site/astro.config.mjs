@@ -12,7 +12,8 @@ export default defineConfig({
       description:
         "macOS time tracker that syncs with a self-hosted Solidtime instance.",
       logo: {
-        src: "./src/assets/stint-icon.svg",
+        light: "./src/assets/stint-icon-light.svg",
+        dark: "./src/assets/stint-icon-dark.svg",
         replacesTitle: false,
       },
       favicon: "/favicon.svg",
