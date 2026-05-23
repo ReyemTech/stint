@@ -1,3 +1,11 @@
+## [0.2.0](https://github.com/ReyemTech/stint/compare/v0.1.5...v0.2.0) (2026-05-23)
+
+### Features
+
+* **about:** show update-available badge next to version ([82f9929](https://github.com/ReyemTech/stint/commit/82f99296a67ccddc534c39939a9b8e04242bfbb8))
+* **menu:** "Check for Updates…" in menus + CHANGELOG link ([726091d](https://github.com/ReyemTech/stint/commit/726091dbea7fb35dcc3fefd9990d69f35060bfdd))
+* **popover:** Settings cogwheel + update-available indicator ([59e15b7](https://github.com/ReyemTech/stint/commit/59e15b7e734786daae1b45be7cabe1f8648eede1))
+
 ## [0.1.5](https://github.com/ReyemTech/stint/compare/v0.1.4...v0.1.5) (2026-05-23)
 
 ### Bug Fixes
