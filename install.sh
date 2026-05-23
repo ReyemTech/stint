@@ -4,9 +4,9 @@
 
 set -eu
 
-STINT_VERSION="0.1.5"
-STINT_TARBALL_SHA256="a838ab3211589b0c4733890695d3b8cc8849e221f94384af1582a454a9ece523"
-STINT_DMG_SHA256="730c96c8805f28f60a694efbacc86775852c994404887bce3a5c4950988ad9e1"
+STINT_VERSION="0.2.0"
+STINT_TARBALL_SHA256="e892fcceaad1f5b34976535af3e681e71d698b0efa4caad5abf8df3b2245c639"
+STINT_DMG_SHA256="60ba6345c7fa9b29e39bc8402707498d80cd375c89dd0f691fde785f94a2fd68"
 STINT_RELEASE_URL="https://github.com/reyemtech/stint/releases/download/v${STINT_VERSION}"
 
 # ── helpers ───────────────────────────────────────────────────────────────────
