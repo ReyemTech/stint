@@ -111,6 +111,14 @@ export default function About() {
             </Button>
             <Button
               variant="secondary"
+              onClick={() =>
+                openUrl("https://stint.reyem.tech/help/privacy/")
+              }
+            >
+              Privacy
+            </Button>
+            <Button
+              variant="secondary"
               onClick={() => openUrl("https://github.com/reyemtech/stint")}
             >
               GitHub
