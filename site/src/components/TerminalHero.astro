@@ -1,0 +1,36 @@
+---
+// Styled terminal mock for the landing-page hero. CSS lives in
+// src/styles/custom.css (.terminal, .terminal-body, .t-* classes).
+//
+// DMG filename pulled from the live GitHub release at build time so the
+// install line stays current with the latest version. Falls back to
+// "latest" (with a "v?" tag) if the fetch fails.
+
+import { getLatestRelease } from "../lib/latestRelease";
+
+const { version } = await getLatestRelease();
+const dmgName = version ? `Stint-${version}.dmg` : "Stint.dmg";
+---
+
+<div class="terminal">
+  <div class="terminal-bar">
+    <span class="dot dot-red"></span>
+    <span class="dot dot-yellow"></span>
+    <span class="dot dot-green"></span>
+    <span class="terminal-title">~/work</span>
+  </div>
+  <pre class="terminal-body"><code><span class="t-prompt">$</span> brew install --cask reyemtech/tap/stint
+<span class="t-dim">==&gt;</span> Tapping reyemtech/tap
+<span class="t-dim">==&gt;</span> Downloading {dmgName}
+<span class="t-ok">🍺</span>  stint was successfully installed!
+
+<span class="t-prompt">$</span> stint start <span class="t-str">"writing the Phase 5 docs"</span>
+<span class="t-ok">✓</span> tracking · 0s · solidtime sync queued
+
+<span class="t-prompt">$</span> stint today
+<span class="t-dim">─── today, 2026-05-23</span>
+<span class="t-ok">●</span> writing the Phase 5 docs    <span class="t-dim">·</span> 42m
+<span class="t-mid">●</span> design review               <span class="t-dim">·</span> 1h 15m
+<span class="t-mid">●</span> client check-in call        <span class="t-dim">·</span> 30m
+<span class="t-dim">───────────────────────────────</span> 2h 27m</code></pre>
+</div>

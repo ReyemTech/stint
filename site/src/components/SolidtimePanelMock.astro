@@ -1,0 +1,35 @@
+---
+// Hand-rolled CSS mock of the in-app Settings → Solidtime panel.
+// Reads as a representative illustration of the actual UI; not pixel-
+// perfect. CSS classes (.panel-mock, .pm-*) live in custom.css.
+---
+
+<div class="panel-mock" aria-hidden="true">
+  <div class="pm-header">
+    <span class="pm-eyebrow">SOLIDTIME</span>
+    <span class="pm-status pm-status-ok">● Connected</span>
+  </div>
+
+  <div class="pm-row">
+    <label class="pm-label">URL</label>
+    <div class="pm-input">https://time.acme.example.com</div>
+  </div>
+
+  <div class="pm-row">
+    <label class="pm-label">Auth</label>
+    <div class="pm-radio-group">
+      <span class="pm-radio">○ PAT</span>
+      <span class="pm-radio pm-radio-selected">● OAuth</span>
+    </div>
+  </div>
+
+  <div class="pm-row">
+    <label class="pm-label">Organization</label>
+    <div class="pm-select">Acme Inc <span class="pm-chevron">▾</span></div>
+  </div>
+
+  <div class="pm-actions">
+    <button class="pm-btn pm-btn-secondary">Test connection</button>
+    <button class="pm-btn pm-btn-secondary">Sign out</button>
+  </div>
+</div>

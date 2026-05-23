@@ -1,0 +1,15 @@
+<svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="44" height="44" rx="10" fill="url(#stint-mark-grad)"/>
+  <rect x="19" y="4" width="6" height="4" rx="1.2" fill="white"/>
+  <rect x="30" y="7.5" width="3.5" height="3" rx="0.8" transform="rotate(45 31.75 9)" fill="white"/>
+  <circle cx="22" cy="26" r="13.5" stroke="white" stroke-width="3" fill="none"/>
+  <rect x="21" y="13.5" width="2" height="3" fill="white"/>
+  <rect x="21" y="17" width="2" height="11" rx="1" fill="white" transform="rotate(45 22 26)"/>
+  <circle cx="22" cy="26" r="2" fill="white"/>
+  <defs>
+    <linearGradient id="stint-mark-grad" x1="0" y1="0" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6366f1"/>
+      <stop offset="1" stop-color="#7c3aed"/>
+    </linearGradient>
+  </defs>
+</svg>

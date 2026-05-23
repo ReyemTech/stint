@@ -1,0 +1,39 @@
+---
+// CSS mock of the in-app Settings → Calendar panel — Google account
+// with two calendars toggled, project defaults set.
+---
+
+<div class="panel-mock" aria-hidden="true">
+  <div class="pm-header">
+    <span class="pm-eyebrow">CALENDAR</span>
+  </div>
+
+  <div class="pm-account">
+    <div class="pm-account-head">
+      <span class="pm-account-name">
+        <span class="pm-account-dot" /> you@gmail.com
+      </span>
+      <button class="pm-btn pm-btn-ghost">Remove</button>
+    </div>
+    <ul class="pm-cal-list">
+      <li>
+        <span class="pm-check pm-check-on">☑</span>
+        <span class="pm-cal-name">Primary</span>
+        <span class="pm-cal-default">→ Acme · billable</span>
+      </li>
+      <li>
+        <span class="pm-check">☐</span>
+        <span class="pm-cal-name pm-cal-name-dim">Holidays</span>
+      </li>
+      <li>
+        <span class="pm-check pm-check-on">☑</span>
+        <span class="pm-cal-name">Team standup</span>
+        <span class="pm-cal-default">→ Acme</span>
+      </li>
+    </ul>
+  </div>
+
+  <div class="pm-actions">
+    <button class="pm-btn pm-btn-primary">+ Add Google account</button>
+  </div>
+</div>

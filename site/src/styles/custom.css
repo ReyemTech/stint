@@ -1,0 +1,935 @@
+/* ───────────────────────────────────────────────────────────────────────────
+   stint indigo accent — matches StintIcon gradient in ui/.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --sl-color-accent-low: #312e81;
+  --sl-color-accent: #6366f1;
+  --sl-color-accent-high: #c7d2fe;
+
+  /* Landing-page palette */
+  --stint-bg: #0a0a14;
+  --stint-bg-soft: #11111c;
+  --stint-bg-card: #15152040;
+  --stint-border: #27273d;
+  --stint-text: #e4e4ff;
+  --stint-muted: #8b8ba8;
+  --stint-dim: #5a5a78;
+  --stint-accent: #818cf8;
+  --stint-accent-bright: #a5b4fc;
+  --stint-glow: rgba(99, 102, 241, 0.25);
+
+  --stint-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+:root[data-theme="light"] {
+  --sl-color-accent-low: #c7d2fe;
+  --sl-color-accent: #4f46e5;
+  --sl-color-accent-high: #312e81;
+
+  --stint-bg: #fafaff;
+  --stint-bg-soft: #f4f4fc;
+  --stint-bg-card: #ffffffcc;
+  --stint-border: #e6e6f0;
+  --stint-text: #1f1f33;
+  --stint-muted: #6b6b85;
+  --stint-dim: #9a9ab0;
+  --stint-accent: #4f46e5;
+  --stint-accent-bright: #6366f1;
+  --stint-glow: rgba(99, 102, 241, 0.18);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Landing-page layout overrides (only apply on splash template).
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Suppress Starlight's default hero block — we render our own below. */
+.hero[data-hero] {
+  display: none;
+}
+
+/* Constrain the splash content to a reasonable max-width and center it. */
+[data-page-template="splash"] .main-frame .main-pane > .content-panel {
+  padding-block: 0;
+}
+[data-page-template="splash"] .sl-markdown-content {
+  margin-top: 0;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Section primitives
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.section,
+.hero {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 5rem 1.5rem;
+}
+.hero {
+  padding-top: 4rem;
+  padding-bottom: 6rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4rem;
+  align-items: center;
+}
+.section-alt {
+  background:
+    radial-gradient(circle at 0% 0%, var(--stint-glow), transparent 40%),
+    radial-gradient(circle at 100% 100%, var(--stint-glow), transparent 40%),
+    var(--stint-bg-soft);
+  max-width: none;
+  padding-inline: 1.5rem;
+}
+.section-alt > * {
+  max-width: 1100px;
+  margin-inline: auto;
+}
+
+@media (max-width: 800px) {
+  .hero {
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+    padding-top: 2rem;
+  }
+  .section,
+  .hero {
+    padding-block: 3rem;
+  }
+}
+
+.section-title {
+  font-size: clamp(1.8rem, 3vw, 2.5rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0 0 1rem;
+  color: var(--stint-text);
+}
+.section-title em {
+  font-style: normal;
+  color: var(--stint-accent-bright);
+}
+.section-lede {
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: var(--stint-muted);
+  max-width: 60ch;
+  margin: 0 0 2.5rem;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Hero
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Brand mark — same gradient + white stint icon as the About page. */
+.stint-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #6366f1 0%, #7c3aed 100%);
+  box-shadow:
+    0 8px 24px rgba(99, 102, 241, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  flex-shrink: 0;
+}
+
+.hero-title {
+  font-size: clamp(2.3rem, 5vw, 3.6rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  margin: 0 0 1.25rem;
+  color: var(--stint-text);
+}
+
+/* Decorate Starlight's auto-injected page-title H1 with the gradient mark
+   on the splash template. Other templates render unchanged so docs pages
+   keep their plain title. */
+[data-has-hero] [data-page-title] {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.85rem;
+  font-size: 1.85rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--stint-text);
+}
+[data-has-hero] [data-page-title]::before {
+  content: "";
+  display: inline-block;
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  background: url("/stint-mark.svg") center/contain no-repeat;
+  filter: drop-shadow(0 8px 18px rgba(99, 102, 241, 0.35));
+}
+@media (max-width: 800px) {
+  [data-has-hero] [data-page-title] {
+    font-size: 1.5rem;
+    gap: 0.65rem;
+  }
+  [data-has-hero] [data-page-title]::before {
+    width: 44px;
+    height: 44px;
+  }
+}
+.hero-accent {
+  background: linear-gradient(135deg, var(--stint-accent), #c084fc);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.hero-sub {
+  font-size: 1.1rem;
+  line-height: 1.55;
+  color: var(--stint-muted);
+  margin: 0 0 1.75rem;
+  max-width: 32rem;
+}
+.hero-sub a {
+  color: var(--stint-accent-bright);
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+}
+.hero-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.7rem 1.25rem;
+  border-radius: 0.6rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-decoration: none;
+  transition: transform 80ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--stint-accent), #7c3aed);
+  color: white;
+  box-shadow: 0 4px 18px var(--stint-glow);
+}
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 22px var(--stint-glow);
+}
+.btn-ghost {
+  color: var(--stint-text);
+  border: 1px solid var(--stint-border);
+  background: transparent;
+}
+.btn-ghost:hover {
+  background: var(--stint-bg-card);
+  border-color: var(--stint-accent);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Terminal mock
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.terminal {
+  background: var(--stint-bg-soft);
+  border: 1px solid var(--stint-border);
+  border-radius: 0.85rem;
+  overflow: hidden;
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.25),
+    0 0 0 1px var(--stint-glow);
+  font-family: var(--stint-mono);
+}
+.terminal-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.85rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid var(--stint-border);
+}
+:root[data-theme="light"] .terminal-bar {
+  background: rgba(0, 0, 0, 0.03);
+}
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.dot-red    { background: #ff5f57; }
+.dot-yellow { background: #febc2e; }
+.dot-green  { background: #28c840; }
+.terminal-title {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--stint-dim);
+  font-family: var(--stint-mono);
+}
+.terminal-body {
+  margin: 0;
+  padding: 1.25rem 1.25rem 1.4rem;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--stint-text);
+  background: transparent;
+  overflow-x: auto;
+}
+.terminal-body code {
+  background: none;
+  padding: 0;
+  font-family: inherit;
+}
+.t-prompt { color: var(--stint-accent-bright); font-weight: 600; }
+.t-str    { color: #93c5fd; }
+.t-ok     { color: #34d399; font-weight: 600; }
+.t-mid    { color: #fbbf24; }
+.t-dim    { color: var(--stint-dim); }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Split (CLI vs Popover)
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+@media (max-width: 800px) {
+  .split {
+    grid-template-columns: 1fr;
+  }
+}
+.split-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.split-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--stint-muted);
+}
+.code-block {
+  background: var(--stint-bg-soft);
+  border: 1px solid var(--stint-border);
+  border-radius: 0.75rem;
+  padding: 1.1rem 1.2rem;
+  font-family: var(--stint-mono);
+  font-size: 0.85rem;
+  line-height: 1.6;
+  margin: 0;
+  overflow-x: auto;
+  color: var(--stint-text);
+}
+.code-block code {
+  background: none;
+  padding: 0;
+  font-family: inherit;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Popover mock
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.popover-mock {
+  background: var(--stint-bg-soft);
+  border: 1px solid var(--stint-border);
+  border-radius: 1rem;
+  padding: 1.25rem 1.3rem 0.4rem;
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.25),
+    0 0 0 1px var(--stint-glow);
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+.popover-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+.popover-eyebrow {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--stint-muted);
+}
+.popover-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #10b981;
+}
+.live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);
+  animation: live-ping 1.6s ease-in-out infinite;
+}
+@keyframes live-ping {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15); }
+  50%      { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.05); }
+}
+.popover-time {
+  font-family: var(--stint-mono);
+  font-size: 2.1rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--stint-text);
+  margin: 0.1rem 0 0.3rem;
+}
+.popover-desc {
+  font-size: 0.85rem;
+  color: var(--stint-muted);
+  margin-bottom: 1rem;
+}
+.popover-stop {
+  background: #ef4444;
+  color: white;
+  text-align: center;
+  padding: 0.6rem;
+  border-radius: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+.popover-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 0 0.4rem;
+  border-top: 1px solid var(--stint-border);
+  font-size: 0.7rem;
+  color: var(--stint-dim);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Feature grid
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+@media (max-width: 800px) {
+  .feature-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.feature {
+  background: var(--stint-bg-card);
+  border: 1px solid var(--stint-border);
+  border-radius: 0.9rem;
+  padding: 1.5rem 1.5rem 1.3rem;
+}
+.feature-icon {
+  font-size: 1.5rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.6rem;
+  background: linear-gradient(135deg, var(--stint-accent), #7c3aed);
+  color: white;
+  margin-bottom: 0.9rem;
+  font-weight: 700;
+}
+.feature-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0 0 0.4rem;
+  color: var(--stint-text);
+}
+.feature p {
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--stint-muted);
+  margin: 0;
+}
+.feature code {
+  font-family: var(--stint-mono);
+  font-size: 0.85em;
+  background: var(--stint-bg-soft);
+  padding: 0.05rem 0.35rem;
+  border-radius: 0.3rem;
+  color: var(--stint-accent-bright);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Anti-list ("what stint doesn't do")
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.anti-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+@media (max-width: 800px) {
+  .anti-list {
+    grid-template-columns: 1fr;
+  }
+}
+.anti-list li {
+  display: flex;
+  gap: 1rem;
+  padding: 1.1rem 1.25rem;
+  background: var(--stint-bg-card);
+  border: 1px solid var(--stint-border);
+  border-radius: 0.75rem;
+}
+.anti-mark {
+  font-size: 1.25rem;
+  line-height: 1.3;
+  filter: grayscale(0.3);
+}
+.anti-list strong {
+  display: block;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--stint-text);
+  margin-bottom: 0.25rem;
+}
+.anti-list p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--stint-muted);
+}
+.anti-list code {
+  font-family: var(--stint-mono);
+  font-size: 0.85em;
+  background: var(--stint-bg-soft);
+  padding: 0.05rem 0.35rem;
+  border-radius: 0.3rem;
+  color: var(--stint-accent-bright);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Install grid
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.install-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.25rem;
+}
+@media (max-width: 800px) {
+  .install-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.install-card {
+  background: var(--stint-bg-card);
+  border: 1px solid var(--stint-border);
+  border-radius: 0.85rem;
+  padding: 1.4rem 1.4rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.install-eyebrow {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--stint-accent-bright);
+}
+.install-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+  color: var(--stint-text);
+}
+.install-card .code-block {
+  margin: 0;
+  font-size: 0.82rem;
+}
+.install-prose {
+  font-size: 0.92rem;
+  color: var(--stint-muted);
+  margin: 0;
+  line-height: 1.55;
+}
+.install-prose a {
+  color: var(--stint-accent-bright);
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+}
+.install-prose code {
+  font-family: var(--stint-mono);
+  font-size: 0.85em;
+  background: var(--stint-bg-soft);
+  padding: 0.05rem 0.35rem;
+  border-radius: 0.3rem;
+  color: var(--stint-accent-bright);
+}
+.install-dmg-btn {
+  margin-top: auto;
+  align-self: flex-start;
+  font-size: 0.85rem;
+  padding: 0.5rem 0.95rem;
+}
+.install-tail {
+  margin-top: 2rem;
+  text-align: center;
+  font-size: 0.95rem;
+  color: var(--stint-muted);
+}
+.install-tail a {
+  color: var(--stint-accent-bright);
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Footer
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.landing-footer {
+  border-top: 1px solid var(--stint-border);
+  padding: 2.5rem 1.5rem;
+  font-size: 0.85rem;
+  color: var(--stint-muted);
+}
+.landing-footer-row {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+.landing-footer-brand {
+  display: inline-flex;
+  border-bottom: none !important;
+}
+.landing-footer-logo {
+  height: 64px;
+  width: auto;
+  opacity: 0.85;
+  transition: opacity 120ms ease;
+}
+.landing-footer-brand:hover .landing-footer-logo {
+  opacity: 1;
+}
+
+/* Theme-swappable Reyem Tech logos. Dark variant (white-on-transparent)
+   for the site's dark theme; light variant (dark-on-transparent) for
+   light. Both <img>s are emitted; CSS hides the wrong one per theme. */
+.rt-themed-logo { display: none; }
+:root[data-theme="dark"] .rt-themed-dark { display: inline-block; }
+:root[data-theme="light"] .rt-themed-light { display: inline-block; }
+.landing-footer-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+  text-align: right;
+}
+.landing-footer a {
+  color: var(--stint-text);
+  text-decoration: none;
+  border-bottom: 1px solid var(--stint-border);
+}
+.landing-footer a:hover {
+  border-bottom-color: var(--stint-accent);
+  color: var(--stint-accent-bright);
+}
+.landing-footer-links .sep {
+  margin: 0 0.4rem;
+  color: var(--stint-dim);
+}
+@media (max-width: 600px) {
+  .landing-footer-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .landing-footer-meta {
+    align-items: flex-start;
+    text-align: left;
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Inline panel mocks — CSS approximations of the in-app Settings panels.
+   Used in setup / troubleshooting docs to show roughly what users will see
+   without managing real screenshots. Mimics the in-app Tailwind styling
+   (rounded card, subtle border, slate-zinc palette).
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.panel-mock {
+  background: var(--stint-bg-card);
+  border: 1px solid var(--stint-border);
+  border-radius: 0.85rem;
+  padding: 1.1rem 1.25rem;
+  margin: 1.5rem 0;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.85rem;
+  color: var(--stint-text);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.pm-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.85rem;
+}
+.pm-eyebrow {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--stint-muted);
+}
+.pm-status {
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+.pm-status-ok {
+  color: #10b981;
+}
+
+.pm-row {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 0.6rem;
+}
+.pm-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--stint-muted);
+}
+.pm-input,
+.pm-select {
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--stint-border);
+  border-radius: 0.4rem;
+  font-size: 0.82rem;
+  color: var(--stint-text);
+  background: var(--stint-bg-soft);
+}
+.pm-select {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.pm-chevron {
+  color: var(--stint-muted);
+  font-size: 0.7rem;
+}
+
+.pm-radio-group {
+  display: inline-flex;
+  gap: 0.85rem;
+  font-size: 0.82rem;
+}
+.pm-radio {
+  color: var(--stint-muted);
+}
+.pm-radio-selected {
+  color: var(--stint-accent-bright);
+  font-weight: 600;
+}
+
+.pm-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--stint-border);
+}
+.pm-actions-top {
+  margin-top: 0.85rem;
+}
+.pm-meta {
+  font-size: 0.72rem;
+  color: var(--stint-muted);
+  margin-left: 0.5rem;
+}
+
+.pm-btn {
+  padding: 0.38rem 0.85rem;
+  border-radius: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: default;
+}
+.pm-btn-primary {
+  background: var(--stint-accent);
+  color: white;
+}
+.pm-btn-secondary {
+  background: var(--stint-bg-soft);
+  border-color: var(--stint-border);
+  color: var(--stint-text);
+}
+.pm-btn-ghost {
+  background: transparent;
+  color: var(--stint-muted);
+  font-weight: 500;
+  font-size: 0.72rem;
+  padding: 0.2rem 0.45rem;
+}
+
+/* Calendar mock specifics. */
+.pm-account {
+  border: 1px solid var(--stint-border);
+  border-radius: 0.55rem;
+  padding: 0.75rem 0.85rem;
+  background: rgba(255, 255, 255, 0.02);
+}
+:root[data-theme="light"] .pm-account {
+  background: rgba(0, 0, 0, 0.015);
+}
+.pm-account-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+.pm-account-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.pm-account-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--stint-accent);
+  display: inline-block;
+}
+.pm-cal-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 0.8rem;
+}
+.pm-cal-list li {
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.25rem 0;
+}
+.pm-check {
+  font-size: 0.95rem;
+  color: var(--stint-muted);
+}
+.pm-check-on {
+  color: var(--stint-accent-bright);
+}
+.pm-cal-name {
+  color: var(--stint-text);
+}
+.pm-cal-name-dim {
+  color: var(--stint-muted);
+}
+.pm-cal-default {
+  font-size: 0.7rem;
+  color: var(--stint-muted);
+}
+
+/* Updates mock specifics. */
+.pm-update-card {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 0.55rem;
+  padding: 0.85rem 0.95rem;
+  margin: 0.85rem 0 0;
+}
+.pm-update-title {
+  margin: 0 0 0.25rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #10b981;
+}
+.pm-update-notes {
+  margin: 0 0 0.7rem;
+  font-size: 0.78rem;
+  color: var(--stint-muted);
+}
+.pm-update-notes-ok {
+  color: #059669;
+}
+:root[data-theme="dark"] .pm-update-notes-ok {
+  color: #34d399;
+}
+.pm-link {
+  color: var(--stint-accent-bright);
+  text-decoration: underline;
+  text-decoration-color: var(--stint-border);
+}
+.pm-update-current {
+  margin: 0.85rem 0 0;
+  font-size: 0.78rem;
+  color: var(--stint-muted);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   License-page Reyem Tech card
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.rt-card {
+  background: var(--stint-bg-card);
+  border: 1px solid var(--stint-border);
+  border-radius: 1rem;
+  padding: 2rem 1.75rem;
+  margin: 1.5rem 0;
+  text-align: center;
+}
+.rt-logo-link {
+  display: inline-block;
+  border-bottom: none !important;
+}
+.rt-logo {
+  height: 64px;
+  width: auto;
+  margin-bottom: 0.5rem;
+}
+.rt-blurb {
+  max-width: 36rem;
+  margin: 0.75rem auto 1.25rem;
+  color: var(--stint-muted);
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+.rt-links {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--stint-muted);
+}
+.rt-links a {
+  color: var(--stint-accent-bright);
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+}
+.rt-sep {
+  margin: 0 0.5rem;
+  color: var(--stint-dim);
+}

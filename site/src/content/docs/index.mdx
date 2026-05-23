@@ -1,0 +1,186 @@
+---
+title: stint
+description: A macOS time tracker that syncs with self-hosted Solidtime. Menu bar, main window, and CLI sharing one local database.
+template: splash
+editUrl: false
+lastUpdated: false
+prev: false
+next: false
+hero:
+  tagline: " "
+---
+
+import TerminalHero from "../../components/TerminalHero.astro";
+import CliExample from "../../components/CliExample.astro";
+import PopoverMock from "../../components/PopoverMock.astro";
+import InstallBlock from "../../components/InstallBlock.astro";
+import LatestDmgButton from "../../components/LatestDmgButton.astro";
+
+<section class="hero">
+  <div class="hero-text">
+    <h1 class="hero-title">
+      Track time without leaving<br/>
+      <span class="hero-accent">the menu bar.</span>
+    </h1>
+    <p class="hero-sub">
+      A macOS time tracker that syncs with self-hosted <a href="https://www.solidtime.io">Solidtime</a>.
+      Menu bar, main window, and CLI sharing one local SQLite database.
+    </p>
+    <div class="hero-actions">
+      <LatestDmgButton variant="primary" label="Download" />
+      <a class="btn btn-ghost" href="https://github.com/reyemtech/stint">View on GitHub →</a>
+      <a class="btn btn-ghost" href="/install/">All install methods →</a>
+    </div>
+  </div>
+
+  <TerminalHero />
+</section>
+
+<section class="section">
+  <h2 class="section-title">Two surfaces, one truth.</h2>
+  <p class="section-lede">
+    Start a timer in the terminal — see it running in the menu bar. Edit
+    an entry in the GUI — the CLI sees the change the next time you ask.
+    They share the same SQLite file. There is no second source of truth
+    to keep in sync.
+  </p>
+
+  <div class="split">
+    <div class="split-pane">
+      <div class="split-label">CLI</div>
+      <CliExample />
+    </div>
+    <div class="split-pane">
+      <div class="split-label">Menu bar popover</div>
+      <PopoverMock />
+    </div>
+  </div>
+</section>
+
+<section class="section section-alt">
+  <h2 class="section-title">Built around how you already work.</h2>
+
+  <div class="feature-grid">
+    <div class="feature">
+      <div class="feature-icon">⌘</div>
+      <h3 class="feature-title">Keyboard-first GUI</h3>
+      <p>Menu bar popover for a fast start-stop loop. ⌘1 / ⌘2 / ⌘3 to switch routes. Esc to dismiss. No dock icon clutter.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">⎘</div>
+      <h3 class="feature-title">CLI in your terminal</h3>
+      <p>The same Rust binary that lives inside the .app also ships as a standalone CLI. <code>stint start "thing"</code> from anywhere you can type.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">↻</div>
+      <h3 class="feature-title">Local-first sync</h3>
+      <p>Every mutation persists to SQLite immediately. A background worker drains the queue to Solidtime with exponential backoff. Offline-safe by construction.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">📅</div>
+      <h3 class="feature-title">Calendar one-click logging</h3>
+      <p>Connect a Google Calendar. Click a past meeting to log it as a time entry with title, project, and time range pre-filled.</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h2 class="section-title">What stint <em>doesn't</em> do.</h2>
+  <p class="section-lede">
+    The shape of a product is also defined by what's left out.
+  </p>
+
+  <ul class="anti-list">
+    <li>
+      <span class="anti-mark">⛔</span>
+      <div>
+        <strong>No account.</strong>
+        <p>Solidtime is the account. stint is a client.</p>
+      </div>
+    </li>
+    <li>
+      <span class="anti-mark">⛔</span>
+      <div>
+        <strong>No telemetry.</strong>
+        <p>Outbound traffic goes to your Solidtime instance, your calendar provider (if connected), and an update manifest on <code>github.com</code> once every 24h. No analytics. No crash reports. No "anonymous usage data."</p>
+      </div>
+    </li>
+    <li>
+      <span class="anti-mark">⛔</span>
+      <div>
+        <strong>No paywall.</strong>
+        <p>MIT-licensed. Free forever. Fork it and ship your own version if you want — that's the point of MIT.</p>
+      </div>
+    </li>
+    <li>
+      <span class="anti-mark">⛔</span>
+      <div>
+        <strong>No browser tab.</strong>
+        <p>If you want to type into a web app, use Solidtime's web app. stint is for the moments between web apps.</p>
+      </div>
+    </li>
+  </ul>
+</section>
+
+<section class="section section-alt">
+  <h2 class="section-title">Install</h2>
+  <p class="section-lede">
+    Four channels, same signed and notarized artifacts. Requires macOS 13+.
+  </p>
+
+  <div class="install-grid">
+    <div class="install-card">
+      <div class="install-eyebrow">Recommended</div>
+      <h3 class="install-title">Homebrew</h3>
+      <InstallBlock brew />
+    </div>
+
+    <div class="install-card">
+      <div class="install-eyebrow">No package manager</div>
+      <h3 class="install-title">curl | sh (CLI + GUI)</h3>
+      <InstallBlock gui />
+    </div>
+
+    <div class="install-card">
+      <div class="install-eyebrow">CLI only</div>
+      <h3 class="install-title">curl | sh</h3>
+      <InstallBlock cli />
+    </div>
+
+    <div class="install-card">
+      <div class="install-eyebrow">Direct</div>
+      <h3 class="install-title">DMG</h3>
+      <p class="install-prose">
+        Drag <code>Stint.app</code> to <code>/Applications</code>.
+      </p>
+      <LatestDmgButton variant="primary" class="install-dmg-btn" />
+    </div>
+  </div>
+
+  <div class="install-tail">
+    Already installed? <a href="/getting-started/quickstart/">Quickstart</a> · <a href="/getting-started/solidtime/">Connect to Solidtime</a>
+  </div>
+</section>
+
+<footer class="landing-footer">
+  <div class="landing-footer-row">
+    <a href="https://www.reyem.tech" class="landing-footer-brand">
+      <img src="/reyemtech-logo-dark.webp" alt="Reyem Tech" class="rt-themed-logo rt-themed-dark landing-footer-logo" />
+      <img src="/reyemtech-logo-light.webp" alt="Reyem Tech" class="rt-themed-logo rt-themed-light landing-footer-logo" />
+    </a>
+    <div class="landing-footer-meta">
+      <span>
+        <a href="/help/privacy/">Privacy</a>
+        <span class="sep">·</span>
+        <a href="/help/license/">License & terms</a>
+      </span>
+      <span class="landing-footer-links">
+        <a href="https://github.com/reyemtech/stint">GitHub</a>
+        <span class="sep">·</span>
+        <a href="https://github.com/reyemtech/stint/issues">Issues</a>
+        <span class="sep">·</span>
+        <a href="/install/">Docs</a>
+      </span>
+    </div>
+  </div>
+</footer>

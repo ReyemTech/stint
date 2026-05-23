@@ -1,0 +1,147 @@
+---
+title: Privacy
+description: What stint does and doesn't do with your data — every outbound network call, every local file, every third party.
+---
+
+stint is a desktop app that runs entirely on your Mac. We don't have a
+server. We don't have analytics. We don't have an account system. The
+"we" in this document is Reyem Tech, the maintainer of stint — and there
+isn't much for us to say about your data because we don't see it.
+
+This page is the formal version of the **"What stint doesn't do"** claim
+on the landing page. Last updated 2026-05-23.
+
+## What stint collects about you
+
+**Nothing.**
+
+- No telemetry — no usage data, no feature analytics, no session tracking.
+- No crash reporting — if stint crashes, the macOS crash report stays on
+  your machine. You can attach it to a GitHub issue voluntarily.
+- No accounts — stint doesn't have a sign-up. The only identity it knows
+  about is the one you have with your Solidtime instance.
+- No background phone-home — no daily check-ins to a Reyem Tech server.
+  Reyem Tech runs no servers that stint talks to.
+
+## What outbound network requests stint makes
+
+stint makes exactly **three categories** of outbound requests, all triggered
+by your explicit action or configuration:
+
+### 1. Your Solidtime instance
+
+The Solidtime URL you configure under **Settings → Solidtime** receives:
+
+- Time-entry writes (start, stop, edit, delete)
+- Periodic pulls every 5 minutes to sync state from other devices
+- Project / organization / membership reads (to populate dropdowns)
+
+Reyem Tech never sees this traffic — it goes directly from your machine to
+your Solidtime instance over HTTPS. The Personal Access Token or OAuth
+tokens authenticating the calls are stored in your macOS Keychain; never
+on disk in plaintext, never on a Reyem Tech server.
+
+### 2. Your calendar provider (only if you connect one)
+
+If you add a Google Calendar account under **Settings → Calendar**, stint
+makes requests to `googleapis.com` to:
+
+- Complete the OAuth flow on first add
+- List calendars under the account
+- Refresh events every 15 minutes (only for calendars you've toggled on)
+- Refresh OAuth tokens when they expire
+
+These requests go directly to Google. Tokens are stored in the macOS
+Keychain, one entry per account. Removing the account from stint deletes
+both the database row and the Keychain entry.
+
+If you never add a calendar, no requests are ever made to Google.
+
+### 3. The auto-update manifest on GitHub
+
+Once every 24 hours (and on demand via **Settings → Updates → Check
+now**), stint fetches a static JSON file from:
+
+```
+https://github.com/reyemtech/stint/releases/latest/download/latest.json
+```
+
+This file lives in our GitHub repository's releases. It tells stint
+whether a newer version is available and where to download it. The
+request is anonymous from stint's side — no user identifier, no version
+info beyond the standard `User-Agent` header.
+
+If you install an update, stint downloads the new bundle from GitHub
+(same `github.com/reyemtech/stint/releases/...` URL space), verifies its
+cryptographic signature against the bundled public key, and replaces the
+on-disk app. GitHub sees the download as one of many anonymous fetches.
+
+You can disable the periodic check entirely under
+**Settings → Updates**.
+
+## What stint stores on your Mac
+
+All persistence is local. Nothing is uploaded to a Reyem Tech server
+because there is no Reyem Tech server.
+
+| Where | What |
+|---|---|
+| `~/Library/Application Support/stint/stint.db` | SQLite database — time entries, projects, calendar accounts, sync queue, settings |
+| macOS Keychain — service `tech.reyem.stint.*` | Solidtime PAT/OAuth tokens; calendar OAuth tokens (one entry per account) |
+| `~/Library/Logs/tech.reyem.stint/stint.log.<date>` | Application logs, daily rotation, 14-file cap. Local only — never sent anywhere. |
+| `~/Library/Caches/tech.reyem.stint/` | WebKit cache (the GUI uses an embedded WebView) |
+
+To wipe everything stint stored locally:
+
+```bash
+rm -rf ~/Library/Application\ Support/stint
+rm -rf ~/Library/Logs/tech.reyem.stint
+rm -rf ~/Library/Caches/tech.reyem.stint
+security delete-generic-password -s tech.reyem.stint.solidtime.token
+security delete-generic-password -s tech.reyem.stint.solidtime.oauth
+# Each connected calendar account also has its own entry:
+security find-generic-password -s tech.reyem.stint.calendar
+```
+
+## Third parties
+
+The only third-party services stint can interact with are services **you
+chose to connect**:
+
+- **Solidtime** — your own instance. Their privacy policy applies to the
+  data Solidtime stores about your time entries.
+- **Google** — only if you add a Google Calendar account. Google's
+  privacy policy applies to the calendar data Google stores.
+- **GitHub** — for downloading updates. GitHub's privacy policy applies
+  to the anonymous fetch logs they keep.
+
+Reyem Tech has no contractual relationship with you regarding the data
+these third parties hold. We can't request, modify, or delete data on
+your behalf at any of them.
+
+## Children's privacy
+
+stint is a productivity tool aimed at working adults. We make no special
+provision for children's data because we collect no data from anyone —
+the same nothing applies regardless of age.
+
+## Changes to this page
+
+This page is versioned in our Git repository. You can see every change
+via the file's history:
+
+[`site/src/content/docs/help/privacy.mdx` on GitHub →](https://github.com/reyemtech/stint/commits/main/site/src/content/docs/help/privacy.mdx)
+
+If we ever introduce telemetry, analytics, or any other form of data
+collection (we don't plan to), this page will be updated and the change
+will appear in that history. Auto-update users running an older version
+won't lose visibility into what changed — `git log` is the source of
+truth.
+
+## Questions
+
+The fastest path is filing an issue on the GitHub repo:
+[github.com/reyemtech/stint/issues](https://github.com/reyemtech/stint/issues).
+
+For anything that shouldn't be public, contact via
+[reyem.tech](https://www.reyem.tech).

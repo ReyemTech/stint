@@ -3,6 +3,8 @@
 Time tracker with both a CLI (`stint`) and a macOS menu-bar app (`Stint.app`)
 that sync with a self-hosted Solidtime instance.
 
+**Docs:** [stint.reyem.tech](https://stint.reyem.tech) — install, quickstart, setup, CLI reference, troubleshooting.
+
 ## Status
 
 - **Phase 1** ✅ — CLI + sync + crash recovery (`phase-1-complete` tag)
