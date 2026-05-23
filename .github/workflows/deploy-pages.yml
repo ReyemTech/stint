@@ -4,6 +4,7 @@ name: Deploy Pages
 on:
   push:
     branches: [docs-pages]
+  workflow_dispatch:
 
 permissions:
   contents: read
