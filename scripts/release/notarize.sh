@@ -6,16 +6,30 @@
 #
 # Usage: notarize.sh <signed-artifact.{app,dmg}>
 #
-# Required env: APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID
+# Required env:
+#   APP_STORE_CONNECT_KEY_ID       — 10-char alphanumeric key ID
+#   APP_STORE_CONNECT_ISSUER_ID    — UUID of the App Store Connect team
+#   APP_STORE_CONNECT_PRIVATE_KEY  — base64-encoded contents of the .p8 file
+#
+# Authenticates via App Store Connect API key (rather than the legacy
+# app-specific-password mode) so credentials can be rotated without humans
+# generating new passwords at appleid.apple.com.
 
 set -euo pipefail
 
 readonly ARTIFACT="${1:?signed artifact path required}"
 readonly MAX_ATTEMPTS=3
 
-: "${APPLE_ID:?must be set}"
-: "${APPLE_PASSWORD:?must be set}"
-: "${APPLE_TEAM_ID:?must be set}"
+: "${APP_STORE_CONNECT_KEY_ID:?must be set}"
+: "${APP_STORE_CONNECT_ISSUER_ID:?must be set}"
+: "${APP_STORE_CONNECT_PRIVATE_KEY:?must be set}"
+
+# Materialize the .p8 to a temp file — notarytool only accepts a path, not a
+# string. Clean up on any exit.
+KEY_FILE="$(mktemp -t notary-key.XXXXXX.p8)"
+chmod 600 "$KEY_FILE"
+echo "$APP_STORE_CONNECT_PRIVATE_KEY" | base64 -d > "$KEY_FILE"
+trap 'rm -f "$KEY_FILE"' EXIT
 
 # notarytool wants a zip for .app submissions.
 SUBMIT_PATH="$ARTIFACT"
@@ -30,9 +44,9 @@ for attempt in $(seq 1 $MAX_ATTEMPTS); do
   echo "→ notarize attempt $attempt/$MAX_ATTEMPTS"
   set +e
   output=$(xcrun notarytool submit "$SUBMIT_PATH" \
-    --apple-id "$APPLE_ID" \
-    --password "$APPLE_PASSWORD" \
-    --team-id "$APPLE_TEAM_ID" \
+    --key "$KEY_FILE" \
+    --key-id "$APP_STORE_CONNECT_KEY_ID" \
+    --issuer "$APP_STORE_CONNECT_ISSUER_ID" \
     --wait \
     --output-format json 2>&1)
   rc=$?
@@ -68,7 +82,9 @@ PY
     echo "error: notarization status: $status" >&2
     if [[ -n "$submission_id" ]]; then
       xcrun notarytool log "$submission_id" \
-        --apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID"
+        --key "$KEY_FILE" \
+        --key-id "$APP_STORE_CONNECT_KEY_ID" \
+        --issuer "$APP_STORE_CONNECT_ISSUER_ID"
     fi
     exit 1
   fi
