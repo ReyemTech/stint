@@ -1,3 +1,10 @@
+## [0.1.4](https://github.com/ReyemTech/stint/compare/v0.1.3...v0.1.4) (2026-05-23)
+
+### Bug Fixes
+
+* **release-revert:** self-healing manifest backup so restore actually works ([9dcce93](https://github.com/ReyemTech/stint/commit/9dcce93af3cccd2eb07b64670b8a4aa8dc465ff2))
+* **release:** broaden tap-PR auto-merge fallback + clean stale PRs ([348fe17](https://github.com/ReyemTech/stint/commit/348fe1726943c7f80536322bdc03e5d4be6e9db0)), closes [#15](https://github.com/ReyemTech/stint/issues/15) [#6](https://github.com/ReyemTech/stint/issues/6)
+
 ## [0.1.3](https://github.com/ReyemTech/stint/compare/v0.1.2...v0.1.3) (2026-05-22)
 
 ### Bug Fixes
