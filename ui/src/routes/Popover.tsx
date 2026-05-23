@@ -1,6 +1,6 @@
 import { For, Show, createResource, createSignal, onCleanup } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { emit, listen } from "@tauri-apps/api/event";
 import { api } from "~/api";
 import Duration from "~/components/Duration";
 import StartAtPicker, { type StartAtValue } from "~/components/StartAtPicker";
@@ -11,6 +11,7 @@ import StatusDot from "~/components/ui/StatusDot";
 import Toggle from "~/components/ui/Toggle";
 import { sumCompletedEntrySeconds } from "~/lib/entryFormat";
 import { openSolidtime } from "~/lib/openSolidtime";
+import { useUpdateBanner } from "~/lib/updateBanner";
 import { useTimerStore } from "~/stores/timer";
 
 export default function Popover() {
@@ -33,9 +34,15 @@ export default function Popover() {
 
   const totalSeconds = () =>
     timer.elapsedSecs() + sumCompletedEntrySeconds(entries() ?? []);
+  const updateInfo = useUpdateBanner();
 
   async function openMain() {
     await invoke("show_main_window");
+  }
+
+  async function openSettings() {
+    await invoke("show_main_window");
+    await emit("navigate", "/settings");
   }
 
   return (
@@ -163,12 +170,39 @@ export default function Popover() {
           </Show>
         </div>
 
+        <Show when={updateInfo()?.available}>
+          <button
+            class="border-t border-emerald-200 bg-emerald-50 px-5 py-1.5 text-center text-[11px] text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
+            onClick={openSettings}
+          >
+            Update available: v{updateInfo()!.latest_version} → open Settings
+          </button>
+        </Show>
         <footer class="flex items-center justify-between border-t border-black/[0.05] px-5 py-2.5 text-[11px] dark:border-white/[0.04]">
           <button
             class="text-zinc-500 transition hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
             onClick={openMain}
           >
             Open Stint →
+          </button>
+          <button
+            class="text-zinc-500 transition hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+            onClick={openSettings}
+            aria-label="Settings"
+            title="Settings"
+          >
+            <svg
+              class="h-3.5 w-3.5"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M8.34 1.804A1 1 0 0 1 9.32 1h1.36a1 1 0 0 1 .98.804l.295 1.473c.497.144.965.347 1.396.6l1.25-.834a1 1 0 0 1 1.262.125l.962.962a1 1 0 0 1 .125 1.262l-.834 1.25c.253.431.456.899.6 1.396l1.473.294a1 1 0 0 1 .804.98v1.361a1 1 0 0 1-.804.98l-1.473.295a6.95 6.95 0 0 1-.6 1.396l.834 1.25a1 1 0 0 1-.125 1.262l-.962.962a1 1 0 0 1-1.262.125l-1.25-.834a6.95 6.95 0 0 1-1.396.6l-.294 1.473a1 1 0 0 1-.98.804H9.32a1 1 0 0 1-.98-.804l-.295-1.473a6.95 6.95 0 0 1-1.396-.6l-1.25.834a1 1 0 0 1-1.262-.125l-.962-.962a1 1 0 0 1-.125-1.262l.834-1.25a6.95 6.95 0 0 1-.6-1.396l-1.473-.294A1 1 0 0 1 1 10.68V9.32a1 1 0 0 1 .804-.98l1.473-.295c.144-.497.347-.965.6-1.396l-.834-1.25a1 1 0 0 1 .125-1.262l.962-.962a1 1 0 0 1 1.262-.125l1.25.834a6.95 6.95 0 0 1 1.396-.6l.294-1.473ZM10 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"
+                clip-rule="evenodd"
+              />
+            </svg>
           </button>
           <button
             class="text-zinc-500 transition hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
