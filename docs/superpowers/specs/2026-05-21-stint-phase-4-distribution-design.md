@@ -129,16 +129,25 @@ The Tauri updater key is **never rotated** unless compromise is suspected. Rotat
 APPLE_CERTIFICATE
 APPLE_CERTIFICATE_PASSWORD
 APPLE_SIGNING_IDENTITY            # "Developer ID Application: Mario Meyer (TEAMID)"
-APPLE_ID
-APPLE_PASSWORD
-APPLE_TEAM_ID
+APP_STORE_CONNECT_KEY_ID          # 10-char alphanumeric, from App Store Connect API keys page
+APP_STORE_CONNECT_ISSUER_ID       # UUID, same value for every key under the team
+APP_STORE_CONNECT_PRIVATE_KEY     # base64 of the .p8 file
 KEYCHAIN_PASSWORD                 # arbitrary; for ephemeral keychain unlock
 TAURI_SIGNING_PRIVATE_KEY
 TAURI_SIGNING_PRIVATE_KEY_PASSWORD
 HOMEBREW_TAP_TOKEN                # fine-grained PAT, scoped read+write to reyemtech/homebrew-tap only
+RELEASE_TOKEN                     # fine-grained PAT for semrelease push-back to main (bypass actor required)
 STINT_GOOGLE_CLIENT_ID            # reuses the same client as dev .env.local (deliberate; see §11)
 STINT_GOOGLE_CLIENT_SECRET
 ```
+
+`xcrun notarytool` is authenticated via App Store Connect API key (the
+`--key`/`--key-id`/`--issuer` flags) rather than the legacy
+`--apple-id`/`--password`/`--team-id` form. The API key is generated once
+via the App Store Connect web UI; subsequent rotations are fully scripted
+via `rotate-key.sh app-store-connect-key`. App-specific passwords (which
+expire annually and can only be regenerated via Apple's web UI) are no
+longer in the pipeline.
 
 ### Ephemeral keychain in CI
 
@@ -169,30 +178,59 @@ The three `cs.*` entitlements are required by WebView2/wry under hardened runtim
 
 ### Bootstrap script
 
-Setting up twelve secrets by hand is error-prone — the most likely first-release failure mode is "I typo'd a base64-encoded cert." Phase 4 includes `scripts/release/bootstrap-secrets.sh`, an interactive walkthrough that:
+Setting up the secret inventory by hand is error-prone — the most likely
+first-release failure mode is "I typo'd a base64-encoded cert." Phase 4
+includes `scripts/release/bootstrap-secrets.sh`, an interactive walkthrough
+that:
 
 1. Verifies `gh` CLI is authenticated and has write access to the repo.
-2. Generates the Tauri updater key pair via `tauri signer generate` (interactive prompt for passphrase), prints the public key for manual paste into `tauri.conf.json`, and pushes the private key + passphrase to GitHub secrets.
-3. For each Apple secret, walks the user through the manual step (e.g., "open Keychain Access, find your Developer ID Application cert, export as .p12"), waits for the resulting file, base64-encodes, and pushes to GitHub.
-4. Detects existing secrets and prompts before overwriting (idempotent re-runs are safe).
+2. Generates the Tauri updater key pair via `tauri signer generate`
+   (interactive passphrase prompt), substitutes the new public key into
+   `tauri.conf.json`, and pushes the private key + passphrase to GitHub.
+3. For each Apple secret, walks the user through the manual step (Keychain
+   Access export, App Store Connect API key download), waits for the
+   resulting file, base64-encodes, and pushes to GitHub.
+4. Detects existing secrets and prompts before overwriting (idempotent
+   re-runs are safe).
 5. Verifies each secret was set successfully via `gh secret list`.
-6. Prints a final checklist of manual one-time steps that can't be scripted (DNS record for `stint.reyem.tech`, creating the empty `reyemtech/homebrew-tap` repo, registering Apple Notary credentials at appleid.apple.com).
+6. Prints a final checklist of one-time manual steps that can't be
+   scripted (DNS record for `stint.reyem.tech`, creating the empty
+   `reyemtech/homebrew-tap` repo).
 
-Not scripted because they're too security-sensitive to automate:
+Not scripted because they're too security-sensitive to automate or have no
+API:
 
-- Generating the Apple Developer ID Application cert (must happen in Xcode → Settings → Accounts → Manage Certificates with explicit user action).
-- Creating the app-specific password at appleid.apple.com (Apple does not expose an API for this).
-- Reviewing the public key against the committed `tauri.conf.json` before merging the first release.
+- Generating the Apple Developer ID Application cert (Xcode → Settings →
+  Accounts → Manage Certificates with explicit user action).
+- Creating the App Store Connect API key (Apple gates key creation behind
+  the App Store Connect web UI; no API exists). The script does handle
+  uploading the resulting `.p8`.
+- Reviewing the new Tauri public key against the committed
+  `tauri.conf.json` before merging the first release.
 
-The script is run once per maintainer setup, not per release. It's also the recovery tool when rotating any of the credentials (re-run with the specific secret name as an arg: `./bootstrap-secrets.sh APPLE_PASSWORD`).
+The script runs once per maintainer setup. For ongoing rotation, use
+`rotate-key.sh` (see "Key rotation runbook" below), which wraps
+`bootstrap-secrets.sh` with guided pre-rotation walkthroughs and
+post-rotation verification.
 
 ### Key rotation runbook
 
-Lives at `docs/runbooks/release-key-rotation.md`. Covers:
+Lives at `docs/runbooks/release-key-rotation.md`. Each rotation is driven by
+`scripts/release/rotate-key.sh <subcommand>`, which walks unavoidable
+manual steps with explicit checkpoints, delegates upload to
+`bootstrap-secrets.sh`, and verifies the secret's `updatedAt` timestamp
+changed.
 
-- **`APPLE_PASSWORD` (annual)** — generate new app-specific password at appleid.apple.com, swap secret.
-- **`APPLE_CERTIFICATE` (annual)** — generate new Developer ID cert in Xcode → Keychain Access, export as `.p12`, base64-encode, swap secret + `APPLE_SIGNING_IDENTITY`.
-- **`TAURI_SIGNING_PRIVATE_KEY` (only if compromised)** — generate new key, ship a brew-only release telling users to reinstall manually, then rotate. Public key in `tauri.conf.json` changes; existing installs lose auto-update until manual reinstall.
+- **App Store Connect API key (`app-store-connect-key`)** — rotates the
+  three `APP_STORE_CONNECT_*` secrets. Creating the key is web-UI-only
+  (Apple exposes no API for that); everything else is scripted.
+- **Apple cert (`apple-cert`)** — rotates the three Apple cert secrets.
+  Cert generation happens in Xcode → Keychain Access; export + upload +
+  verify are scripted.
+- **Tauri key (`tauri-key`)** — rotates the updater signing key. Requires
+  a literal "I understand auto-update will break" confirmation. Generates
+  the new keypair, patches `tauri.conf.json`, uploads the secret. Existing
+  installs lose auto-update until manual reinstall.
 
 ## 5. Homebrew cask + tap repo
 
@@ -608,8 +646,9 @@ pnpm-lock.yaml                            # already exists at root; semrelease d
 .releaserc.json                           # semantic-release config
 scripts/release/
   bootstrap-secrets.sh                    # interactive walkthrough for §4 secret setup
+  rotate-key.sh                           # guided rotation wrapper around bootstrap-secrets.sh
   bump-versions.sh
-  notarize.sh
+  notarize.sh                             # App Store Connect API key auth
   generate-latest-json.sh
   render-install-script.sh
   update-cask.sh
