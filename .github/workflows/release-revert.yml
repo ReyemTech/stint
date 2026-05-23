@@ -1,10 +1,30 @@
 name: Release revert
 
+# Dual-mode rollback workflow.
+#
+# REVERT mode (input version != current latest release's version):
+#   Replaces the latest release's `latest.json` with v$VERSION's manifest, so
+#   auto-update users on older versions skip past the broken latest. Before
+#   overwriting, the current `latest.json` is saved as `latest.json.original`
+#   on the same release (only on the first revert — subsequent reverts away
+#   from the same release leave the true original alone). Release notes are
+#   backed up the same way to `release-body.original.md`.
+#
+# RESTORE mode (input version == current latest release's version):
+#   Reads `latest.json.original` and `release-body.original.md` from the
+#   latest release and writes them back as the canonical assets, then deletes
+#   both backup siblings. Errors if the originals don't exist (which means
+#   the release has never been reverted away from — nothing to restore).
+#
+# Source-of-truth lookup for v$VERSION's manifest: prefer
+# `latest.json.original` if present, fall back to `latest.json`. This makes
+# the workflow correctly chain through multiple reverts.
+
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Last-known-good version (e.g., 0.1.5). The latest Release's latest.json will be replaced with this version's manifest."
+        description: "Target version (e.g., 0.1.5). If this matches the current latest release, restores its original manifest. Otherwise reverts the latest release's latest.json to v$VERSION's manifest."
         required: true
 
 permissions:
@@ -16,43 +36,129 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download good latest.json
+      - name: Resolve mode + latest release
+        id: mode
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ inputs.version }}
-        run: |
-          set -euo pipefail
-          mkdir -p /tmp/revert
-          gh release download "v${VERSION}" \
-            -p latest.json -D /tmp/revert
-          [[ -s /tmp/revert/latest.json ]] || { echo "error: latest.json empty/missing"; exit 1; }
-
-      - name: Replace asset on releases/latest
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ inputs.version }}
+          TARGET: ${{ inputs.version }}
         run: |
           set -euo pipefail
           LATEST_TAG=$(gh release list --limit 50 --json tagName,isPrerelease \
             -q 'map(select(.isPrerelease|not)) | .[0].tagName')
           [[ -n "$LATEST_TAG" ]] || { echo "error: no stable release found"; exit 1; }
-          echo "Replacing latest.json on $LATEST_TAG with v${VERSION}'s manifest"
-          gh release upload "$LATEST_TAG" /tmp/revert/latest.json --clobber
+          LATEST_VERSION="${LATEST_TAG#v}"
+          echo "latest_tag=$LATEST_TAG" >> "$GITHUB_OUTPUT"
+          if [[ "$TARGET" == "$LATEST_VERSION" ]]; then
+            echo "kind=restore" >> "$GITHUB_OUTPUT"
+            echo "MODE: RESTORE $LATEST_TAG to its saved original manifest"
+          else
+            echo "kind=revert" >> "$GITHUB_OUTPUT"
+            echo "MODE: REVERT $LATEST_TAG's latest.json to v$TARGET's manifest"
+          fi
 
-      - name: Annotate bad release
+      # ───────────────────────────── REVERT path ──────────────────────────
+
+      - name: Fetch v${{ inputs.version }} canonical manifest
+        if: steps.mode.outputs.kind == 'revert'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          LATEST_TAG=$(gh release list --limit 50 --json tagName,isPrerelease \
-            -q 'map(select(.isPrerelease|not)) | .[0].tagName')
-          PREV_BODY=$(gh release view "$LATEST_TAG" --json body -q .body)
+          rm -rf /tmp/revert && mkdir -p /tmp/revert
+          # Prefer .original if v$VERSION was previously reverted away from
+          # (its `latest.json` would no longer reflect its own true manifest).
+          if gh release download "v${VERSION}" -p latest.json.original -D /tmp/revert 2>/dev/null; then
+            mv /tmp/revert/latest.json.original /tmp/revert/latest.json
+            echo "→ using latest.json.original from v${VERSION}"
+          else
+            gh release download "v${VERSION}" -p latest.json -D /tmp/revert
+            echo "→ using latest.json from v${VERSION}"
+          fi
+          [[ -s /tmp/revert/latest.json ]] || { echo "error: latest.json empty/missing"; exit 1; }
+
+      - name: Back up latest release's manifest + body (first revert only)
+        if: steps.mode.outputs.kind == 'revert'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LATEST_TAG: ${{ steps.mode.outputs.latest_tag }}
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/backup && mkdir -p /tmp/backup
+          if gh release download "$LATEST_TAG" -p latest.json.original -D /tmp/backup 2>/dev/null; then
+            echo "→ latest.json.original already exists on $LATEST_TAG (preserving)"
+          else
+            gh release download "$LATEST_TAG" -p latest.json -D /tmp/backup
+            mv /tmp/backup/latest.json /tmp/backup/latest.json.original
+            gh release upload "$LATEST_TAG" /tmp/backup/latest.json.original
+            echo "→ saved latest.json.original on $LATEST_TAG"
+          fi
+          if gh release download "$LATEST_TAG" -p release-body.original.md -D /tmp/backup 2>/dev/null; then
+            echo "→ release-body.original.md already exists on $LATEST_TAG (preserving)"
+          else
+            gh release view "$LATEST_TAG" --json body -q .body > /tmp/backup/release-body.original.md
+            gh release upload "$LATEST_TAG" /tmp/backup/release-body.original.md
+            echo "→ saved release-body.original.md on $LATEST_TAG"
+          fi
+
+      - name: Replace latest.json on latest release
+        if: steps.mode.outputs.kind == 'revert'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LATEST_TAG: ${{ steps.mode.outputs.latest_tag }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          gh release upload "$LATEST_TAG" /tmp/revert/latest.json --clobber
+          echo "→ replaced latest.json on $LATEST_TAG with v${VERSION}'s manifest"
+
+      - name: Rebuild release body from saved original + fresh banner
+        if: steps.mode.outputs.kind == 'revert'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LATEST_TAG: ${{ steps.mode.outputs.latest_tag }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          # Rebuild from the SAVED ORIGINAL each time so successive reverts
+          # don't accumulate stacked "reverted" banners on top of each other.
+          rm -rf /tmp/notes && mkdir -p /tmp/notes
+          gh release download "$LATEST_TAG" -p release-body.original.md -D /tmp/notes
           NOTES_FILE="$RUNNER_TEMP/revert-notes.md"
           {
             printf 'This release has been reverted. Auto-update users will receive\n'
             printf 'v%s on their next check. Direct downloads of this\n' "$VERSION"
             printf 'release are not recommended.\n\n'
-            printf '%s\n' "$PREV_BODY"
+            cat /tmp/notes/release-body.original.md
           } > "$NOTES_FILE"
           gh release edit "$LATEST_TAG" --notes-file "$NOTES_FILE"
+          echo "→ annotated $LATEST_TAG body (reverted to v${VERSION})"
+
+      # ───────────────────────────── RESTORE path ─────────────────────────
+
+      - name: Restore latest release from saved originals
+        if: steps.mode.outputs.kind == 'restore'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LATEST_TAG: ${{ steps.mode.outputs.latest_tag }}
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/restore && mkdir -p /tmp/restore
+          if ! gh release download "$LATEST_TAG" -p latest.json.original -D /tmp/restore 2>/dev/null; then
+            echo "error: no latest.json.original on $LATEST_TAG — nothing to restore."
+            echo "($LATEST_TAG has never been reverted away from.)"
+            exit 1
+          fi
+          mv /tmp/restore/latest.json.original /tmp/restore/latest.json
+          gh release upload "$LATEST_TAG" /tmp/restore/latest.json --clobber
+          echo "→ restored latest.json on $LATEST_TAG"
+
+          gh release download "$LATEST_TAG" -p release-body.original.md -D /tmp/restore
+          gh release edit "$LATEST_TAG" --notes-file /tmp/restore/release-body.original.md
+          echo "→ restored release body on $LATEST_TAG"
+
+          # Remove the backup siblings so a future revert away from this
+          # release starts from a clean slate.
+          gh release delete-asset "$LATEST_TAG" latest.json.original --yes || true
+          gh release delete-asset "$LATEST_TAG" release-body.original.md --yes || true
+          echo "→ removed backup assets on $LATEST_TAG"

@@ -69,19 +69,30 @@ git config user.name  "stint-release-bot"
 BRANCH="update-${CASK_NAME}-${VERSION//[^A-Za-z0-9.-]/-}"
 readonly BRANCH
 
-# Idempotence: if a stale branch exists on the tap remote from a prior failed
-# run (e.g., post-merge cleanup didn't fire, or this is a re-run), delete it
-# first. Otherwise `git push` rejects with "remote contains work". Same idea
-# for any existing PR — close it before opening a fresh one.
-if gh api "/repos/reyemtech/homebrew-tap/branches/$BRANCH" >/dev/null 2>&1; then
-  echo "→ stale remote branch $BRANCH detected; deleting"
-  gh api -X DELETE "/repos/reyemtech/homebrew-tap/git/refs/heads/$BRANCH" || true
-fi
-existing_pr="$(gh pr list --repo reyemtech/homebrew-tap --head "$BRANCH" --state open --json number -q '.[0].number')"
-if [[ -n "$existing_pr" ]]; then
-  echo "→ closing stale PR #$existing_pr"
-  gh pr close "$existing_pr" --repo reyemtech/homebrew-tap || true
-fi
+# Idempotence: close every open tap-update PR for this cask, regardless of
+# version. A previous release that failed mid-publish (e.g., auto-merge
+# rejected) can leave a stale PR pointing at the old version; without this
+# cleanup that PR lingers indefinitely and confuses tap reviewers. Each
+# release supersedes any pending update — we always want exactly zero open
+# PRs before opening this run's PR.
+mapfile -t stale_prs < <(gh pr list --repo reyemtech/homebrew-tap \
+  --state open --json number,headRefName \
+  --jq ".[] | select(.headRefName | startswith(\"update-${CASK_NAME}-\")) | .number")
+for pr in "${stale_prs[@]:-}"; do
+  [[ -n "$pr" ]] || continue
+  echo "→ closing stale tap-update PR #$pr"
+  gh pr close "$pr" --delete-branch --repo reyemtech/homebrew-tap || true
+done
+
+# Catch any orphan branches that have no open PR (PR closed without branch
+# deletion, or branch pushed without PR ever opened). Same prefix scope.
+mapfile -t stale_branches < <(gh api "/repos/reyemtech/homebrew-tap/branches?per_page=100" \
+  --jq ".[] | select(.name | startswith(\"update-${CASK_NAME}-\")) | .name")
+for br in "${stale_branches[@]:-}"; do
+  [[ -n "$br" ]] || continue
+  echo "→ deleting orphan tap-update branch $br"
+  gh api -X DELETE "/repos/reyemtech/homebrew-tap/git/refs/heads/$br" || true
+done
 
 git checkout -b "$BRANCH"
 
@@ -96,18 +107,24 @@ PR_URL="$(gh pr create \
   --body "Automated bump from stint release v${VERSION}. Auto-merged after brew audit passes." \
   --head "$BRANCH" --base main)"
 
-# Try auto-merge first (waits for required checks). If the PR is already
-# in clean status (no required checks configured, or all already green),
-# gh refuses `--auto` with "Pull request is in clean status" because
-# there is nothing to wait on — in that case merge directly so the tap
-# doesn't sit on an open PR that will never auto-resolve.
+# Try auto-merge first (waits for required checks). `gh pr merge --auto`
+# can refuse for several reasons that all reduce to "auto-merge is
+# unnecessary or unavailable — merge directly instead":
+#
+#   - "Pull request is in clean status"  (no required checks pending)
+#   - "Protected branch rules not configured"  (tap repo has no rules at all)
+#   - "Auto-merge is not allowed for this repository"  (org-level setting off)
+#
+# In all three cases the right move is a direct `gh pr merge --squash`; the
+# PR is otherwise mergeable, just not eligible for the auto-merge queue.
+# Any other failure is real and we should bubble it up.
 MERGE_LOG="$(mktemp)"
 if gh pr merge --auto --squash "$PR_URL" >"$MERGE_LOG" 2>&1; then
   cat "$MERGE_LOG"
   echo "✓ opened + auto-merge enabled: $PR_URL"
-elif grep -qi "clean status" "$MERGE_LOG"; then
+elif grep -qiE 'clean status|Protected branch rules not configured|Auto-merge is not allowed' "$MERGE_LOG"; then
   cat "$MERGE_LOG"
-  echo "→ auto-merge n/a (PR already mergeable); merging directly"
+  echo "→ auto-merge n/a; merging directly"
   gh pr merge --squash "$PR_URL"
   echo "✓ opened + merged: $PR_URL"
 else
