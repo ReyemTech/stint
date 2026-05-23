@@ -3,6 +3,81 @@ title: FAQ
 description: Answers to common questions about stint.
 ---
 
+import JsonLd from "../../../components/JsonLd.astro";
+
+export const faqPage = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: [
+    {
+      "@type": "Question",
+      name: "Why macOS only?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "The shell is Tauri 2 (cross-platform in principle), but stint leans hard on macOS-specific bits: Keychain for secret storage, menu-bar tray, dock visibility transitions, native macOS menus. Porting to Linux or Windows would mean either dropping those features or building per-platform equivalents. No fundamental blocker — just a scope decision.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Does stint work offline?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Yes, fully. Every mutation persists to a local SQLite database immediately. When you go online, the sync queue drains and Solidtime catches up. The popover and main window work normally offline; calendar refresh and Solidtime sync queue and retry transparently when connectivity returns.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Can I use stint without Solidtime?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Not currently. stint is designed around Solidtime as the source of truth for projects, organizations, and historical entries. A standalone mode is on the roadmap but unscheduled.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "How is my data stored?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Locally only. SQLite at ~/Library/Application Support/stint/stint.db; secrets in the macOS Keychain under tech.reyem.stint.*; logs at ~/Library/Logs/tech.reyem.stint/. No cloud storage, no third-party backup.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Does stint phone home?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "No analytics, no telemetry. The only outbound traffic stint generates is to your Solidtime instance, your calendar provider if connected, and a static JSON update manifest on github.com once every 24 hours. You can disable the auto-update check in Settings.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Where does the CLI binary live after brew install?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "On Apple Silicon at /opt/homebrew/bin/stint, on Intel Macs at /usr/local/bin/stint. Both are symlinks into /Applications/Stint.app/Contents/MacOS/stint — the same binary that ships via curl|sh.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Can I use brew install and curl|sh together?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Yes — they coexist at different paths. Brew symlinks to /opt/homebrew/bin/stint; the standalone installer writes to /usr/local/bin/stint or ~/.local/bin/stint. Whichever is earlier in your PATH wins. stint update on the brew-installed binary detects the .app-bundled install and tells you to use brew upgrade --cask stint instead.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "How do I update stint?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Three paths, each works: in-app (Settings → Updates → Install, auto-checked every 24h); brew (brew upgrade --cask stint); standalone CLI (stint update). All three converge on the same release artifacts.",
+      },
+    },
+  ],
+};
+
+<JsonLd data={faqPage} />
+
 ## Why macOS only?
 
 The shell is Tauri 2 (cross-platform in principle), but stint leans hard
