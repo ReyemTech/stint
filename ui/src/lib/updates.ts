@@ -1,3 +1,4 @@
+import { createSignal } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
 
 export interface UpdateInfo {
@@ -8,6 +9,19 @@ export interface UpdateInfo {
 }
 
 export type Channel = "stable" | "beta";
+
+/**
+ * Monotonic counter incremented whenever something asks for an explicit
+ * update check (menu item, tray item, etc.). UpdatesPanel reacts to the
+ * counter so the check fires even if the panel mounts AFTER the request
+ * lands. Module-level so the signal survives panel mount/unmount cycles.
+ */
+const [checkRequested, setCheckRequested] = createSignal(0);
+export { checkRequested };
+
+export function requestCheckForUpdates(): void {
+  setCheckRequested((n) => n + 1);
+}
 
 export async function checkForUpdates(): Promise<UpdateInfo> {
   const channel = await getChannel();

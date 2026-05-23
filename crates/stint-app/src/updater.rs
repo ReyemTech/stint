@@ -12,11 +12,49 @@ pub struct UpdateInfo {
     pub notes: Option<String>,
 }
 
+/// Dev-only preview escape hatch. When `STINT_DEV_VERSION_OVERRIDE` is set
+/// to a valid semver string lower than the real running version,
+/// `check_for_updates` short-circuits and returns synthetic
+/// `available: true` data (pretending the override is the running version
+/// and the real version is the upgrade target). Lets a maintainer see the
+/// update affordances — About badge, popover indicator, Settings panel
+/// state machine — without editing tauri.conf.json or shipping a fake
+/// release.
+///
+/// Returns `None` if unset or unparseable, so production users (who never
+/// set the env var) get the real network check every time.
+///
+/// `install_update` is NOT mocked — clicking Install while the override is
+/// active will fail with "no update available" because the real updater
+/// sees current_version == latest. That's the right behavior: don't let
+/// the dev preview path execute a real install.
+#[cfg(feature = "updater")]
+fn dev_version_override() -> Option<semver::Version> {
+    std::env::var("STINT_DEV_VERSION_OVERRIDE")
+        .ok()
+        .and_then(|s| s.parse().ok())
+}
+
 #[tauri::command]
 pub async fn check_for_updates(app: AppHandle, channel: String) -> Result<UpdateInfo, String> {
     #[cfg(feature = "updater")]
     {
         use tauri_plugin_updater::UpdaterExt;
+
+        if let Some(override_ver) = dev_version_override() {
+            tracing::warn!(
+                override_version = %override_ver,
+                "check_for_updates: dev version override active — returning synthetic UpdateInfo"
+            );
+            let real_version = app.package_info().version.to_string();
+            return Ok(UpdateInfo {
+                available: true,
+                current_version: override_ver.to_string(),
+                latest_version: Some(real_version),
+                notes: Some("see CHANGELOG.md".to_string()),
+            });
+        }
+
         let endpoint = resolve_endpoint(Channel::from_setting(&channel));
         let updater = app
             .updater_builder()

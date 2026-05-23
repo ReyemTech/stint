@@ -18,6 +18,13 @@ pub fn build(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         &[
             &MenuItem::with_id(app, "menu-about", "About Stint", true, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
+            &MenuItem::with_id(
+                app,
+                "menu-check-updates",
+                "Check for Updates…",
+                true,
+                None::<&str>,
+            )?,
             &MenuItem::with_id(app, "menu-settings", "Settings…", true, Some("CmdOrCtrl+,"))?,
             &PredefinedMenuItem::separator(app)?,
             &PredefinedMenuItem::services(app, None)?,
@@ -69,6 +76,15 @@ pub fn handle(app: &AppHandle, id: &str) {
         "menu-settings" => {
             let _ = windows::show_main(app);
             let _ = app.emit("navigate", "/settings");
+        }
+        "menu-check-updates" => {
+            let _ = windows::show_main(app);
+            let _ = app.emit("navigate", "/settings");
+            // Second event the UpdatesPanel listens for. App.tsx's navigate
+            // listener fires synchronously, so by the time this lands the
+            // panel is on its way to mounting — UpdatesPanel registers a
+            // global signal handler that survives mount/unmount cycles.
+            let _ = app.emit("check-for-updates", ());
         }
         _ => {}
     }

@@ -21,6 +21,13 @@ pub fn build(app: &AppHandle) -> tauri::Result<TrayIcon> {
             &MenuItem::with_id(app, "sync", "Sync now", true, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "about", "About Stint", true, None::<&str>)?,
+            &MenuItem::with_id(
+                app,
+                "check-updates",
+                "Check for Updates…",
+                true,
+                None::<&str>,
+            )?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?,
         ],
@@ -38,6 +45,11 @@ pub fn build(app: &AppHandle) -> tauri::Result<TrayIcon> {
             "about" => {
                 let _ = windows::show_main(app);
                 let _ = app.emit("navigate", "/about");
+            }
+            "check-updates" => {
+                let _ = windows::show_main(app);
+                let _ = app.emit("navigate", "/settings");
+                let _ = app.emit("check-for-updates", ());
             }
             "sync" => {
                 let app_handle = app.clone();
