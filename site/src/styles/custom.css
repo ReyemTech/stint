@@ -631,6 +631,13 @@
 .landing-footer-brand:hover .landing-footer-logo {
   opacity: 1;
 }
+
+/* Theme-swappable Reyem Tech logos. Dark variant (white-on-transparent)
+   for the site's dark theme; light variant (dark-on-transparent) for
+   light. Both <img>s are emitted; CSS hides the wrong one per theme. */
+.rt-themed-logo { display: none; }
+:root[data-theme="dark"] .rt-themed-dark { display: inline-block; }
+:root[data-theme="light"] .rt-themed-light { display: inline-block; }
 .landing-footer-meta {
   display: flex;
   flex-direction: column;
