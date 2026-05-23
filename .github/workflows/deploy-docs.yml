@@ -43,5 +43,15 @@ jobs:
 
       - name: Publish to docs-pages branch
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Push with the RELEASE_TOKEN PAT rather than GITHUB_TOKEN so that
+          # the push to docs-pages triggers downstream workflows
+          # (deploy-pages.yml). GitHub Actions deliberately suppresses
+          # workflow triggers for commits authored by GITHUB_TOKEN to
+          # prevent infinite loops — using a user PAT bypasses that.
+          # Falls back to GITHUB_TOKEN if RELEASE_TOKEN isn't configured
+          # (forks / first-run scenarios). When that fallback path runs,
+          # someone has to manually trigger deploy-pages.yml via
+          # `gh workflow run deploy-pages.yml --ref docs-pages` until a PAT
+          # is configured.
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
         run: scripts/release/publish-docs.sh

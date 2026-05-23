@@ -16,6 +16,30 @@ export default defineConfig({
       // (SoftwareApplication on landing, FAQPage on /help/faq/) live in
       // their respective MDX files via the JsonLd component.
       head: [
+        // Static OG image used by every page. Same card for all pages —
+        // per-page generated cards would need astro-og-canvas or similar;
+        // a single brand card is plenty for v1.
+        // Absolute URL required: Facebook + LinkedIn ignore relative paths.
+        {
+          tag: "meta",
+          attrs: { property: "og:image", content: "https://stint.reyem.tech/og-image.png" },
+        },
+        {
+          tag: "meta",
+          attrs: { property: "og:image:width", content: "1200" },
+        },
+        {
+          tag: "meta",
+          attrs: { property: "og:image:height", content: "630" },
+        },
+        {
+          tag: "meta",
+          attrs: { property: "og:image:alt", content: "stint — macOS time tracker" },
+        },
+        {
+          tag: "meta",
+          attrs: { name: "twitter:image", content: "https://stint.reyem.tech/og-image.png" },
+        },
         {
           tag: "script",
           attrs: { type: "application/ld+json" },
