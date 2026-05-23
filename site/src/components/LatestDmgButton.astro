@@ -1,0 +1,34 @@
+---
+// DMG download button. URL + version + size resolved at build time via
+// the shared getLatestRelease() helper. Falls back to /releases/latest if
+// the GitHub API call failed.
+//
+// Props:
+//   variant — "primary" | "ghost"  (default: "primary")
+//   label   — base button label (default: "Download"); version/size appended.
+//   class   — extra class names
+
+import { getLatestRelease } from "../lib/latestRelease";
+
+type Variant = "primary" | "ghost";
+const {
+  variant = "primary" as Variant,
+  label: rawLabel = "Download",
+  class: extraClass = "",
+} = Astro.props as { variant?: Variant; label?: string; class?: string };
+
+const { dmgUrl, tag, dmgSizeMB } = await getLatestRelease();
+
+const suffix = tag
+  ? ` · ${tag}${dmgSizeMB ? ` (${dmgSizeMB} MB)` : ""}`
+  : "";
+const text = rawLabel + suffix;
+
+const classMap: Record<Variant, string> = {
+  primary: "btn btn-primary",
+  ghost: "btn btn-ghost",
+};
+const cls = `${classMap[variant]} ${extraClass}`.trim();
+---
+
+<a class={cls} href={dmgUrl}>{text}</a>

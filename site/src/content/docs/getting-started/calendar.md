@@ -1,0 +1,93 @@
+---
+title: Calendar setup
+description: Connect Google Calendar to surface meetings as one-click time entries.
+---
+
+stint can pull calendar events and offer them as one-click time entries.
+This is useful for any "log the meeting I just had" workflow — open the
+popover after a meeting, click the event, the timer entry is created with
+the meeting's title and time range.
+
+:::note[Google only for now]
+Phase 3b shipped Google Calendar. Microsoft 365 and CalDAV providers are
+planned for a future phase (Phase 7 in the current roadmap). The
+underlying schema already supports all three; only Google has working
+provider code today.
+:::
+
+## Add a Google account
+
+In the GUI: **Settings → Calendar → Add Google account**. A browser tab
+opens, you authorize, the tab redirects back. stint pulls the list of
+calendars under that account.
+
+Or via CLI:
+
+```bash
+stint calendar add google
+```
+
+## Pick which calendars to include
+
+Each Google account can have many calendars (primary, holidays, shared
+team calendars, etc.). Toggle which ones surface in stint via:
+
+- GUI: **Settings → Calendar → \<account\> → Toggle each calendar**
+- CLI: `stint calendar list-calendars` then `stint calendar set-included <id> --included true/false`
+
+Excluded calendars are still fetched (to keep the cache warm) but don't
+appear in the popover's event picker.
+
+## Default project for calendar-logged time
+
+When you click an event in the popover to log it, stint creates a time
+entry with the event's title, start, and end. You can set a per-calendar
+default project so logged events land under that project automatically.
+
+GUI: **Settings → Calendar → \<account\> → \<calendar\> → Default project**.
+
+## Refresh cadence
+
+stint polls Google every 15 minutes in the background. You can force a
+refresh from **Settings → Calendar → \<account\> → Refresh** or via:
+
+```bash
+stint calendar refresh
+```
+
+## For forks: registering your own Google OAuth client
+
+The canonical `reyem.tech` build of stint ships with a Google OAuth client
+ID and secret baked at compile time (read via `option_env!` from
+`STINT_GOOGLE_CLIENT_ID` / `STINT_GOOGLE_CLIENT_SECRET`).
+
+If you're building stint from source for personal use or as a fork, you
+need to register your own client at
+[Google Cloud Console](https://console.cloud.google.com/apis/credentials):
+
+- Type: **Desktop app**
+- Authorized scopes include: `.../auth/calendar.readonly`
+- Authorized redirect URIs include: `http://127.0.0.1` (loopback,
+  port-agnostic)
+
+Then set the env vars at build time:
+
+```bash
+STINT_GOOGLE_CLIENT_ID=… \
+STINT_GOOGLE_CLIENT_SECRET=… \
+  cargo build --release
+```
+
+Forks without these set still build and run — the calendar UI shows
+"Google OAuth not configured" instead of attempting the flow and failing
+opaquely.
+
+## Removing an account
+
+GUI: **Settings → Calendar → \<account\> → Remove**.
+
+CLI: `stint calendar remove <account-id>`.
+
+This deletes both the database row and the Keychain entry holding the
+OAuth tokens. Past calendar-logged time entries are preserved (they're
+normal time entries; only the link back to the calendar event is broken).

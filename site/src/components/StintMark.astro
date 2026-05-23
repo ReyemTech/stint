@@ -1,0 +1,33 @@
+---
+// Same rounded-square gradient + white stint icon used in the in-app
+// About page identity card (ui/src/routes/About.tsx). Used as the brand
+// mark on the landing-page hero.
+//
+// Props:
+//   size — pixel size of the square (default 56)
+
+const { size = 56 } = Astro.props as { size?: number };
+const innerSize = Math.round(size * 0.62);
+const radius = Math.round(size * 0.22);
+---
+
+<div
+  class="stint-mark"
+  style={`width:${size}px;height:${size}px;border-radius:${radius}px;`}
+>
+  <svg
+    width={innerSize}
+    height={innerSize}
+    viewBox="0 0 44 44"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    aria-hidden="true"
+  >
+    <rect x="19" y="4" width="6" height="4" rx="1.2" fill="white" />
+    <rect x="30" y="7.5" width="3.5" height="3" rx="0.8" transform="rotate(45 31.75 9)" fill="white" />
+    <circle cx="22" cy="26" r="13.5" stroke="white" stroke-width="3" fill="none" />
+    <rect x="21" y="13.5" width="2" height="3" fill="white" />
+    <rect x="21" y="17" width="2" height="11" rx="1" fill="white" transform="rotate(45 22 26)" />
+    <circle cx="22" cy="26" r="2" fill="white" />
+  </svg>
+</div>

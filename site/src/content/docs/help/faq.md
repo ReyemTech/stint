@@ -1,0 +1,107 @@
+---
+title: FAQ
+description: Answers to common questions about stint.
+---
+
+## Why macOS only?
+
+The shell is Tauri 2 (cross-platform in principle), but stint leans hard
+on macOS-specific bits: Keychain for secret storage, menu-bar tray, dock
+visibility transitions, native macOS menus. Porting to Linux or Windows
+would mean either dropping those features or building per-platform
+equivalents (`secret-service` on Linux, `wincred` on Windows, etc.).
+
+No fundamental blocker — just a scope decision. A Linux build is
+plausibly Phase 8+ work if there's demand.
+
+## Does stint work offline?
+
+Yes, fully. Every mutation persists to a local SQLite database
+immediately. When you go online, the sync queue drains and Solidtime
+catches up.
+
+The popover and main window work normally offline. The only thing that
+fails is calendar refresh (Google API call) and Solidtime sync — both
+queue and retry transparently when connectivity returns.
+
+## Can I use stint without Solidtime?
+
+Not currently. stint is designed around Solidtime as the source of truth
+for projects, organizations, and historical entries. A standalone mode
+(local-only, no remote sync) is on the roadmap but unscheduled.
+
+If you want a self-hosted backend without standing up Solidtime,
+[Solidtime](https://www.solidtime.io) has a Docker setup that runs on
+~512MB of RAM.
+
+## How is my data stored?
+
+| Where | What |
+|---|---|
+| `~/Library/Application Support/stint/stint.db` | SQLite database — time entries, projects, calendar accounts, sync queue |
+| macOS Keychain (`tech.reyem.stint.*` service prefix) | Solidtime PAT/OAuth tokens, calendar OAuth tokens (per account) |
+| `~/Library/Logs/tech.reyem.stint/stint.log.<date>` | Application logs, daily rotation, 14-file cap |
+
+Everything is local. No cloud storage, no third-party backup.
+
+## Does stint phone home?
+
+No analytics, no telemetry. The only outbound traffic stint generates is:
+
+1. **Solidtime API calls** — to your Solidtime instance, for sync.
+2. **Calendar API calls** — to Google (if you connected a calendar).
+3. **Auto-update check** — once every 24 hours, to
+   `github.com/reyemtech/stint/releases/latest/download/latest.json`
+   (a static JSON manifest, no user identifier).
+4. **`stint update`** for standalone CLI installs — same endpoint, on
+   demand.
+
+You can disable auto-update under Settings → Updates (sets the polling
+interval effectively to "never until you click Check now").
+
+## Where does the CLI binary live after `brew install`?
+
+Apple Silicon: `/opt/homebrew/bin/stint` → symlink into
+`/Applications/Stint.app/Contents/MacOS/stint`.
+
+Intel Mac: `/usr/local/bin/stint` → same symlink target.
+
+The CLI binary inside the .app bundle is the same one shipped via
+`curl | sh`; the only difference is the install path.
+
+## Can I use `brew install` + `curl | sh` together?
+
+Yes — they coexist at different paths. `brew install` symlinks to
+`/opt/homebrew/bin/stint`; the standalone installer writes to
+`/usr/local/bin/stint` or `~/.local/bin/stint`. Whichever is earlier in
+your `PATH` wins when you type `stint`.
+
+`stint update` on the brew-installed binary won't try to overwrite the
+brew symlink; it detects the `.app`-bundled install and tells you to use
+`brew upgrade --cask stint` instead.
+
+## How do I update stint?
+
+Three paths, each works:
+
+1. **In-app**: Settings → Updates → Install. Auto-checked every 24h.
+2. **Brew**: `brew upgrade --cask stint`. Picks up the latest cask version.
+3. **Standalone CLI**: `stint update`. Self-replaces the binary atomically.
+
+All three converge on the same release artifacts.
+
+## Where's the source?
+
+[github.com/reyemtech/stint](https://github.com/reyemtech/stint).
+
+[Issues](https://github.com/reyemtech/stint/issues) for bug reports and
+feature requests.
+
+## Who builds stint?
+
+[Reyem Tech](https://www.reyem.tech). stint is MIT-licensed — fork it,
+modify it, ship your own version with a different OAuth client.
+
+The repository's `CLAUDE.md` is the canonical reference for repo
+structure, conventions, and gotchas — useful reading even if you're not
+contributing.

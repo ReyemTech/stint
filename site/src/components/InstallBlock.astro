@@ -1,0 +1,28 @@
+---
+// Code block for install methods. Pass --gui to toggle the --gui variant.
+const { brew, gui, cli } = Astro.props as {
+  brew?: boolean;
+  gui?: boolean;
+  cli?: boolean;
+};
+---
+
+{
+  brew && (
+    <pre class="code-block"><code><span class="t-prompt">$</span> brew tap reyemtech/tap
+<span class="t-prompt">$</span> brew install --cask stint</code></pre>
+  )
+}
+
+{
+  gui && (
+    <pre class="code-block"><code><span class="t-prompt">$</span> curl -fsSL https://stint.reyem.tech/install.sh \
+    | sh -s -- --gui</code></pre>
+  )
+}
+
+{
+  cli && (
+    <pre class="code-block"><code><span class="t-prompt">$</span> curl -fsSL https://stint.reyem.tech/install.sh | sh</code></pre>
+  )
+}
