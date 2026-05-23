@@ -40,7 +40,16 @@ Each Google account can have many calendars (primary, holidays, shared
 team calendars, etc.). Toggle which ones surface in stint via:
 
 - GUI: **Settings → Calendar → \<account\> → Toggle each calendar**
-- CLI: `stint calendar list-calendars` then `stint calendar set-included <id> --included true/false`
+- CLI:
+
+  ```bash
+  # List calendars on an account (shows inclusion + default project too)
+  stint calendar calendars <account-id>
+
+  # Include or exclude a specific calendar
+  stint calendar calendars <account-id> --include <calendar-id>
+  stint calendar calendars <account-id> --exclude <calendar-id>
+  ```
 
 Excluded calendars are still fetched (to keep the cache warm) but don't
 appear in the popover's event picker.
@@ -51,7 +60,16 @@ When you click an event in the popover to log it, stint creates a time
 entry with the event's title, start, and end. You can set a per-calendar
 default project so logged events land under that project automatically.
 
-GUI: **Settings → Calendar → \<account\> → \<calendar\> → Default project**.
+- GUI: **Settings → Calendar → \<account\> → \<calendar\> → Default project**
+- CLI:
+
+  ```bash
+  stint calendar calendars <account-id> \
+    --set-default-project <calendar-id> <project-uuid>
+
+  stint calendar calendars <account-id> \
+    --clear-default-project <calendar-id>
+  ```
 
 ## Refresh cadence
 
@@ -59,7 +77,7 @@ stint polls Google every 15 minutes in the background. You can force a
 refresh from **Settings → Calendar → \<account\> → Refresh** or via:
 
 ```bash
-stint calendar refresh
+stint calendar refresh <account-id>
 ```
 
 ## For forks: registering your own Google OAuth client
