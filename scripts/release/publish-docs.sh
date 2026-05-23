@@ -17,13 +17,19 @@ readonly REPO="reyemtech/stint"
 [[ -f "$SITE_DIST/index.html" ]] || { echo "error: $SITE_DIST/index.html missing — build incomplete" >&2; exit 1; }
 [[ -n "${GITHUB_TOKEN:-}" ]] || { echo "error: GITHUB_TOKEN required" >&2; exit 1; }
 
-# Files owned by other deploy scripts or by manual setup. publish-docs.sh
-# must not touch these — they live alongside the Starlight output at the
-# repo root of docs-pages.
+# Files / directories owned by other deploy scripts or by manual setup.
+# publish-docs.sh must not touch these — they live alongside the
+# Starlight output at the repo root of docs-pages.
+#
+# Critically includes `.github/` — the docs-pages branch has its own
+# `.github/workflows/deploy-pages.yml` which is what actually deploys
+# pushed content to GitHub Pages. Wiping it kills the deploy trigger
+# silently (the push to docs-pages succeeds, but Pages never updates).
 readonly -a PRESERVE=(
   "install.sh"
   "install.sh.sha256"
   "CNAME"
+  ".github"
 )
 
 push_attempt() {
@@ -40,20 +46,21 @@ push_attempt() {
   git config user.email "release@reyem.tech"
   git config user.name  "stint-release-bot"
 
-  # Stash the files we're not allowed to touch.
+  # Stash the files / dirs we're not allowed to touch. -a preserves
+  # mode and recurses into directories (cp -p alone fails on dirs).
   local stash
   stash="$(mktemp -d)"
   for f in "${PRESERVE[@]}"; do
-    [[ -e "$f" ]] && cp -p "$f" "$stash/"
+    [[ -e "$f" ]] && cp -a "$f" "$stash/"
   done
 
-  # Wipe everything *except* .git/, then restore the preserved files and
-  # copy the fresh Starlight output on top. Avoids stale-file accumulation
-  # from prior deploys.
+  # Wipe everything *except* .git/, then restore the preserved entries
+  # and copy the fresh Starlight output on top. Avoids stale-file
+  # accumulation from prior deploys.
   find . -mindepth 1 -maxdepth 1 ! -name ".git" -exec rm -rf {} +
   cp -R "$OLDPWD/$SITE_DIST"/. .
   for f in "${PRESERVE[@]}"; do
-    [[ -f "$stash/$f" ]] && cp -p "$stash/$f" "$f"
+    [[ -e "$stash/$f" ]] && cp -a "$stash/$f" "$f"
   done
   rm -rf "$stash"
 
