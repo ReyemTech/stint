@@ -1,3 +1,10 @@
+## [0.1.5](https://github.com/ReyemTech/stint/compare/v0.1.4...v0.1.5) (2026-05-23)
+
+### Bug Fixes
+
+* **notarize:** switch to App Store Connect API key auth ([fef649b](https://github.com/ReyemTech/stint/commit/fef649bb393dd39534337e2055fe97cbe91bb1e8))
+* **release:** swap Apple ID secrets for App Store Connect API key secrets ([9241cbd](https://github.com/ReyemTech/stint/commit/9241cbd0b7c3f07d4f694274e64fa21957a08bb0))
+
 ## [0.1.4](https://github.com/ReyemTech/stint/compare/v0.1.3...v0.1.4) (2026-05-23)
 
 ### Bug Fixes
