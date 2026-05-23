@@ -1,14 +1,20 @@
-import { Show, createResource, createSignal } from "solid-js";
+import { Show, createEffect, createResource, createSignal } from "solid-js";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import Button from "~/components/ui/Button";
 import {
   type Channel,
   type UpdateInfo,
   checkForUpdates,
+  checkRequested,
   getChannel,
   installUpdate,
   restartApp,
   setChannel,
 } from "~/lib/updates";
+
+const CHANGELOG_PLACEHOLDER = "see CHANGELOG.md";
+const changelogUrl = (version: string) =>
+  `https://github.com/reyemtech/stint/blob/v${version}/CHANGELOG.md`;
 
 /**
  * Settings panel for the auto-updater. Lets the user pick an update channel,
@@ -73,6 +79,16 @@ export default function UpdatesPanel() {
     }
   };
 
+  // Auto-fire a check whenever someone (menu, tray, anywhere) calls
+  // requestCheckForUpdates(). Module-level signal so the request lands
+  // even if the panel mounted after the request was made — createEffect
+  // runs once on first mount with the current counter value.
+  createEffect(() => {
+    if (checkRequested() > 0) {
+      void check();
+    }
+  });
+
   return (
     <div class="space-y-5">
       <div class="grid grid-cols-3 gap-4">
@@ -121,9 +137,24 @@ export default function UpdatesPanel() {
             </Show>
           </p>
           <Show when={!installed() && info()!.notes}>
-            <pre class="mt-1 whitespace-pre-wrap text-xs text-zinc-700 dark:text-zinc-300">
-              {info()!.notes}
-            </pre>
+            <Show
+              when={info()!.notes === CHANGELOG_PLACEHOLDER}
+              fallback={
+                <pre class="mt-1 whitespace-pre-wrap text-xs text-zinc-700 dark:text-zinc-300">
+                  {info()!.notes}
+                </pre>
+              }
+            >
+              <p class="mt-1 text-xs text-zinc-700 dark:text-zinc-300">
+                See{" "}
+                <button
+                  class="text-indigo-600 underline-offset-2 hover:underline dark:text-indigo-400"
+                  onClick={() => openUrl(changelogUrl(info()!.latest_version!))}
+                >
+                  CHANGELOG.md
+                </button>
+              </p>
+            </Show>
           </Show>
           <Show when={installed()}>
             <p class="mt-1 text-xs text-emerald-800 dark:text-emerald-300">

@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useHotkey } from "./lib/useHotkey";
 import { useUpdateBanner } from "./lib/updateBanner";
+import { requestCheckForUpdates } from "./lib/updates";
 import About from "./routes/About";
 import Popover from "./routes/Popover";
 import Settings from "./routes/Settings";
@@ -21,6 +22,11 @@ if (isPopover) {
       window.location.hash = e.payload;
     }
   }).catch(() => {});
+
+  // Menu/tray "Check for Updates…" fires this in addition to the navigate
+  // event. Bridges to a module-level signal so the request lands even if
+  // UpdatesPanel hasn't mounted yet by the time the event arrives.
+  listen("check-for-updates", () => requestCheckForUpdates()).catch(() => {});
 }
 
 function navigate(path: string) {
