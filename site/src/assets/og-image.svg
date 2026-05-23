@@ -1,0 +1,49 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0a0a14"/>
+      <stop offset="1" stop-color="#1a1430"/>
+    </linearGradient>
+    <linearGradient id="mark" x1="0" y1="0" x2="220" y2="220" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6366f1"/>
+      <stop offset="1" stop-color="#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#818cf8"/>
+      <stop offset="1" stop-color="#c084fc"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.2" cy="0.3" r="0.8">
+      <stop offset="0" stop-color="#6366f1" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#6366f1" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+
+  <!-- Mark (rounded square + stint icon, large) -->
+  <g transform="translate(110, 200)">
+    <rect width="220" height="220" rx="48" fill="url(#mark)" />
+    <g transform="translate(48, 48) scale(2.9)" fill="white">
+      <rect x="19" y="4" width="6" height="4" rx="1.2"/>
+      <rect x="30" y="7.5" width="3.5" height="3" rx="0.8" transform="rotate(45 31.75 9)"/>
+      <circle cx="22" cy="26" r="13.5" stroke="white" stroke-width="3" fill="none"/>
+      <rect x="21" y="13.5" width="2" height="3"/>
+      <rect x="21" y="17" width="2" height="11" rx="1" transform="rotate(45 22 26)"/>
+      <circle cx="22" cy="26" r="2"/>
+    </g>
+  </g>
+
+  <!-- Right column: wordmark + tagline + meta -->
+  <g transform="translate(390, 230)" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif">
+    <text x="0" y="0" font-size="68" font-weight="700" fill="#e4e4ff" letter-spacing="-2">stint</text>
+    <text x="0" y="110" font-size="60" font-weight="800" fill="#e4e4ff" letter-spacing="-1.5">Track time without leaving</text>
+    <text x="0" y="180" font-size="60" font-weight="800" fill="url(#accent)" letter-spacing="-1.5">the menu bar.</text>
+    <text x="0" y="240" font-size="22" font-weight="500" fill="#8b8ba8" letter-spacing="0.5">macOS · CLI + menu bar · Solidtime sync</text>
+  </g>
+
+  <!-- Footer URL -->
+  <text x="600" y="585" text-anchor="middle" font-family="ui-monospace, 'SF Mono', Menlo, monospace"
+        font-size="20" font-weight="500" fill="#5a5a78" letter-spacing="0.5">stint.reyem.tech</text>
+</svg>
