@@ -21,9 +21,9 @@ readonly SECRETS=(
   APPLE_CERTIFICATE
   APPLE_CERTIFICATE_PASSWORD
   APPLE_SIGNING_IDENTITY
-  APPLE_ID
-  APPLE_PASSWORD
-  APPLE_TEAM_ID
+  APP_STORE_CONNECT_KEY_ID
+  APP_STORE_CONNECT_ISSUER_ID
+  APP_STORE_CONNECT_PRIVATE_KEY
   KEYCHAIN_PASSWORD
   TAURI_SIGNING_PRIVATE_KEY
   TAURI_SIGNING_PRIVATE_KEY_PASSWORD
@@ -102,27 +102,55 @@ TIP
   set_secret APPLE_SIGNING_IDENTITY "$identity"
 }
 
-prompt_apple_id() {
-  read -r -p "Apple ID email: " email
-  set_secret APPLE_ID "$email"
-}
-
-prompt_apple_password() {
+prompt_app_store_connect_key_id() {
   cat <<'TIP'
-Create an app-specific password at appleid.apple.com → Sign-In and Security
-→ App-Specific Passwords. Apple shows it once; do not lose it.
+Create at https://appstoreconnect.apple.com/access/api
+  - Name: stint-ci
+  - Access: Developer  (sufficient for notarization)
+The Key ID appears in the table after creation (10 uppercase alphanumerics).
 TIP
-  read -r -s -p "App-specific password: " pwd; echo
-  set_secret APPLE_PASSWORD "$pwd"
-}
-
-prompt_apple_team_id() {
-  read -r -p "Apple Team ID (10 chars): " team
-  [[ "$team" =~ ^[A-Z0-9]{10}$ ]] || {
+  read -r -p "Key ID: " kid
+  [[ "$kid" =~ ^[A-Z0-9]{10}$ ]] || {
     echo "error: must be 10 uppercase alphanumerics" >&2
     return 1
   }
-  set_secret APPLE_TEAM_ID "$team"
+  set_secret APP_STORE_CONNECT_KEY_ID "$kid"
+}
+
+prompt_app_store_connect_issuer_id() {
+  cat <<'TIP'
+Issuer ID is shown at the top of the App Store Connect API keys page —
+a UUID like 12345678-1234-1234-1234-1234567890ab. Same value for every key
+under your team account.
+TIP
+  read -r -p "Issuer ID (UUID): " iid
+  [[ "$iid" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || {
+    echo "error: must be a UUID (8-4-4-4-12 hex)" >&2
+    return 1
+  }
+  set_secret APP_STORE_CONNECT_ISSUER_ID "$iid"
+}
+
+prompt_app_store_connect_private_key() {
+  cat <<'TIP'
+After creating the key, click "Download API Key" — Apple offers the .p8
+exactly once. Pass that file's path here. Stored as base64 so GitHub
+secrets handle the PEM cleanly.
+TIP
+  read -r -e -p "Path to AuthKey_*.p8: " p8_path
+  [[ -f "$p8_path" ]] || { echo "error: file not found" >&2; return 1; }
+  grep -q "BEGIN PRIVATE KEY" "$p8_path" || {
+    echo "error: $p8_path does not look like a PEM private key" >&2
+    return 1
+  }
+  set_secret APP_STORE_CONNECT_PRIVATE_KEY "$(base64 < "$p8_path")"
+  read -r -p "Securely delete $p8_path now? [y/N] " resp
+  if [[ "$resp" =~ ^[Yy]$ ]]; then
+    rm -P "$p8_path" 2>/dev/null || rm -f "$p8_path"
+    echo "✓ removed $p8_path"
+  else
+    echo "  reminder: $p8_path contains private key material; delete manually when done"
+  fi
 }
 
 prompt_keychain_password() {
