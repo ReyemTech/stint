@@ -1,4 +1,4 @@
-import { createResource, For } from "solid-js";
+import { createResource, For, Show } from "solid-js";
 import { getVersion, getTauriVersion } from "@tauri-apps/api/app";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import MainNav from "~/components/MainNav";
@@ -6,6 +6,7 @@ import StintIcon from "~/components/StintIcon";
 import Button from "~/components/ui/Button";
 import SectionLabel from "~/components/ui/SectionLabel";
 import { openSolidtime } from "~/lib/openSolidtime";
+import { useUpdateBanner } from "~/lib/updateBanner";
 
 const CREDITS = [
   { name: "Tauri", purpose: "macOS shell + IPC", url: "https://tauri.app" },
@@ -35,6 +36,7 @@ export default function About() {
   const [tauriVersion] = createResource(() => getTauriVersion(), {
     initialValue: "",
   });
+  const updateInfo = useUpdateBanner();
 
   return (
     <div class="min-h-screen bg-zinc-50/60 dark:bg-zinc-950">
@@ -65,8 +67,13 @@ export default function About() {
               <dl class="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
                 <div>
                   <dt class="text-zinc-400 dark:text-zinc-500">Version</dt>
-                  <dd class="font-mono tabular-nums text-zinc-700 dark:text-zinc-200">
-                    {appVersion()}
+                  <dd class="flex items-center gap-2 font-mono tabular-nums text-zinc-700 dark:text-zinc-200">
+                    <span>{appVersion()}</span>
+                    <Show when={updateInfo()?.available}>
+                      <span class="inline-flex items-center rounded-full bg-emerald-100 px-1.5 py-px font-sans text-[10px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                        v{updateInfo()!.latest_version} available
+                      </span>
+                    </Show>
                   </dd>
                 </div>
                 <div>
