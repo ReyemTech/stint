@@ -1,0 +1,47 @@
+name: Deploy docs
+
+# Builds the Starlight site and syncs it to the docs-pages branch.
+# Pages auto-deploys on push to docs-pages (deploy-pages.yml).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - ".github/workflows/deploy-docs.yml"
+      - "scripts/release/publish-docs.sh"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Don't conflict with release.yml's per-ref group; docs deploys are
+# independent. Cancel any in-flight rebuild if a newer one starts.
+concurrency:
+  group: docs-pages
+  cancel-in-progress: true
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies (site filter)
+        run: pnpm install --frozen-lockfile --filter stint-docs...
+
+      - name: Build Starlight site
+        run: pnpm --filter stint-docs build
+
+      - name: Publish to docs-pages branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/release/publish-docs.sh
