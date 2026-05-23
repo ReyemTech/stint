@@ -502,13 +502,36 @@ Manually trigger `.github/workflows/release-revert.yml` with the last-known-good
 gh workflow run release-revert.yml -f version=0.1.5
 ```
 
-The workflow:
+The workflow has two modes, distinguished by whether `version` matches the
+current latest release's version:
 
-1. Fetches `latest.json` from release `v0.1.5`.
-2. Re-uploads it as an asset on the current `releases/latest` Release, replacing the bad manifest.
-3. Posts a notice to the bad release's GitHub Release page.
+**Revert mode** (`version` != current latest, e.g. ship v0.1.6, find it
+broken, run with `version=0.1.5`):
 
-Users who haven't auto-updated yet stop receiving the bad build. Users who already updated stay broken until step 2.
+1. Fetches `latest.json` from release `v0.1.5` (preferring the
+   `latest.json.original` sibling if present — see below).
+2. Backs up the current latest release's `latest.json` to a
+   `latest.json.original` sibling asset and its body to
+   `release-body.original.md` (only on the first revert away from this
+   release — subsequent reverts leave the originals untouched).
+3. Re-uploads v0.1.5's manifest as the latest release's `latest.json`,
+   replacing the bad manifest.
+4. Rebuilds the latest release's body from the saved original + a fresh
+   "reverted" banner, so successive reverts don't accumulate stacked
+   banners.
+
+**Restore mode** (`version` == current latest, used to un-revert):
+
+1. Reads `latest.json.original` and `release-body.original.md` from the
+   latest release and writes them back as the canonical assets.
+2. Deletes the backup siblings.
+
+Errors if no backup exists (i.e. the release has never been reverted).
+
+Users who haven't auto-updated yet stop receiving the bad build. Users on
+the broken latest are protected by Tauri's no-downgrade guarantee — they
+silently stay on the broken version until step 2. Users who already updated
+stay broken until step 2 cuts a fix.
 
 ### Step 2 — repair affected users
 
