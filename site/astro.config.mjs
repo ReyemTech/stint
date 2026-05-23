@@ -34,12 +34,9 @@ export default defineConfig({
           label: "Install",
           collapsed: false,
           items: [
-            { label: "Overview", link: "/install/" },
             { label: "Homebrew", link: "/install/#homebrew-recommended" },
-            { label: "Direct DMG", link: "/install/#direct-dmg-download" },
-            { label: "curl | sh (CLI)", link: "/install/#curl--sh--cli-only" },
-            { label: "curl | sh (CLI + GUI)", link: "/install/#curl--sh--cli--gui" },
-            { label: "Uninstall", link: "/install/#uninstall" },
+            { label: "DMG", link: "/install/#direct-dmg-download" },
+            { label: "curl | sh", link: "/install/#curl--sh--cli-only" },
           ],
         },
         {
