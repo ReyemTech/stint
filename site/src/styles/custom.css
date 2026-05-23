@@ -670,6 +670,228 @@
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
+   Inline panel mocks — CSS approximations of the in-app Settings panels.
+   Used in setup / troubleshooting docs to show roughly what users will see
+   without managing real screenshots. Mimics the in-app Tailwind styling
+   (rounded card, subtle border, slate-zinc palette).
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.panel-mock {
+  background: var(--stint-bg-card);
+  border: 1px solid var(--stint-border);
+  border-radius: 0.85rem;
+  padding: 1.1rem 1.25rem;
+  margin: 1.5rem 0;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.85rem;
+  color: var(--stint-text);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.pm-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.85rem;
+}
+.pm-eyebrow {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--stint-muted);
+}
+.pm-status {
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+.pm-status-ok {
+  color: #10b981;
+}
+
+.pm-row {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 0.6rem;
+}
+.pm-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--stint-muted);
+}
+.pm-input,
+.pm-select {
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--stint-border);
+  border-radius: 0.4rem;
+  font-size: 0.82rem;
+  color: var(--stint-text);
+  background: var(--stint-bg-soft);
+}
+.pm-select {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.pm-chevron {
+  color: var(--stint-muted);
+  font-size: 0.7rem;
+}
+
+.pm-radio-group {
+  display: inline-flex;
+  gap: 0.85rem;
+  font-size: 0.82rem;
+}
+.pm-radio {
+  color: var(--stint-muted);
+}
+.pm-radio-selected {
+  color: var(--stint-accent-bright);
+  font-weight: 600;
+}
+
+.pm-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--stint-border);
+}
+.pm-actions-top {
+  margin-top: 0.85rem;
+}
+.pm-meta {
+  font-size: 0.72rem;
+  color: var(--stint-muted);
+  margin-left: 0.5rem;
+}
+
+.pm-btn {
+  padding: 0.38rem 0.85rem;
+  border-radius: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: default;
+}
+.pm-btn-primary {
+  background: var(--stint-accent);
+  color: white;
+}
+.pm-btn-secondary {
+  background: var(--stint-bg-soft);
+  border-color: var(--stint-border);
+  color: var(--stint-text);
+}
+.pm-btn-ghost {
+  background: transparent;
+  color: var(--stint-muted);
+  font-weight: 500;
+  font-size: 0.72rem;
+  padding: 0.2rem 0.45rem;
+}
+
+/* Calendar mock specifics. */
+.pm-account {
+  border: 1px solid var(--stint-border);
+  border-radius: 0.55rem;
+  padding: 0.75rem 0.85rem;
+  background: rgba(255, 255, 255, 0.02);
+}
+:root[data-theme="light"] .pm-account {
+  background: rgba(0, 0, 0, 0.015);
+}
+.pm-account-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+.pm-account-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.pm-account-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--stint-accent);
+  display: inline-block;
+}
+.pm-cal-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 0.8rem;
+}
+.pm-cal-list li {
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.25rem 0;
+}
+.pm-check {
+  font-size: 0.95rem;
+  color: var(--stint-muted);
+}
+.pm-check-on {
+  color: var(--stint-accent-bright);
+}
+.pm-cal-name {
+  color: var(--stint-text);
+}
+.pm-cal-name-dim {
+  color: var(--stint-muted);
+}
+.pm-cal-default {
+  font-size: 0.7rem;
+  color: var(--stint-muted);
+}
+
+/* Updates mock specifics. */
+.pm-update-card {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 0.55rem;
+  padding: 0.85rem 0.95rem;
+  margin: 0.85rem 0 0;
+}
+.pm-update-title {
+  margin: 0 0 0.25rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #10b981;
+}
+.pm-update-notes {
+  margin: 0 0 0.7rem;
+  font-size: 0.78rem;
+  color: var(--stint-muted);
+}
+.pm-update-notes-ok {
+  color: #059669;
+}
+:root[data-theme="dark"] .pm-update-notes-ok {
+  color: #34d399;
+}
+.pm-link {
+  color: var(--stint-accent-bright);
+  text-decoration: underline;
+  text-decoration-color: var(--stint-border);
+}
+.pm-update-current {
+  margin: 0.85rem 0 0;
+  font-size: 0.78rem;
+  color: var(--stint-muted);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
    License-page Reyem Tech card
    ─────────────────────────────────────────────────────────────────────────── */
 

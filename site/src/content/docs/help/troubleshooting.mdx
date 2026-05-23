@@ -3,6 +3,8 @@ title: Troubleshooting
 description: Solutions for common stint issues — sync failures, OAuth problems, update flow.
 ---
 
+import UpdatesPanelMock from "../../../components/UpdatesPanelMock.astro";
+
 ## "Update available" appeared but clicking Install did nothing
 
 Fixed in v0.2.0. Earlier versions had a single "Install & restart" button
@@ -12,8 +14,13 @@ the running process, leaving you on the old version silently.
 If you're still on a pre-v0.2.0 install: **Quit stint from the menu bar
 and reopen it.** The new bundle is already on disk; relaunching picks it
 up. From v0.2.0 onward the panel has separate **Install** and
-**Restart Stint** buttons, and either restarting via the button or
-quit-and-reopen works.
+**Restart Stint** buttons:
+
+<UpdatesPanelMock state="available" />
+
+After clicking **Install**, the button transitions to **Restart Stint**:
+
+<UpdatesPanelMock state="installed" />
 
 ## Sync failures and the SyncErrorBanner
 

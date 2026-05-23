@@ -1,0 +1,59 @@
+---
+// CSS mock of the in-app Settings → Updates panel — shows the
+// "update available" state with the v0.2.0 split Install / Restart
+// buttons. The state prop picks which sub-state to render.
+//
+// Props:
+//   state — "available" | "installed" | "current" (default: "available")
+
+const { state = "available" } = Astro.props as {
+  state?: "available" | "installed" | "current";
+};
+---
+
+<div class="panel-mock" aria-hidden="true">
+  <div class="pm-header">
+    <span class="pm-eyebrow">UPDATES</span>
+  </div>
+
+  <div class="pm-row">
+    <label class="pm-label">Channel</label>
+    <div class="pm-select">Stable <span class="pm-chevron">▾</span></div>
+  </div>
+
+  {
+    state === "available" && (
+      <div class="pm-update-card">
+        <p class="pm-update-title">Update available: 0.3.0</p>
+        <p class="pm-update-notes">
+          See <span class="pm-link">CHANGELOG.md</span>
+        </p>
+        <button class="pm-btn pm-btn-primary">Install</button>
+      </div>
+    )
+  }
+
+  {
+    state === "installed" && (
+      <div class="pm-update-card">
+        <p class="pm-update-title">Update installed: 0.3.0</p>
+        <p class="pm-update-notes pm-update-notes-ok">
+          Restart Stint to run 0.3.0, or quit and reopen later — the new
+          bundle is already on disk.
+        </p>
+        <button class="pm-btn pm-btn-primary">Restart Stint</button>
+      </div>
+    )
+  }
+
+  {
+    state === "current" && (
+      <p class="pm-update-current">You're on the latest version (0.3.0).</p>
+    )
+  }
+
+  <div class="pm-actions pm-actions-top">
+    <button class="pm-btn pm-btn-secondary">Check now</button>
+    <span class="pm-meta">Current version: 0.2.0</span>
+  </div>
+</div>

@@ -3,10 +3,17 @@ title: Calendar setup
 description: Connect Google Calendar to surface meetings as one-click time entries.
 ---
 
+import CalendarPanelMock from "../../../components/CalendarPanelMock.astro";
+
 stint can pull calendar events and offer them as one-click time entries.
 This is useful for any "log the meeting I just had" workflow — open the
 popover after a meeting, click the event, the timer entry is created with
 the meeting's title and time range.
+
+Once one or more accounts are connected, the Settings → Calendar panel
+looks roughly like:
+
+<CalendarPanelMock />
 
 :::note[Google only for now]
 Phase 3b shipped Google Calendar. Microsoft 365 and CalDAV providers are
