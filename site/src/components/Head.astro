@@ -1,0 +1,70 @@
+---
+// Wraps Starlight's default Head and additionally emits a per-page
+// BreadcrumbList derived from the URL path. The breadcrumb tells search
+// engines the page's location in the site hierarchy so results can show
+// the trail (Home › Help › Privacy) instead of a raw URL.
+
+import Default from "@astrojs/starlight/components/Head.astro";
+
+const SITE = "https://stint.reyem.tech";
+
+// Friendly labels for known slug segments. Anything not listed falls
+// back to title-casing the slug.
+const LABELS: Record<string, string> = {
+  "getting-started": "Getting started",
+  reference: "Reference",
+  help: "Help",
+  cli: "CLI commands",
+  shortcuts: "Keyboard shortcuts",
+  faq: "FAQ",
+  solidtime: "Solidtime setup",
+  calendar: "Calendar setup",
+  quickstart: "Quickstart",
+  install: "Install",
+  privacy: "Privacy",
+  license: "License & terms",
+  troubleshooting: "Troubleshooting",
+};
+
+function labelFor(segment: string): string {
+  return (
+    LABELS[segment] ??
+    segment
+      .split("-")
+      .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+      .join(" ")
+  );
+}
+
+const parts = Astro.url.pathname.split("/").filter(Boolean);
+
+type Crumb = { "@type": "ListItem"; position: number; name: string; item: string };
+const itemListElement: Crumb[] = [
+  { "@type": "ListItem", position: 1, name: "Home", item: `${SITE}/` },
+];
+parts.forEach((part, i) => {
+  itemListElement.push({
+    "@type": "ListItem",
+    position: i + 2,
+    name: labelFor(part),
+    item: `${SITE}/${parts.slice(0, i + 1).join("/")}/`,
+  });
+});
+
+const breadcrumb = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement,
+};
+---
+
+<Default />
+{
+  parts.length > 0 && (
+    <script
+      type="application/ld+json"
+      is:inline
+      set:html={JSON.stringify(breadcrumb)}
+    />
+  )
+}

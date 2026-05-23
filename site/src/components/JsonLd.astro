@@ -1,0 +1,14 @@
+---
+// Minimal helper that serializes an object as a JSON-LD <script> tag.
+// Used to attach schema.org structured data to pages so search engines
+// can render rich results (app cards, FAQ accordions, knowledge panel).
+//
+// Props:
+//   data — any object that matches a schema.org type (e.g.
+//          SoftwareApplication, FAQPage, BreadcrumbList).
+
+const { data } = Astro.props as { data: unknown };
+const json = JSON.stringify(data);
+---
+
+<script type="application/ld+json" is:inline set:html={json} />

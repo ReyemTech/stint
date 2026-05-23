@@ -11,6 +11,29 @@ export default defineConfig({
       title: "stint",
       description:
         "macOS time tracker that syncs with a self-hosted Solidtime instance.",
+      // Site-wide JSON-LD: Organization (Reyem Tech, the publisher) so Google
+      // can attach it to the Knowledge Graph. Page-level types
+      // (SoftwareApplication on landing, FAQPage on /help/faq/) live in
+      // their respective MDX files via the JsonLd component.
+      head: [
+        {
+          tag: "script",
+          attrs: { type: "application/ld+json" },
+          content: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            name: "Reyem Tech",
+            url: "https://www.reyem.tech",
+            logo: "https://www.reyem.tech/images/logo-dark-tagline.webp",
+            sameAs: ["https://github.com/reyemtech"],
+          }),
+        },
+      ],
+      components: {
+        // Override Starlight's Head to additionally emit a per-page
+        // BreadcrumbList derived from the URL path.
+        Head: "./src/components/Head.astro",
+      },
       logo: {
         light: "./src/assets/stint-icon-light.svg",
         dark: "./src/assets/stint-icon-dark.svg",

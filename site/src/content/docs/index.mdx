@@ -15,6 +15,34 @@ import CliExample from "../../components/CliExample.astro";
 import PopoverMock from "../../components/PopoverMock.astro";
 import InstallBlock from "../../components/InstallBlock.astro";
 import LatestDmgButton from "../../components/LatestDmgButton.astro";
+import JsonLd from "../../components/JsonLd.astro";
+import { getLatestRelease } from "../../lib/latestRelease";
+
+export const release = await getLatestRelease();
+
+export const softwareApplication = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "stint",
+  description:
+    "macOS time tracker that syncs with self-hosted Solidtime. Menu bar, main window, and CLI sharing one local SQLite database.",
+  url: "https://stint.reyem.tech",
+  operatingSystem: "macOS 13+",
+  applicationCategory: "BusinessApplication",
+  applicationSubCategory: "TimeTracker",
+  softwareVersion: release.version ?? undefined,
+  fileSize: release.dmgSizeMB ? `${release.dmgSizeMB} MB` : undefined,
+  downloadUrl: release.dmgUrl,
+  offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+  author: {
+    "@type": "Organization",
+    name: "Reyem Tech",
+    url: "https://www.reyem.tech",
+  },
+  license: "https://opensource.org/licenses/MIT",
+};
+
+<JsonLd data={softwareApplication} />
 
 <section class="hero">
   <div class="hero-text">
