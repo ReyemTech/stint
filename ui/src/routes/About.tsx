@@ -105,6 +105,12 @@ export default function About() {
             <Button onClick={() => openSolidtime()}>Open Solidtime</Button>
             <Button
               variant="secondary"
+              onClick={() => openUrl("https://stint.reyem.tech")}
+            >
+              Docs
+            </Button>
+            <Button
+              variant="secondary"
               onClick={() => openUrl("https://github.com/reyemtech/stint")}
             >
               GitHub
