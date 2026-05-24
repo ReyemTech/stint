@@ -84,6 +84,22 @@ pub struct TaskView {
     pub done: bool,
 }
 
+impl From<crate::store::entries::TimeEntryRow> for EntryView {
+    fn from(row: crate::store::entries::TimeEntryRow) -> Self {
+        Self {
+            local_uuid: row.local_uuid,
+            solidtime_id: row.solidtime_id,
+            description: row.description,
+            project_id: row.project_id,
+            task_id: row.task_id,
+            billable: row.billable != 0,
+            start_at: row.start_at,
+            end_at: row.end_at,
+            source: row.source,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

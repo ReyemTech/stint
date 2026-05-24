@@ -4,7 +4,7 @@ use crate::timer::{StartArgs, TimerService};
 use crate::verbs::types::{EntryView, StartParams};
 use crate::Result;
 
-/// Start a new running entry. Stops any in-progress timer first is the
+/// Start a new running entry. Stopping any in-progress timer first is the
 /// caller's responsibility — this verb is strict and returns an error if
 /// a timer is already running. (Restart-style behavior lives in a separate
 /// helper at the transport layer.)
@@ -27,15 +27,5 @@ pub async fn start(store: &Store, params: StartParams) -> Result<EntryView> {
         .await?
         .expect("just-inserted entry must exist");
 
-    Ok(EntryView {
-        local_uuid: row.local_uuid,
-        solidtime_id: row.solidtime_id,
-        description: row.description,
-        project_id: row.project_id,
-        task_id: row.task_id,
-        billable: row.billable != 0,
-        start_at: row.start_at,
-        end_at: row.end_at,
-        source: row.source,
-    })
+    Ok(row.into())
 }
