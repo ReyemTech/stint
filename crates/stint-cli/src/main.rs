@@ -99,16 +99,16 @@ async fn main() -> Result<()> {
         Command::List(args) => cmd::list::run(args, json).await,
         Command::Edit(args) => cmd::edit::run(args, json).await,
         Command::Delete(args) => cmd::delete::run(args, json).await,
-        Command::Config(c) => cmd::config::run(c).await,
+        Command::Config(c) => cmd::config::run(c, json).await,
         Command::Projects(p) => cmd::projects::run(p, json).await,
-        Command::Sync(args) => cmd::sync::run(args).await,
-        Command::Pull(args) => cmd::pull::run(args).await,
+        Command::Sync(args) => cmd::sync::run(args, json).await,
+        Command::Pull(args) => cmd::pull::run(args, json).await,
         Command::Calendar(c) => {
             let store = cmd::open_store().await?;
-            cmd::calendar::run(c, store).await
+            cmd::calendar::run(c, store, json).await
         }
         Command::Update { check, force } => {
-            tokio::task::spawn_blocking(move || cmd::update::run(check, force)).await?
+            tokio::task::spawn_blocking(move || cmd::update::run(check, force, json)).await?
         }
     }
 }

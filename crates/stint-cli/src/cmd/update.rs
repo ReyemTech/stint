@@ -109,7 +109,7 @@ pub fn atomic_replace(staging: &Path, target: &Path) -> anyhow::Result<()> {
 /// Detects how the running binary was installed; for `.app`-bundled installs
 /// we defer to the GUI/brew. For standalone installs we fetch the latest
 /// release from GitHub, verify its checksum, and atomically swap the binary.
-pub fn run(check_only: bool, force: bool) -> anyhow::Result<()> {
+pub fn run(check_only: bool, force: bool, json: bool) -> anyhow::Result<()> {
     let exe = std::env::current_exe()?;
     let resolved = exe.canonicalize().unwrap_or(exe);
     let method = install_method(&resolved);
@@ -117,6 +117,16 @@ pub fn run(check_only: bool, force: bool) -> anyhow::Result<()> {
     let current = env!("CARGO_PKG_VERSION");
 
     if method == InstallMethod::AppBundled {
+        if json {
+            let ack = serde_json::json!({
+                "checked": false,
+                "install_method": "app_bundled",
+                "current": current,
+                "message": "managed by GUI/brew",
+            });
+            println!("{}", serde_json::to_string_pretty(&ack)?);
+            return Ok(());
+        }
         println!("stint {current} is bundled inside {}.", resolved.display());
         println!();
         println!("To upgrade:");
@@ -128,28 +138,71 @@ pub fn run(check_only: bool, force: bool) -> anyhow::Result<()> {
 
     // Standalone — fetch latest from GitHub.
     if std::env::var("STINT_UPDATE_SKIP_NETWORK").is_ok() {
+        if json {
+            let ack = serde_json::json!({
+                "checked": false,
+                "current": current,
+                "skipped": "network",
+            });
+            println!("{}", serde_json::to_string_pretty(&ack)?);
+            return Ok(());
+        }
         println!("stint {current} (network check skipped)");
         return Ok(());
     }
 
-    println!("Checking for updates…");
+    if !json {
+        println!("Checking for updates…");
+    }
     let latest = match fetch_latest_release_blocking("https://api.github.com") {
         Ok(r) => r,
         Err(e) => {
-            println!("Could not check for updates: {e}");
+            if json {
+                let ack = serde_json::json!({
+                    "checked": true,
+                    "current": current,
+                    "error": format!("{e}"),
+                });
+                println!("{}", serde_json::to_string_pretty(&ack)?);
+            } else {
+                println!("Could not check for updates: {e}");
+            }
             return Ok(());
         }
     };
     let current_ver = semver::Version::parse(current)?;
     let latest_ver = semver::Version::parse(&latest.version)?;
 
-    if !force && latest_ver <= current_ver {
+    let available = latest_ver > current_ver;
+    if !force && !available {
+        if json {
+            let ack = serde_json::json!({
+                "checked": true,
+                "available": false,
+                "current": current,
+                "latest": latest.version,
+            });
+            println!("{}", serde_json::to_string_pretty(&ack)?);
+            return Ok(());
+        }
         println!("stint {current} is the latest version.");
         return Ok(());
     }
 
-    println!("Update available: {current} → {}", latest.version);
+    if !json {
+        println!("Update available: {current} → {}", latest.version);
+    }
     if check_only {
+        if json {
+            let ack = serde_json::json!({
+                "checked": true,
+                "available": true,
+                "applied": false,
+                "current": current,
+                "latest": latest.version,
+            });
+            println!("{}", serde_json::to_string_pretty(&ack)?);
+        }
         return Ok(());
     }
 
@@ -158,7 +211,9 @@ pub fn run(check_only: bool, force: bool) -> anyhow::Result<()> {
     let tarball_path = tmp.path().join("stint.tar.gz");
     let checksums_path = tmp.path().join("checksums.txt");
 
-    println!("Downloading…");
+    if !json {
+        println!("Downloading…");
+    }
     download_to(&latest.tarball_url, &tarball_path)?;
     download_to(&latest.checksums_url, &checksums_path)?;
 
@@ -167,7 +222,9 @@ pub fn run(check_only: bool, force: bool) -> anyhow::Result<()> {
     let tarball_name = format!("stint-{}-universal-apple-darwin.tar.gz", latest.version);
     let expected = parse_checksum_for(&raw, &tarball_name)?;
     verify_sha256(&tarball_path, &expected)?;
-    println!("✓ checksum verified");
+    if !json {
+        println!("✓ checksum verified");
+    }
 
     // Extract the binary.
     let extracted = tmp.path().join("stint");
@@ -186,7 +243,18 @@ pub fn run(check_only: bool, force: bool) -> anyhow::Result<()> {
     fs::copy(&extracted, &staging)?;
     atomic_replace(&staging, &resolved)?;
 
-    println!("✓ updated to stint {}", latest.version);
+    if json {
+        let ack = serde_json::json!({
+            "checked": true,
+            "available": true,
+            "applied": true,
+            "current": current,
+            "latest": latest.version,
+        });
+        println!("{}", serde_json::to_string_pretty(&ack)?);
+    } else {
+        println!("✓ updated to stint {}", latest.version);
+    }
     Ok(())
 }
 

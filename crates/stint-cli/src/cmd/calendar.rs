@@ -48,15 +48,32 @@ pub enum CalendarCmd {
     Refresh { account_id: String },
 }
 
-pub async fn run(c: CalendarCmd, store: Store) -> Result<()> {
+pub async fn run(c: CalendarCmd, store: Store, json: bool) -> Result<()> {
     let cs = CalendarStore::new(store.clone());
     let secrets = Secrets::default();
 
     match c {
-        CalendarCmd::Add { provider } if provider == "google" => add_google(&cs, &secrets).await,
+        CalendarCmd::Add { provider } if provider == "google" => {
+            add_google(&cs, &secrets, json).await
+        }
         CalendarCmd::Add { provider } => Err(anyhow!("unknown provider {provider}")),
         CalendarCmd::List => {
             let accounts = cs.list_accounts().await?;
+            if json {
+                let payload: Vec<_> = accounts
+                    .iter()
+                    .map(|a| {
+                        serde_json::json!({
+                            "id": a.id,
+                            "provider": provider_label(a.provider),
+                            "display_name": a.display_name,
+                            "identifier": a.identifier,
+                        })
+                    })
+                    .collect();
+                crate::render::render(&payload, true, |_| {});
+                return Ok(());
+            }
             if accounts.is_empty() {
                 println!("No calendar accounts configured.");
                 return Ok(());
@@ -75,7 +92,8 @@ pub async fn run(c: CalendarCmd, store: Store) -> Result<()> {
         CalendarCmd::Remove { account_id } => {
             cs.delete_account(&account_id).await?;
             let _ = calendar_blob_delete(&secrets, &account_id);
-            println!("Removed account {account_id}.");
+            let ack = serde_json::json!({ "removed": account_id });
+            crate::render::render(&ack, json, |_| println!("Removed account {account_id}."));
             Ok(())
         }
         CalendarCmd::Calendars {
@@ -85,31 +103,59 @@ pub async fn run(c: CalendarCmd, store: Store) -> Result<()> {
             set_default_project,
             clear_default_project,
         } => {
-            if let Some(id) = include {
-                cs.set_calendar_included(&id, true).await?;
-                println!("Included calendar {id}.");
+            // Mutations print their human ack inline; the JSON path emits a
+            // single summary payload at the end with the resulting calendar
+            // list. Splitting per-action acks would force callers to parse
+            // a stream of JSON objects, which the rest of the CLI doesn't do.
+            if let Some(id) = &include {
+                cs.set_calendar_included(id, true).await?;
+                if !json {
+                    println!("Included calendar {id}.");
+                }
             }
-            if let Some(id) = exclude {
-                cs.set_calendar_included(&id, false).await?;
-                println!("Excluded calendar {id}.");
+            if let Some(id) = &exclude {
+                cs.set_calendar_included(id, false).await?;
+                if !json {
+                    println!("Excluded calendar {id}.");
+                }
             }
-            if let Some(pair) = set_default_project {
+            if let Some(pair) = &set_default_project {
                 let cal_id = &pair[0];
                 let proj_id = &pair[1];
                 cs.set_default_project(cal_id, Some(proj_id)).await?;
-                println!("Set default project {proj_id} on calendar {cal_id}.");
+                if !json {
+                    println!("Set default project {proj_id} on calendar {cal_id}.");
+                }
             }
-            if let Some(id) = clear_default_project {
-                cs.set_default_project(&id, None).await?;
-                println!("Cleared default project on calendar {id}.");
+            if let Some(id) = &clear_default_project {
+                cs.set_default_project(id, None).await?;
+                if !json {
+                    println!("Cleared default project on calendar {id}.");
+                }
             }
-            for c in cs.list_calendars(&account_id).await? {
-                let mark = if c.included { "[x]" } else { "[ ]" };
-                let default = match &c.default_project_id {
-                    Some(p) => format!(" (default: {p})"),
-                    None => String::new(),
-                };
-                println!("{mark} {} {}{default}", c.id, c.name);
+            let cals = cs.list_calendars(&account_id).await?;
+            if json {
+                let payload: Vec<_> = cals
+                    .iter()
+                    .map(|c| {
+                        serde_json::json!({
+                            "id": c.id,
+                            "name": c.name,
+                            "included": c.included,
+                            "default_project_id": c.default_project_id,
+                        })
+                    })
+                    .collect();
+                crate::render::render(&payload, true, |_| {});
+            } else {
+                for c in cals {
+                    let mark = if c.included { "[x]" } else { "[ ]" };
+                    let default = match &c.default_project_id {
+                        Some(p) => format!(" (default: {p})"),
+                        None => String::new(),
+                    };
+                    println!("{mark} {} {}{default}", c.id, c.name);
+                }
             }
             Ok(())
         }
@@ -118,13 +164,14 @@ pub async fn run(c: CalendarCmd, store: Store) -> Result<()> {
                 stint_core::calendar::google::build_provider_from_blob(&secrets, &account_id)?;
             let n =
                 refresh_account(&cs, &account_id, provider.as_ref(), Ranges::on_focus()).await?;
-            println!("Refreshed {n} events.");
+            let ack = serde_json::json!({ "refreshed": n });
+            crate::render::render(&ack, json, |_| println!("Refreshed {n} events."));
             Ok(())
         }
     }
 }
 
-async fn add_google(cs: &CalendarStore, secrets: &Secrets) -> Result<()> {
+async fn add_google(cs: &CalendarStore, secrets: &Secrets, json: bool) -> Result<()> {
     if !is_configured() {
         return Err(anyhow!(
             "Google OAuth credentials are not configured in this build. \
@@ -186,10 +233,17 @@ async fn add_google(cs: &CalendarStore, secrets: &Secrets) -> Result<()> {
 
     let provider = stint_core::calendar::google::build_provider_from_blob(secrets, &account_uuid)?;
     let n = refresh_account(cs, &account_uuid, provider.as_ref(), Ranges::on_add()).await?;
-    println!(
-        "Added Google account: {} ({account_uuid}). Fetched {n} events.",
-        account.identifier
-    );
+    let ack = serde_json::json!({
+        "account_id": account_uuid,
+        "identifier": account.identifier,
+        "events_fetched": n,
+    });
+    crate::render::render(&ack, json, |_| {
+        println!(
+            "Added Google account: {} ({account_uuid}). Fetched {n} events.",
+            account.identifier
+        );
+    });
     Ok(())
 }
 

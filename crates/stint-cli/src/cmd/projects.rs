@@ -41,10 +41,8 @@ pub async fn run(p: ProjectsCmd, json: bool) -> Result<()> {
         ProjectsCmd::Refresh => {
             let client = build_client(&store).await?;
             refresh_reference_data(&store, &client).await?;
-            // Admin verb — `--json` has no structured payload to emit.
-            if !json {
-                println!("✓ refreshed");
-            }
+            let ack = serde_json::json!({ "refreshed": true });
+            crate::render::render(&ack, json, |_| println!("✓ refreshed"));
             Ok(())
         }
         ProjectsCmd::Raw => {

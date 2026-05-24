@@ -24,12 +24,10 @@ pub async fn run(args: Args, json: bool) -> Result<()> {
     verbs::delete_entry(&store, &args.id).await?;
 
     // No structured payload — `delete` returns unit. Emit a JSON ack for
-    // consistency, otherwise the legacy human line.
-    if json {
-        let ack = serde_json::json!({ "deleted": args.id });
-        crate::render::render(&ack, true, |_| {});
-    } else {
-        println!("Deleted {}.", args.id);
-    }
+    // consistency, otherwise the legacy human line. The ack carries both
+    // the bool (so callers can `.deleted == true`-check) and the id (so
+    // they can verify which row was acted on).
+    let ack = serde_json::json!({ "deleted": true, "id": args.id });
+    crate::render::render(&ack, json, |_| println!("Deleted {}.", args.id));
     Ok(())
 }
