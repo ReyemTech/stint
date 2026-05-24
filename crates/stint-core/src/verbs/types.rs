@@ -84,6 +84,17 @@ pub struct TaskView {
     pub done: bool,
 }
 
+impl From<crate::store::reference::TaskRow> for TaskView {
+    fn from(row: crate::store::reference::TaskRow) -> Self {
+        Self {
+            solidtime_id: row.id,
+            project_id: row.project_id,
+            name: row.name,
+            done: row.done != 0,
+        }
+    }
+}
+
 impl From<crate::store::reference::ProjectRow> for ProjectView {
     fn from(row: crate::store::reference::ProjectRow) -> Self {
         Self {

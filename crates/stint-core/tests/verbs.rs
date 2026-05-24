@@ -268,3 +268,26 @@ async fn list_projects_returns_seeded_projects() {
     assert!(names.contains(&"Project One"));
     assert!(names.contains(&"Project Two"));
 }
+
+#[tokio::test]
+async fn list_tasks_filters_by_project() {
+    let env = common::setup().await;
+    let store = &env.store;
+    common::seed_projects(store, &[("p-1", "P1"), ("p-2", "P2")]).await;
+    common::seed_tasks(
+        store,
+        &[
+            ("t-1", "p-1", "Task A"),
+            ("t-2", "p-1", "Task B"),
+            ("t-3", "p-2", "Task C"),
+        ],
+    )
+    .await;
+
+    let all = verbs::list_tasks(store, None).await.unwrap();
+    assert_eq!(all.len(), 3);
+
+    let p1 = verbs::list_tasks(store, Some("p-1".into())).await.unwrap();
+    assert_eq!(p1.len(), 2);
+    assert!(p1.iter().all(|t| t.project_id == "p-1"));
+}

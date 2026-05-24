@@ -121,6 +121,15 @@ impl Reference {
         Ok(rows)
     }
 
+    pub async fn list_all_tasks(&self) -> Result<Vec<TaskRow>> {
+        let rows = sqlx::query_as::<_, TaskRow>(
+            "SELECT id, project_id, name, done FROM tasks ORDER BY name",
+        )
+        .fetch_all(self.store.pool())
+        .await?;
+        Ok(rows)
+    }
+
     pub async fn upsert_tags(&self, tags: &[TagRow]) -> Result<()> {
         let now = time::now_utc();
         let mut tx = self.store.pool().begin().await?;

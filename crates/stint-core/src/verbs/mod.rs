@@ -8,6 +8,7 @@
 pub mod current;
 pub mod list_entries;
 pub mod list_projects;
+pub mod list_tasks;
 pub mod start;
 pub mod stop;
 pub mod types;
@@ -15,6 +16,7 @@ pub mod types;
 pub use current::current;
 pub use list_entries::list_entries;
 pub use list_projects::list_projects;
+pub use list_tasks::list_tasks;
 pub use start::start;
 pub use stop::stop;
 pub use types::*;
