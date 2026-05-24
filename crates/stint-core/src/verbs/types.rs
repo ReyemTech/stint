@@ -40,15 +40,15 @@ pub struct EntryFilter {
 pub struct EntryPatch {
     #[serde(default)]
     pub description: Option<String>,
-    #[serde(default)]
+    #[serde(default, with = "::serde_with::rust::double_option")]
     pub project_id: Option<Option<String>>, // None = no change, Some(None) = clear
-    #[serde(default)]
+    #[serde(default, with = "::serde_with::rust::double_option")]
     pub task_id: Option<Option<String>>,
     #[serde(default)]
     pub billable: Option<bool>,
     #[serde(default)]
     pub start_at: Option<String>,
-    #[serde(default)]
+    #[serde(default, with = "::serde_with::rust::double_option")]
     pub end_at: Option<Option<String>>,
 }
 
@@ -82,4 +82,75 @@ pub struct TaskView {
     pub project_id: String,
     pub name: String,
     pub done: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn entry_patch_project_id_three_way_distinction() {
+        let absent: EntryPatch = serde_json::from_str("{}").unwrap();
+        assert_eq!(absent.project_id, None, "absent field must be None");
+
+        let cleared: EntryPatch =
+            serde_json::from_str(r#"{"project_id": null}"#).unwrap();
+        assert_eq!(
+            cleared.project_id,
+            Some(None),
+            "explicit null must be Some(None) = clear"
+        );
+
+        let set: EntryPatch =
+            serde_json::from_str(r#"{"project_id": "abc"}"#).unwrap();
+        assert_eq!(
+            set.project_id,
+            Some(Some("abc".into())),
+            "string value must be Some(Some(value)) = set"
+        );
+    }
+
+    #[test]
+    fn entry_patch_task_id_three_way_distinction() {
+        let absent: EntryPatch = serde_json::from_str("{}").unwrap();
+        assert_eq!(absent.task_id, None, "absent field must be None");
+
+        let cleared: EntryPatch =
+            serde_json::from_str(r#"{"task_id": null}"#).unwrap();
+        assert_eq!(
+            cleared.task_id,
+            Some(None),
+            "explicit null must be Some(None) = clear"
+        );
+
+        let set: EntryPatch =
+            serde_json::from_str(r#"{"task_id": "xyz"}"#).unwrap();
+        assert_eq!(
+            set.task_id,
+            Some(Some("xyz".into())),
+            "string value must be Some(Some(value)) = set"
+        );
+    }
+
+    #[test]
+    fn entry_patch_end_at_three_way_distinction() {
+        let absent: EntryPatch = serde_json::from_str("{}").unwrap();
+        assert_eq!(absent.end_at, None, "absent field must be None");
+
+        let cleared: EntryPatch =
+            serde_json::from_str(r#"{"end_at": null}"#).unwrap();
+        assert_eq!(
+            cleared.end_at,
+            Some(None),
+            "explicit null must be Some(None) = clear"
+        );
+
+        let set: EntryPatch =
+            serde_json::from_str(r#"{"end_at": "2026-05-23T12:00:00Z"}"#).unwrap();
+        assert_eq!(
+            set.end_at,
+            Some(Some("2026-05-23T12:00:00Z".into())),
+            "string value must be Some(Some(value)) = set"
+        );
+    }
 }
