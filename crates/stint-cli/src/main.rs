@@ -18,6 +18,10 @@ use clap::{Parser, Subcommand};
     about = "Time tracker that syncs with Solidtime"
 )]
 struct Cli {
+    /// Emit machine-readable JSON instead of human text.
+    #[arg(long, global = true)]
+    json: bool,
+
     #[command(subcommand)]
     command: Command,
 }
@@ -85,16 +89,17 @@ async fn main() -> Result<()> {
         cmd::maybe_recover(&store).await?;
     }
 
+    let json = cli.json;
     match cli.command {
-        Command::Start(args) => cmd::start::run(args).await,
-        Command::Stop => cmd::stop::run().await,
-        Command::Restart(args) => cmd::restart::run(args).await,
-        Command::Today => cmd::today::run().await,
-        Command::List(args) => cmd::list::run(args).await,
-        Command::Edit(args) => cmd::edit::run(args).await,
-        Command::Delete(args) => cmd::delete::run(args).await,
+        Command::Start(args) => cmd::start::run(args, json).await,
+        Command::Stop => cmd::stop::run(json).await,
+        Command::Restart(args) => cmd::restart::run(args, json).await,
+        Command::Today => cmd::today::run(json).await,
+        Command::List(args) => cmd::list::run(args, json).await,
+        Command::Edit(args) => cmd::edit::run(args, json).await,
+        Command::Delete(args) => cmd::delete::run(args, json).await,
         Command::Config(c) => cmd::config::run(c).await,
-        Command::Projects(p) => cmd::projects::run(p).await,
+        Command::Projects(p) => cmd::projects::run(p, json).await,
         Command::Sync(args) => cmd::sync::run(args).await,
         Command::Pull(args) => cmd::pull::run(args).await,
         Command::Calendar(c) => {
