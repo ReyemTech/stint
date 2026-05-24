@@ -210,6 +210,21 @@ impl Entries {
         .await
     }
 
+    pub async fn set_task(&self, local_uuid: &str, task_id: Option<&str>) -> Result<()> {
+        self.update_one(local_uuid, |s| {
+            sqlx::query(
+                "UPDATE time_entries
+                 SET task_id = ?, sync_state = ?, updated_at = ?
+                 WHERE local_uuid = ?",
+            )
+            .bind(task_id)
+            .bind(s.next_state())
+            .bind(time::now_utc())
+            .bind(local_uuid)
+        })
+        .await
+    }
+
     pub async fn set_billable(&self, local_uuid: &str, billable: bool) -> Result<()> {
         self.update_one(local_uuid, |s| {
             sqlx::query(
@@ -218,6 +233,20 @@ impl Entries {
                  WHERE local_uuid = ?",
             )
             .bind(if billable { 1 } else { 0 })
+            .bind(s.next_state())
+            .bind(time::now_utc())
+            .bind(local_uuid)
+        })
+        .await
+    }
+
+    pub async fn clear_end(&self, local_uuid: &str) -> Result<()> {
+        self.update_one(local_uuid, |s| {
+            sqlx::query(
+                "UPDATE time_entries
+                 SET end_at = NULL, sync_state = ?, updated_at = ?
+                 WHERE local_uuid = ?",
+            )
             .bind(s.next_state())
             .bind(time::now_utc())
             .bind(local_uuid)

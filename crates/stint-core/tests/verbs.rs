@@ -1,7 +1,7 @@
 mod common;
 
 use stint_core::store::entries::Entries;
-use stint_core::verbs::{self, EntryFilter, StartParams};
+use stint_core::verbs::{self, EntryFilter, EntryPatch, StartParams};
 
 #[tokio::test]
 async fn start_creates_running_entry_and_returns_view() {
@@ -290,4 +290,75 @@ async fn list_tasks_filters_by_project() {
     let p1 = verbs::list_tasks(store, Some("p-1".into())).await.unwrap();
     assert_eq!(p1.len(), 2);
     assert!(p1.iter().all(|t| t.project_id == "p-1"));
+}
+
+#[tokio::test]
+async fn update_entry_modifies_only_specified_fields() {
+    let env = common::setup().await;
+    let store = &env.store;
+
+    let started = verbs::start(
+        store,
+        StartParams {
+            description: "before".into(),
+            project_id: Some("p-1".into()),
+            task_id: None,
+            billable: false,
+            start_at: None,
+            source: "test".into(),
+        },
+    )
+    .await
+    .unwrap();
+    verbs::stop(store).await.unwrap();
+
+    let patched = verbs::update_entry(
+        store,
+        &started.local_uuid,
+        EntryPatch {
+            description: Some("after".into()),
+            billable: Some(true),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(patched.description, "after");
+    assert!(patched.billable);
+    assert_eq!(patched.project_id, Some("p-1".into()), "project unchanged");
+}
+
+#[tokio::test]
+async fn update_entry_can_clear_project_id() {
+    let env = common::setup().await;
+    let store = &env.store;
+
+    let started = verbs::start(
+        store,
+        StartParams {
+            description: "with project".into(),
+            project_id: Some("p-1".into()),
+            task_id: None,
+            billable: false,
+            start_at: None,
+            source: "test".into(),
+        },
+    )
+    .await
+    .unwrap();
+    verbs::stop(store).await.unwrap();
+
+    let patched = verbs::update_entry(
+        store,
+        &started.local_uuid,
+        EntryPatch {
+            project_id: Some(None), // Some(None) = clear
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+
+    assert!(patched.project_id.is_none(), "project_id should be cleared");
 }

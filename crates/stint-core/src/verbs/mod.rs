@@ -12,6 +12,7 @@ pub mod list_tasks;
 pub mod start;
 pub mod stop;
 pub mod types;
+pub mod update_entry;
 
 pub use current::current;
 pub use list_entries::list_entries;
@@ -20,3 +21,4 @@ pub use list_tasks::list_tasks;
 pub use start::start;
 pub use stop::stop;
 pub use types::*;
+pub use update_entry::update_entry;
