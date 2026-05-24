@@ -6,6 +6,7 @@
 //! See `docs/superpowers/specs/2026-05-23-stint-phase-6-deeper-integration-design.md#211-dry-principle`.
 
 pub mod current;
+pub mod delete_entry;
 pub mod list_entries;
 pub mod list_projects;
 pub mod list_tasks;
@@ -15,6 +16,7 @@ pub mod types;
 pub mod update_entry;
 
 pub use current::current;
+pub use delete_entry::delete_entry;
 pub use list_entries::list_entries;
 pub use list_projects::list_projects;
 pub use list_tasks::list_tasks;

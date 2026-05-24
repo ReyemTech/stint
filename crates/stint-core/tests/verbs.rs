@@ -362,3 +362,42 @@ async fn update_entry_can_clear_project_id() {
 
     assert!(patched.project_id.is_none(), "project_id should be cleared");
 }
+
+#[tokio::test]
+async fn delete_entry_removes_row() {
+    let env = common::setup().await;
+    let store = &env.store;
+
+    let started = verbs::start(
+        store,
+        StartParams {
+            description: "doomed".into(),
+            project_id: None,
+            task_id: None,
+            billable: false,
+            start_at: None,
+            source: "test".into(),
+        },
+    )
+    .await
+    .unwrap();
+    verbs::stop(store).await.unwrap();
+
+    verbs::delete_entry(store, &started.local_uuid).await.unwrap();
+
+    let entries = Entries::new(store.clone());
+    let row = entries.get(&started.local_uuid).await.unwrap();
+    // Entry was never synced (pending_create), so timer.delete hard-removes.
+    assert!(row.is_none(), "entry should be gone after delete");
+}
+
+#[tokio::test]
+async fn delete_entry_is_idempotent_on_missing_row() {
+    let env = common::setup().await;
+    let store = &env.store;
+
+    // Deleting a non-existent uuid is a no-op success.
+    verbs::delete_entry(store, "does-not-exist")
+        .await
+        .expect("delete of missing entry should succeed");
+}
