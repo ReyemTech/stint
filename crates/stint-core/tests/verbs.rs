@@ -116,3 +116,33 @@ async fn stop_errors_when_no_timer_running() {
         "error should indicate no timer running, got: {msg}"
     );
 }
+
+#[tokio::test]
+async fn current_returns_none_when_idle() {
+    let env = common::setup().await;
+    let store = &env.store;
+    let view = verbs::current(store).await.unwrap();
+    assert!(view.is_none());
+}
+
+#[tokio::test]
+async fn current_returns_running_entry() {
+    let env = common::setup().await;
+    let store = &env.store;
+    let started = verbs::start(
+        store,
+        StartParams {
+            description: "task B".into(),
+            project_id: None,
+            task_id: None,
+            billable: false,
+            start_at: None,
+            source: "test".into(),
+        },
+    )
+    .await
+    .unwrap();
+    let view = verbs::current(store).await.unwrap().unwrap();
+    assert_eq!(view.local_uuid, started.local_uuid);
+    assert!(view.end_at.is_none());
+}
