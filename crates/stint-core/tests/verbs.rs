@@ -212,3 +212,46 @@ async fn list_entries_respects_limit() {
     .unwrap();
     assert_eq!(entries.len(), 2);
 }
+
+#[tokio::test]
+async fn list_entries_filters_by_project() {
+    let env = common::setup().await;
+    let store = &env.store;
+
+    // Two entries with project, one without.
+    for (desc, pid) in [
+        ("with-p", Some("p-1".to_string())),
+        ("no-p", None),
+        ("also-with-p", Some("p-1".to_string())),
+    ] {
+        verbs::start(
+            store,
+            StartParams {
+                description: desc.into(),
+                project_id: pid,
+                task_id: None,
+                billable: false,
+                start_at: None,
+                source: "test".into(),
+            },
+        )
+        .await
+        .unwrap();
+        verbs::stop(store).await.unwrap();
+    }
+
+    let filtered = verbs::list_entries(
+        store,
+        EntryFilter {
+            project_id: Some("p-1".into()),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(filtered.len(), 2);
+    assert!(filtered
+        .iter()
+        .all(|e| e.project_id.as_deref() == Some("p-1")));
+}

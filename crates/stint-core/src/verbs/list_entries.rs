@@ -22,6 +22,10 @@ pub async fn list_entries(store: &Store, filter: EntryFilter) -> Result<Vec<Entr
         rows.retain(|r| r.project_id.as_deref() == Some(pid));
     }
     if let Some(limit) = filter.limit {
+        // `Entries::list_between` returns rows ASC by `start_at`, so
+        // `truncate(limit)` keeps the *oldest* N within the window.
+        // Callers that want the newest N should reverse before truncating
+        // or migrate to a SQL-pushdown filter.
         rows.truncate(limit as usize);
     }
 
