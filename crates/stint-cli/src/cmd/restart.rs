@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use stint_core::store::entries::Entries;
-use stint_core::timer::{StartArgs, TimerService};
+use stint_core::verbs::{self, StartParams};
 
 use super::open_store;
 
@@ -11,7 +11,7 @@ pub struct Args {
     pub local_uuid: String,
 }
 
-pub async fn run(args: Args) -> Result<()> {
+pub async fn run(args: Args, json: bool) -> Result<()> {
     let store = open_store().await?;
     let entries = Entries::new(store.clone());
     let template = entries
@@ -19,20 +19,25 @@ pub async fn run(args: Args) -> Result<()> {
         .await?
         .ok_or_else(|| anyhow!("entry {} not found", args.local_uuid))?;
 
-    let timer = TimerService::new(store);
     // Best-effort stop of any running timer so the start below doesn't
     // collide. Ignore "no timer running" — that's the expected idle case.
-    let _ = timer.stop().await;
-    let id = timer
-        .start(StartArgs {
+    let _ = verbs::stop(&store).await;
+
+    let view = verbs::start(
+        &store,
+        StartParams {
             description: template.description.clone(),
             project_id: template.project_id,
             task_id: template.task_id,
             billable: template.billable != 0,
-            source: "cli".into(),
             start_at: None,
-        })
-        .await?;
-    println!("Restarted: {} ({})", template.description, id);
+            source: "cli".into(),
+        },
+    )
+    .await?;
+
+    crate::render::render(&view, json, |v| {
+        println!("Restarted: {} ({})", v.description, v.local_uuid);
+    });
     Ok(())
 }

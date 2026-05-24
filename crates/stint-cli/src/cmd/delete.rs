@@ -1,5 +1,6 @@
-use anyhow::Result;
-use stint_core::timer::TimerService;
+use anyhow::{anyhow, Result};
+use stint_core::store::entries::Entries;
+use stint_core::verbs;
 
 use super::open_store;
 
@@ -9,10 +10,26 @@ pub struct Args {
     pub id: String,
 }
 
-pub async fn run(args: Args) -> Result<()> {
+pub async fn run(args: Args, json: bool) -> Result<()> {
     let store = open_store().await?;
-    let timer = TimerService::new(store);
-    timer.delete(&args.id).await?;
-    println!("Deleted {}.", args.id);
+
+    // `verbs::delete_entry` is idempotent (no-ops on missing rows). The CLI
+    // contract is stricter — `stint delete <missing>` reports the row as
+    // not found — so we probe before delegating.
+    let entries = Entries::new(store.clone());
+    if entries.get(&args.id).await?.is_none() {
+        return Err(anyhow!("entry {} not found", args.id));
+    }
+
+    verbs::delete_entry(&store, &args.id).await?;
+
+    // No structured payload — `delete` returns unit. Emit a JSON ack for
+    // consistency, otherwise the legacy human line.
+    if json {
+        let ack = serde_json::json!({ "deleted": args.id });
+        crate::render::render(&ack, true, |_| {});
+    } else {
+        println!("Deleted {}.", args.id);
+    }
     Ok(())
 }
