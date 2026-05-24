@@ -73,7 +73,7 @@ pub struct ProjectView {
     pub name: String,
     pub color: Option<String>,
     pub client_id: Option<String>,
-    pub archived_at: Option<String>,
+    pub archived: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -91,14 +91,7 @@ impl From<crate::store::reference::ProjectRow> for ProjectView {
             name: row.name,
             color: row.color,
             client_id: row.client_id,
-            // The local reference table stores `archived` as a boolean flag,
-            // not the original archival timestamp from Solidtime. Surface it
-            // as None when active; otherwise a sentinel marker.
-            archived_at: if row.archived != 0 {
-                Some("archived".to_string())
-            } else {
-                None
-            },
+            archived: row.archived != 0,
         }
     }
 }
