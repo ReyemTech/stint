@@ -9,6 +9,7 @@ use super::open_store;
 /// field, so the CLI exposes two flags per nullable field:
 ///   * `--project ID` — set the project to `ID`
 ///   * `--clear-project` — explicitly clear the project
+///
 /// Absent both flags = no change. The same shape applies to task. The two
 /// flags are mutually exclusive — passing both is rejected at parse time.
 #[derive(clap::Args)]

@@ -7,6 +7,7 @@ embed_plist::embed_info_plist!("../Info.plist");
 mod at_parse;
 mod cmd;
 mod format;
+mod render;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
