@@ -274,8 +274,16 @@ cask "stint" do
   binary "#{appdir}/Stint.app/Contents/MacOS/stint"
 
   uninstall quit:      "tech.reyem.stint",
-            launchctl: "tech.reyem.stint",
-            delete:    "/Applications/Stint.app"
+            launchctl: "tech.reyem.stint"
+  # NOTE: do NOT add `delete: "/Applications/Stint.app"` here. The `app`
+  # stanza above already tracks Stint.app via brew's normal manifest, so
+  # a real `brew uninstall --cask stint` removes it cleanly. An explicit
+  # `delete:` ON TOP of that interacts badly with `auto_updates true`
+  # during `brew upgrade`: the uninstall step deletes the .app, but
+  # auto_updates suppresses brew's install/copy step on the same run,
+  # leaving the user with no app and brew reporting "upgraded". This
+  # was a real bug shipped in v0.1.x and fixed by removing the line
+  # in homebrew-tap after v0.2.0.
 
   zap trash: [
     "~/Library/Application Support/stint",
