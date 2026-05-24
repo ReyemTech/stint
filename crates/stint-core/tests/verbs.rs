@@ -80,3 +80,39 @@ async fn start_errors_when_timer_already_running() {
         "no second entry should have been persisted"
     );
 }
+
+#[tokio::test]
+async fn stop_sets_end_at_and_returns_completed_view() {
+    let env = common::setup().await;
+    let store = &env.store;
+
+    let started = verbs::start(
+        store,
+        StartParams {
+            description: "task A".into(),
+            project_id: None,
+            task_id: None,
+            billable: false,
+            start_at: None,
+            source: "test".into(),
+        },
+    )
+    .await
+    .unwrap();
+
+    let stopped = verbs::stop(store).await.expect("stop should succeed");
+    assert_eq!(stopped.local_uuid, started.local_uuid);
+    assert!(stopped.end_at.is_some(), "end_at must be set after stop");
+}
+
+#[tokio::test]
+async fn stop_errors_when_no_timer_running() {
+    let env = common::setup().await;
+    let store = &env.store;
+    let err = verbs::stop(store).await.unwrap_err();
+    let msg = err.to_string().to_lowercase();
+    assert!(
+        msg.contains("no") || msg.contains("not"),
+        "error should indicate no timer running, got: {msg}"
+    );
+}

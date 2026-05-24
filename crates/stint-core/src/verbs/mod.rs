@@ -6,7 +6,9 @@
 //! See `docs/superpowers/specs/2026-05-23-stint-phase-6-deeper-integration-design.md#211-dry-principle`.
 
 pub mod start;
+pub mod stop;
 pub mod types;
 
 pub use start::start;
+pub use stop::stop;
 pub use types::*;
