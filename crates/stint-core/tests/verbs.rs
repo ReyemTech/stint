@@ -255,3 +255,16 @@ async fn list_entries_filters_by_project() {
         .iter()
         .all(|e| e.project_id.as_deref() == Some("p-1")));
 }
+
+#[tokio::test]
+async fn list_projects_returns_seeded_projects() {
+    let env = common::setup().await;
+    let store = &env.store;
+    common::seed_projects(store, &[("p-1", "Project One"), ("p-2", "Project Two")]).await;
+
+    let projects = verbs::list_projects(store).await.unwrap();
+    assert_eq!(projects.len(), 2);
+    let names: Vec<_> = projects.iter().map(|p| p.name.as_str()).collect();
+    assert!(names.contains(&"Project One"));
+    assert!(names.contains(&"Project Two"));
+}

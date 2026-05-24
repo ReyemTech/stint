@@ -84,6 +84,25 @@ pub struct TaskView {
     pub done: bool,
 }
 
+impl From<crate::store::reference::ProjectRow> for ProjectView {
+    fn from(row: crate::store::reference::ProjectRow) -> Self {
+        Self {
+            solidtime_id: row.id,
+            name: row.name,
+            color: row.color,
+            client_id: row.client_id,
+            // The local reference table stores `archived` as a boolean flag,
+            // not the original archival timestamp from Solidtime. Surface it
+            // as None when active; otherwise a sentinel marker.
+            archived_at: if row.archived != 0 {
+                Some("archived".to_string())
+            } else {
+                None
+            },
+        }
+    }
+}
+
 impl From<crate::store::entries::TimeEntryRow> for EntryView {
     fn from(row: crate::store::entries::TimeEntryRow) -> Self {
         Self {
