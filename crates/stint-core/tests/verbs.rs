@@ -1,7 +1,7 @@
 mod common;
 
 use stint_core::store::entries::Entries;
-use stint_core::verbs::{self, StartParams};
+use stint_core::verbs::{self, EntryFilter, StartParams};
 
 #[tokio::test]
 async fn start_creates_running_entry_and_returns_view() {
@@ -145,4 +145,70 @@ async fn current_returns_running_entry() {
     let view = verbs::current(store).await.unwrap().unwrap();
     assert_eq!(view.local_uuid, started.local_uuid);
     assert!(view.end_at.is_none());
+}
+
+#[tokio::test]
+async fn list_entries_returns_all_by_default() {
+    let env = common::setup().await;
+    let store = &env.store;
+
+    for desc in ["a", "b", "c"] {
+        verbs::start(
+            store,
+            StartParams {
+                description: desc.into(),
+                project_id: None,
+                task_id: None,
+                billable: false,
+                start_at: None,
+                source: "test".into(),
+            },
+        )
+        .await
+        .unwrap();
+        verbs::stop(store).await.unwrap();
+    }
+
+    let entries = verbs::list_entries(store, EntryFilter::default())
+        .await
+        .unwrap();
+    assert_eq!(
+        entries.len(),
+        3,
+        "got: {:?}",
+        entries.iter().map(|e| &e.description).collect::<Vec<_>>()
+    );
+}
+
+#[tokio::test]
+async fn list_entries_respects_limit() {
+    let env = common::setup().await;
+    let store = &env.store;
+    for desc in ["a", "b", "c", "d"] {
+        verbs::start(
+            store,
+            StartParams {
+                description: desc.into(),
+                project_id: None,
+                task_id: None,
+                billable: false,
+                start_at: None,
+                source: "test".into(),
+            },
+        )
+        .await
+        .unwrap();
+        verbs::stop(store).await.unwrap();
+    }
+
+    let entries = verbs::list_entries(
+        store,
+        EntryFilter {
+            limit: Some(2),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+    assert_eq!(entries.len(), 2);
 }
