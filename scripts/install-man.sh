@@ -5,6 +5,12 @@
 #   Installs to $PREFIX/share/man/man1/stint.1
 #
 # Requires `stint` to be built or installed in PATH.
+#
+# Use this when stint is installed via `cargo install` or `curl | sh`.
+#
+# Homebrew cask users do NOT need this — the cask formula installs the
+# bundled man page (Contents/Resources/man/man1/stint.1) via the
+# `manpage` stanza, which Tauri ships inside Stint.app at bundle time.
 
 set -euo pipefail
 PREFIX="${1:-/usr/local}"
