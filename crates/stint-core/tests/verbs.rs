@@ -363,6 +363,308 @@ async fn update_entry_can_clear_project_id() {
     assert!(patched.project_id.is_none(), "project_id should be cleared");
 }
 
+// ---- update_entry start_at/end_at coupling matrix ---------------------
+//
+// The `match (&patch.start_at, &patch.end_at)` in `verbs::update_entry` has
+// six arms. The two trivial ones (`(None, None)` and the description-only
+// path) are covered by `update_entry_modifies_only_specified_fields` above.
+// The four remaining arms plus the `NotFound` guard are exercised here.
+
+#[tokio::test]
+async fn update_entry_sets_both_start_and_end() {
+    let env = common::setup().await;
+    let store = &env.store;
+
+    let started = verbs::start(
+        store,
+        StartParams {
+            description: "both".into(),
+            project_id: None,
+            task_id: None,
+            billable: false,
+            start_at: None,
+            source: "test".into(),
+        },
+    )
+    .await
+    .unwrap();
+    verbs::stop(store).await.unwrap();
+
+    let patched = verbs::update_entry(
+        store,
+        &started.local_uuid,
+        EntryPatch {
+            start_at: Some("2026-05-23T10:00:00Z".into()),
+            end_at: Some(Some("2026-05-23T11:00:00Z".into())),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(patched.start_at, "2026-05-23T10:00:00Z");
+    assert_eq!(patched.end_at.as_deref(), Some("2026-05-23T11:00:00Z"));
+}
+
+#[tokio::test]
+async fn update_entry_only_start_at_on_stopped_entry_uses_existing_end() {
+    let env = common::setup().await;
+    let store = &env.store;
+
+    let started = verbs::start(
+        store,
+        StartParams {
+            description: "shift start only".into(),
+            project_id: None,
+            task_id: None,
+            billable: false,
+            start_at: Some("2026-05-23T12:00:00Z".into()),
+            source: "test".into(),
+        },
+    )
+    .await
+    .unwrap();
+    // Set an explicit end via a full update so we know the value.
+    verbs::update_entry(
+        store,
+        &started.local_uuid,
+        EntryPatch {
+            end_at: Some(Some("2026-05-23T13:00:00Z".into())),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+
+    // Now shift only start_at; end_at should remain.
+    let patched = verbs::update_entry(
+        store,
+        &started.local_uuid,
+        EntryPatch {
+            start_at: Some("2026-05-23T12:30:00Z".into()),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(patched.start_at, "2026-05-23T12:30:00Z");
+    assert_eq!(patched.end_at.as_deref(), Some("2026-05-23T13:00:00Z"));
+}
+
+#[tokio::test]
+async fn update_entry_only_start_at_on_running_entry_errors() {
+    let env = common::setup().await;
+    let store = &env.store;
+
+    // Start but do NOT stop — entry has no end_at.
+    let started = verbs::start(
+        store,
+        StartParams {
+            description: "still running".into(),
+            project_id: None,
+            task_id: None,
+            billable: false,
+            start_at: None,
+            source: "test".into(),
+        },
+    )
+    .await
+    .unwrap();
+
+    let err = verbs::update_entry(
+        store,
+        &started.local_uuid,
+        EntryPatch {
+            start_at: Some("2026-05-23T12:00:00Z".into()),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap_err();
+    let msg = err.to_string().to_lowercase();
+    assert!(
+        msg.contains("running") || msg.contains("end_at"),
+        "expected invariant error about running/end_at, got: {msg}"
+    );
+}
+
+#[tokio::test]
+async fn update_entry_only_end_at_value_sets_end() {
+    let env = common::setup().await;
+    let store = &env.store;
+
+    let started = verbs::start(
+        store,
+        StartParams {
+            description: "set end only".into(),
+            project_id: None,
+            task_id: None,
+            billable: false,
+            start_at: Some("2026-05-23T08:00:00Z".into()),
+            source: "test".into(),
+        },
+    )
+    .await
+    .unwrap();
+
+    let patched = verbs::update_entry(
+        store,
+        &started.local_uuid,
+        EntryPatch {
+            end_at: Some(Some("2026-05-23T09:00:00Z".into())),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(patched.end_at.as_deref(), Some("2026-05-23T09:00:00Z"));
+}
+
+#[tokio::test]
+async fn update_entry_clearing_end_at_resumes_entry() {
+    let env = common::setup().await;
+    let store = &env.store;
+
+    let started = verbs::start(
+        store,
+        StartParams {
+            description: "to clear".into(),
+            project_id: None,
+            task_id: None,
+            billable: false,
+            start_at: Some("2026-05-23T08:00:00Z".into()),
+            source: "test".into(),
+        },
+    )
+    .await
+    .unwrap();
+    verbs::stop(store).await.unwrap();
+
+    let patched = verbs::update_entry(
+        store,
+        &started.local_uuid,
+        EntryPatch {
+            end_at: Some(None), // explicit null = clear
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+
+    assert!(patched.end_at.is_none(), "end_at should be cleared");
+}
+
+#[tokio::test]
+async fn update_entry_set_start_while_clearing_end_errors() {
+    let env = common::setup().await;
+    let store = &env.store;
+
+    let started = verbs::start(
+        store,
+        StartParams {
+            description: "conflicting".into(),
+            project_id: None,
+            task_id: None,
+            billable: false,
+            start_at: Some("2026-05-23T08:00:00Z".into()),
+            source: "test".into(),
+        },
+    )
+    .await
+    .unwrap();
+    verbs::stop(store).await.unwrap();
+
+    let err = verbs::update_entry(
+        store,
+        &started.local_uuid,
+        EntryPatch {
+            start_at: Some("2026-05-23T08:30:00Z".into()),
+            end_at: Some(None),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap_err();
+    let msg = err.to_string().to_lowercase();
+    assert!(
+        msg.contains("cannot set start_at") || msg.contains("clear"),
+        "expected error about coupled invariant, got: {msg}"
+    );
+}
+
+#[tokio::test]
+async fn update_entry_returns_not_found_for_missing_uuid() {
+    let env = common::setup().await;
+    let store = &env.store;
+
+    let err = verbs::update_entry(
+        store,
+        "missing-uuid",
+        EntryPatch {
+            description: Some("noop".into()),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap_err();
+    let msg = err.to_string().to_lowercase();
+    assert!(
+        msg.contains("not found") || msg.contains("missing-uuid"),
+        "expected NotFound for missing uuid, got: {msg}"
+    );
+}
+
+#[tokio::test]
+async fn update_entry_can_set_task_id() {
+    let env = common::setup().await;
+    let store = &env.store;
+    common::seed_projects(store, &[("p-task", "P")]).await;
+    common::seed_tasks(store, &[("t-1", "p-task", "T1"), ("t-2", "p-task", "T2")]).await;
+
+    let started = verbs::start(
+        store,
+        StartParams {
+            description: "task me".into(),
+            project_id: Some("p-task".into()),
+            task_id: Some("t-1".into()),
+            billable: false,
+            start_at: None,
+            source: "test".into(),
+        },
+    )
+    .await
+    .unwrap();
+    verbs::stop(store).await.unwrap();
+
+    // Reassign task.
+    let patched = verbs::update_entry(
+        store,
+        &started.local_uuid,
+        EntryPatch {
+            task_id: Some(Some("t-2".into())),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+    assert_eq!(patched.task_id, Some("t-2".into()));
+
+    // Clear task.
+    let patched = verbs::update_entry(
+        store,
+        &started.local_uuid,
+        EntryPatch {
+            task_id: Some(None),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+    assert!(patched.task_id.is_none());
+}
+
 #[tokio::test]
 async fn delete_entry_removes_row() {
     let env = common::setup().await;
