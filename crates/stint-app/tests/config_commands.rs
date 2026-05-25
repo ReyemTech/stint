@@ -7,8 +7,8 @@
 mod common;
 
 use stint_app::commands::config::{
-    config_set, config_show, config_test, oauth_solidtime_logout, oauth_solidtime_status,
-    solidtime_url,
+    config_set, config_show, config_test, oauth_solidtime_logout, oauth_solidtime_start,
+    oauth_solidtime_status, settings_get, settings_set, solidtime_url,
 };
 use stint_core::config::secrets::Secrets;
 use stint_core::config::Settings;
@@ -154,6 +154,82 @@ async fn oauth_solidtime_status_reflects_api_token_mode() {
 
     // Clean up so subsequent tests start without this token set.
     Secrets::default().delete("solidtime.token").unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn settings_get_and_set_round_trip_non_secret_keys() {
+    let ctx = common::make_app().await;
+    let handle = ctx.handle();
+
+    // Unset key reads as None.
+    let v = settings_get(handle.state(), "api.host".into()).await.unwrap();
+    assert!(v.is_none());
+
+    settings_set(handle.state(), "api.host".into(), "127.0.0.1".into())
+        .await
+        .unwrap();
+
+    let v = settings_get(handle.state(), "api.host".into()).await.unwrap();
+    assert_eq!(v.as_deref(), Some("127.0.0.1"));
+
+    // And the value is visible in the Settings table directly.
+    let raw = Settings::new((*ctx.store).clone())
+        .get("api.host")
+        .await
+        .unwrap();
+    assert_eq!(raw.as_deref(), Some("127.0.0.1"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn oauth_solidtime_status_reflects_oauth_mode_when_no_blob_present() {
+    let ctx = common::make_app().await;
+    let handle = ctx.handle();
+
+    Settings::new((*ctx.store).clone())
+        .set("solidtime.auth_mode", "oauth")
+        .await
+        .unwrap();
+    // Force the blob to be absent so the OAuth arm reads signed_in = false
+    // (scope = None) — exercises the `(blob.is_some(), blob.and_then(...))`
+    // branch when blob is None.
+    let secrets = Secrets::default();
+    let _ = stint_core::solidtime::auth::oauth_blob_delete(&secrets);
+
+    let s = oauth_solidtime_status(handle.state()).await.unwrap();
+    let json = serde_json::to_value(&s).unwrap();
+    assert_eq!(json["mode"], "oauth");
+    assert_eq!(json["signed_in"], false);
+    assert!(json["scope"].is_null());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn oauth_solidtime_start_errors_when_solidtime_url_missing() {
+    let ctx = common::make_app().await;
+    let handle = ctx.handle();
+    let err = oauth_solidtime_start(handle.state()).await.unwrap_err();
+    assert!(
+        err.message.contains("solidtime.url"),
+        "got: {}",
+        err.message
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn oauth_solidtime_start_errors_when_client_id_missing() {
+    let ctx = common::make_app().await;
+    let handle = ctx.handle();
+
+    Settings::new((*ctx.store).clone())
+        .set("solidtime.url", "https://example.com")
+        .await
+        .unwrap();
+
+    let err = oauth_solidtime_start(handle.state()).await.unwrap_err();
+    assert!(
+        err.message.contains("client_id"),
+        "got: {}",
+        err.message
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]

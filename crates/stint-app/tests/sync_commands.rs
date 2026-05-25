@@ -2,14 +2,31 @@
 
 mod common;
 
-use stint_app::commands::sync::sync_now;
+use stint_app::commands::sync::{list_sync_errors, sync_now};
 use stint_app::commands::timer::{start_timer, stop_timer, StartTimerArgs};
 use stint_core::config::secrets::Secrets;
 use stint_core::config::Settings;
 use stint_core::store::entries::Entries;
+use stint_core::store::queue::{Queue, QueueOp};
 use tauri::Manager;
 use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
+
+/// Find the most recent sync_queue row for a given local entry uuid.
+/// Used to drive mark_failed / mark_abandoned. `take_due` is a SELECT
+/// despite its name — it does not delete rows.
+async fn queue_row_id_for_entry(
+    store: &std::sync::Arc<stint_core::store::Store>,
+    local_uuid: &str,
+) -> i64 {
+    let queue = Queue::new((**store).clone());
+    let rows = queue.take_due(100).await.expect("take_due ok");
+    rows.into_iter()
+        .filter(|r| r.entry_uuid.as_deref() == Some(local_uuid))
+        .max_by_key(|r| r.id)
+        .expect("queue row present")
+        .id
+}
 
 async fn seed_solidtime_config(store: &std::sync::Arc<stint_core::store::Store>, url: &str) {
     let settings = Settings::new((**store).clone());
@@ -77,6 +94,106 @@ async fn sync_now_errors_when_solidtime_url_missing() {
         err.message.contains("solidtime.url"),
         "got: {}",
         err.message
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn list_sync_errors_is_empty_on_fresh_store() {
+    let ctx = common::make_app().await;
+    let handle = ctx.handle();
+    let rows = list_sync_errors(handle.state()).await.unwrap();
+    assert!(rows.is_empty());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn list_sync_errors_surfaces_failed_rows_with_view_fields() {
+    let ctx = common::make_app().await;
+    let handle = ctx.handle();
+
+    // Create a real entry, then enqueue + immediately fail an op against
+    // it so the LEFT JOIN populates description / start / end on the view.
+    let view = start_timer(
+        handle.clone(),
+        handle.state(),
+        StartTimerArgs {
+            description: "failing entry".into(),
+            project_id: None,
+            task_id: None,
+            billable: false,
+            start_at: None,
+        },
+    )
+    .await
+    .unwrap();
+    stop_timer(handle.clone(), handle.state()).await.unwrap();
+
+    let queue = Queue::new((*ctx.store).clone());
+    // Drain so we know the queue id; then fail it three times to surpass
+    // the min_attempts=3 filter inside list_failed_with_entry.
+    let entry_json = serde_json::json!({"local_uuid": view.local_uuid}).to_string();
+    queue
+        .enqueue(QueueOp::UpdateEntry, &entry_json, Some(&view.local_uuid))
+        .await
+        .unwrap();
+    // Pull the row id back out — list_failed_with_entry uses queue.id.
+    let id = queue_row_id_for_entry(&ctx.store, &view.local_uuid).await;
+    for _ in 0..3 {
+        queue.mark_failed(id, "synthetic failure").await.unwrap();
+    }
+
+    let errors = list_sync_errors(handle.state()).await.unwrap();
+    let found = errors
+        .iter()
+        .find(|e| e.local_uuid.as_deref() == Some(view.local_uuid.as_str()))
+        .expect("our errored row should surface");
+    assert_eq!(found.op, "update_entry");
+    assert_eq!(found.attempts, 3);
+    assert_eq!(found.last_error.as_deref(), Some("synthetic failure"));
+    assert_eq!(found.description.as_deref(), Some("failing entry"));
+    // mark_failed (not mark_abandoned), so next_try_at is in the near future.
+    assert!(!found.abandoned, "transient failure must not be abandoned");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn list_sync_errors_flags_abandoned_rows() {
+    let ctx = common::make_app().await;
+    let handle = ctx.handle();
+
+    let view = start_timer(
+        handle.clone(),
+        handle.state(),
+        StartTimerArgs {
+            description: "abandoned entry".into(),
+            project_id: None,
+            task_id: None,
+            billable: false,
+            start_at: None,
+        },
+    )
+    .await
+    .unwrap();
+    stop_timer(handle.clone(), handle.state()).await.unwrap();
+
+    let queue = Queue::new((*ctx.store).clone());
+    let entry_json = serde_json::json!({"local_uuid": view.local_uuid}).to_string();
+    queue
+        .enqueue(QueueOp::UpdateEntry, &entry_json, Some(&view.local_uuid))
+        .await
+        .unwrap();
+    let id = queue_row_id_for_entry(&ctx.store, &view.local_uuid).await;
+    // Need attempts ≥ 3 for list_failed_with_entry to pick the row up.
+    queue.mark_failed(id, "synthetic").await.unwrap();
+    queue.mark_failed(id, "synthetic").await.unwrap();
+    queue.mark_abandoned(id, "permanent 422").await.unwrap();
+
+    let errors = list_sync_errors(handle.state()).await.unwrap();
+    let found = errors
+        .iter()
+        .find(|e| e.local_uuid.as_deref() == Some(view.local_uuid.as_str()))
+        .expect("abandoned row should surface");
+    assert!(
+        found.abandoned,
+        "row parked >30d in the future must read as abandoned"
     );
 }
 
