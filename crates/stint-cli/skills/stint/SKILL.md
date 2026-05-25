@@ -20,6 +20,12 @@ You have up to three ways to talk to stint. Use the highest one that works.
    - Returns the same JSON shapes as the MCP tools.
    - Use this when MCP is unavailable or when you need a verb the MCP server doesn't expose (admin verbs: `sync`, `pull`, `config`, `calendar`, `update`).
    - Discover where stint lives: `which stint`. If missing, try `~/.cargo/bin/stint` or the Stint.app bundle's `Contents/MacOS/stint`.
+   - **Discoverability**: if you need a flag or subcommand you don't remember, use:
+     - `stint --help` — top-level commands list
+     - `stint <verb> --help` — flags for a specific verb (e.g., `stint start --help`)
+     - `man stint` — full reference page (if installed; see `stint generate-man --help` for local install)
+
+     These are the source of truth for the CLI surface. The tool descriptions in this skill are a curated subset.
 
 3. **HTTP API** (loopback, only when GUI is running)
    - Discover the URL: `stint --json api info` → `{ "enabled": …, "port": …, "base_url": "http://127.0.0.1:54321" }`
@@ -137,3 +143,4 @@ stint stores timestamps as ISO 8601 UTC strings. The user thinks in local time, 
 - **Don't invent project_id or task_id values.** Always resolve from `list_projects` / `list_tasks`. A wrong UUID will be rejected by Solidtime sync silently (the entry persists locally but never syncs).
 - **Don't bypass the MCP server by writing directly to the SQLite file.** Use CLI or HTTP — they handle sync queue ops correctly.
 - **Don't enable HTTP API casually.** It binds to 127.0.0.1 only, but users may not want any local listener. Ask before suggesting `api.enabled = true`.
+- **Don't fabricate CLI flags or verbs.** If a verb or `--flag` you're using gets "unrecognized" or "unknown argument" errors, run `stint <verb> --help` or `stint --help` to see the real surface — don't keep guessing.
