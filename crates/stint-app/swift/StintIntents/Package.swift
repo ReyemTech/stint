@@ -10,7 +10,22 @@ let package = Package(
     targets: [
         .target(
             name: "StintIntents",
-            path: "Sources/StintIntents"
+            path: "Sources/StintIntents",
+            exclude: ["Shortcuts/PhraseStrings.xcstrings"],
+            resources: [
+                .process("Shortcuts/PhraseStrings.xcstrings"),
+            ],
+            publicHeadersPath: "include",
+            linkerSettings: [
+                // The C symbols (stint_verb_*, stint_settings_*, ...) are
+                // provided by libstint_core which is statically linked into
+                // the Tauri-built Stint binary, not into this framework.
+                // Defer symbol resolution until load time.
+                .unsafeFlags([
+                    "-Xlinker", "-undefined",
+                    "-Xlinker", "dynamic_lookup",
+                ]),
+            ]
         ),
     ]
 )
