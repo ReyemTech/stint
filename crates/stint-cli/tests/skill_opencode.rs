@@ -93,15 +93,22 @@ fn opencode_mcp_install_preserves_existing_keys() {
 }
 
 #[test]
-fn opencode_skill_install_appends_block_to_agents_md() {
+fn opencode_skill_install_writes_skill_file() {
     with_temp_home(|| {
         let h = OpenCode;
         let action = h.install_skill(false).expect("install_skill");
-        assert!(matches!(action, InstallAction::Installed));
-        let agents = fs::read_to_string(config_dir().join("AGENTS.md")).unwrap();
-        assert!(agents.contains("<!-- stint:begin -->"));
-        assert!(agents.contains("<!-- stint:end -->"));
-        assert!(agents.contains("stint (time tracker)"));
+        assert!(
+            matches!(action, InstallAction::Installed),
+            "expected Installed, got {action:?}"
+        );
+        let path = config_dir().join("skills/stint/SKILL.md");
+        assert!(path.exists(), "skill not written at {}", path.display());
+        let contents = fs::read_to_string(&path).unwrap();
+        assert!(
+            contents.contains("name: stint"),
+            "frontmatter missing from skill body"
+        );
+        assert!(contents.contains("# stint"));
     });
 }
 
@@ -119,6 +126,25 @@ fn opencode_skill_install_is_idempotent() {
 }
 
 #[test]
+fn opencode_skill_install_updates_when_content_differs() {
+    with_temp_home(|| {
+        let h = OpenCode;
+        let path = config_dir().join("skills/stint/SKILL.md");
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, "stale content").unwrap();
+
+        let action = h.install_skill(false).expect("install_skill");
+        assert!(
+            matches!(action, InstallAction::Updated),
+            "expected Updated, got {action:?}"
+        );
+        let backup = path.with_extension("md.bak");
+        assert!(backup.exists(), "no backup at {}", backup.display());
+        assert_eq!(fs::read_to_string(&backup).unwrap(), "stale content");
+    });
+}
+
+#[test]
 fn opencode_dry_run_writes_nothing() {
     with_temp_home(|| {
         let h = OpenCode;
@@ -131,7 +157,7 @@ fn opencode_dry_run_writes_nothing() {
             InstallAction::Skipped
         ));
         assert!(!config_dir().join("opencode.json").exists());
-        assert!(!config_dir().join("AGENTS.md").exists());
+        assert!(!config_dir().join("skills/stint/SKILL.md").exists());
     });
 }
 
@@ -152,11 +178,11 @@ fn opencode_uninstall_removes_only_stint() {
         let v: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
         assert!(v["mcp"].get("stint").is_none());
         assert!(v["mcp"].get("other").is_some());
+        let skill_path = config_dir().join("skills/stint/SKILL.md");
         assert!(
-            !config_dir().join("AGENTS.md").exists() || {
-                let s = fs::read_to_string(config_dir().join("AGENTS.md")).unwrap();
-                !s.contains("stint:begin")
-            }
+            !skill_path.exists(),
+            "skill lingered at {}",
+            skill_path.display()
         );
     });
 }

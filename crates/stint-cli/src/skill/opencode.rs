@@ -2,8 +2,10 @@
 //!
 //! - **MCP**: merges `mcp.stint = { type, command, enabled }` into
 //!   `~/.config/opencode/opencode.json` (preserves the rest of the JSON).
-//! - **Skill**: appends or replaces a `<!-- stint:begin -->` / `<!-- stint:end -->`
-//!   block in `~/.config/opencode/AGENTS.md`.
+//! - **Skill**: writes the embedded SKILL.md to
+//!   `~/.config/opencode/skills/stint/SKILL.md`, idempotent via byte
+//!   comparison, with a `.bak` backup on overwrite. OpenCode reads agent
+//!   skills from `<config-dir>/opencode/skills/<name>/SKILL.md`.
 
 use crate::skill::harness::{Harness, HarnessStatus, InstallAction};
 use anyhow::{anyhow, Context, Result};
@@ -11,9 +13,8 @@ use serde_json::{json, Map, Value};
 use std::fs;
 use std::path::PathBuf;
 
-const AGENTS_FRAGMENT: &str = include_str!("../../skills/agents.md");
-const BEGIN_MARKER: &str = "<!-- stint:begin -->";
-const END_MARKER: &str = "<!-- stint:end -->";
+/// Canonical skill content shipped with stint.
+const SKILL_CONTENT: &str = include_str!("../../skills/stint/SKILL.md");
 
 pub struct OpenCode;
 
@@ -28,8 +29,8 @@ impl OpenCode {
         Ok(Self::config_dir()?.join("opencode.json"))
     }
 
-    fn agents_path() -> Result<PathBuf> {
-        Ok(Self::config_dir()?.join("AGENTS.md"))
+    fn skill_path() -> Result<PathBuf> {
+        Ok(Self::config_dir()?.join("skills/stint/SKILL.md"))
     }
 
     fn backup(path: &std::path::Path) -> Result<()> {
@@ -51,13 +52,6 @@ impl OpenCode {
             "command": ["stint", "mcp"],
             "enabled": true,
         })
-    }
-
-    fn desired_block() -> String {
-        format!(
-            "{BEGIN_MARKER}\n<!-- managed by `stint skill install opencode` — edits between markers will be overwritten -->\n{}\n{END_MARKER}\n",
-            AGENTS_FRAGMENT.trim_end()
-        )
     }
 }
 
@@ -123,30 +117,28 @@ impl Harness for OpenCode {
     }
 
     fn install_skill(&self, dry_run: bool) -> Result<InstallAction> {
-        let path = Self::agents_path()?;
+        let path = Self::skill_path()?;
         if dry_run {
             return Ok(InstallAction::Skipped);
         }
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
         }
-        let original = if path.exists() {
-            fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?
-        } else {
-            String::new()
-        };
-        let desired_block = Self::desired_block();
-        let new_contents = crate::skill::codex::replace_block_public(&original, &desired_block);
-        if new_contents == original {
-            return Ok(InstallAction::AlreadyUpToDate);
+        if path.exists() {
+            let existing =
+                fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+            if existing == SKILL_CONTENT {
+                return Ok(InstallAction::AlreadyUpToDate);
+            }
+            let backup = path.with_extension("md.bak");
+            fs::copy(&path, &backup)
+                .with_context(|| format!("backing up to {}", backup.display()))?;
+            fs::write(&path, SKILL_CONTENT)
+                .with_context(|| format!("writing {}", path.display()))?;
+            return Ok(InstallAction::Updated);
         }
-        Self::backup(&path)?;
-        fs::write(&path, new_contents).with_context(|| format!("writing {}", path.display()))?;
-        Ok(if original.is_empty() {
-            InstallAction::Installed
-        } else {
-            InstallAction::Updated
-        })
+        fs::write(&path, SKILL_CONTENT).with_context(|| format!("writing {}", path.display()))?;
+        Ok(InstallAction::Installed)
     }
 
     fn uninstall(&self) -> Result<()> {
@@ -168,36 +160,27 @@ impl Harness for OpenCode {
                 }
             }
         }
-        let ag_path = Self::agents_path()?;
-        if ag_path.exists() {
-            let original = fs::read_to_string(&ag_path)?;
-            let stripped = crate::skill::codex::strip_block_public(&original);
-            if stripped != original {
-                Self::backup(&ag_path)?;
-                if stripped.trim().is_empty() {
-                    fs::remove_file(&ag_path)?;
-                } else {
-                    fs::write(&ag_path, stripped)?;
-                }
-            }
+        let skill_path = Self::skill_path()?;
+        if skill_path.exists() {
+            fs::remove_file(&skill_path)
+                .with_context(|| format!("removing {}", skill_path.display()))?;
+        }
+        if let Some(parent) = skill_path.parent() {
+            let _ = fs::remove_dir(parent);
         }
         Ok(())
     }
 
     fn status(&self) -> Result<HarnessStatus> {
         let cfg_path = Self::mcp_config_path().ok();
-        let ag_path = Self::agents_path().ok();
+        let skill_path = Self::skill_path().ok();
         let mcp_installed = cfg_path
             .as_ref()
             .and_then(|p| fs::read_to_string(p).ok())
             .and_then(|s| serde_json::from_str::<Value>(&s).ok())
             .and_then(|v| v.get("mcp").and_then(|m| m.get("stint")).map(|_| true))
             .unwrap_or(false);
-        let skill_installed = ag_path
-            .as_ref()
-            .and_then(|p| fs::read_to_string(p).ok())
-            .map(|s| s.contains(BEGIN_MARKER))
-            .unwrap_or(false);
+        let skill_installed = skill_path.as_ref().map(|p| p.exists()).unwrap_or(false);
         Ok(HarnessStatus {
             name: self.name(),
             display: self.display(),
@@ -205,7 +188,7 @@ impl Harness for OpenCode {
             mcp_installed,
             skill_installed,
             mcp_config_path: cfg_path,
-            skill_path: ag_path,
+            skill_path,
         })
     }
 }
