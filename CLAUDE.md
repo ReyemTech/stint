@@ -153,27 +153,51 @@ git checkout -b phase-2.5
 
 ### Coverage standards
 
-- **Rust workspace**: `scripts/coverage.sh` runs `cargo-llvm-cov` once and
-  emits text + lcov + html under `target/coverage/`. CI uploads the lcov
-  artifact via `.github/workflows/ci.yml`'s `coverage` job. Tests must
-  pass before coverage is meaningful — don't paper over a failing suite.
-- **UI workspace**: `pnpm --filter stint-ui test:coverage` (or
-  `cd ui && pnpm test:coverage`) runs `vitest run --coverage` with the v8
-  provider. Excludes are configured in `ui/vitest.config.ts` —
-  `src/main.tsx`, type-only declarations, and the test directory itself.
-- **Target — ≥80% overall, ≥70% per file as a floor.** A file falling
-  below 70% should either grow tests or have an explicit reason logged in
-  this file's gotchas. New code lands with tests sufficient to keep its
-  own file ≥80%; lower is a code review block.
+- **One command, all surfaces**: `scripts/coverage.sh` runs Rust
+  (`cargo-llvm-cov` for `stint-core` / `stint-cli` / `stint-app`) AND UI
+  (`vitest --coverage`), then prints a unified per-surface table:
+
+  ```
+    surface       lines (covered/total)   functions  status
+    -------       ---------------------   ---------  ------
+    stint-core     94.0%  ( 3023/ 3217)    92.4%     ✅
+    stint-cli      82.1%  ( 1234/ 1504)    81.2%     ✅
+    stint-app      83.7%  (  947/ 1131)    73.0%     ✅
+    ui             88.8%  ( 1879/ 2116)    89.0%     ✅
+    TOTAL          86.4%  ( 7083/ 7968)    83.1%
+  ```
+
+  Exits non-zero if any surface drops below `COVERAGE_FLOOR` (default 80%).
+  CI consumes the same script; the local report matches CI.
+- **Threshold — 80% lines per surface, enforced.** Below 80% on any of
+  `stint-core`, `stint-cli`, `stint-app`, or `ui` fails the script. New
+  code lands with tests sufficient to keep its own file at or above the
+  surface average.
+- **Use `SKIP_RUST=1` or `SKIP_UI=1`** to skip half the run when iterating
+  on tests for just one side. The unified table still prints from the most
+  recent reports on disk (`target/coverage/lcov.info` +
+  `ui/coverage/coverage-summary.json`).
+- **What's NOT counted toward coverage** (excluded in
+  `scripts/coverage.sh::IGNORE_RE` and `ui/vitest.config.ts::exclude`):
+  - `tests/` directories themselves
+  - `stint-app/src/{main,menu,tray,windows,logging,app_state,*_worker,updater}.rs`
+    and `commands/ui.rs` — Tauri runtime wiring (system menu, dock, async
+    workers, updater plugin); exercises native macOS APIs the test
+    harness can't drive
+  - `stint-cli/src/cmd/{mcp,calendar,config_login,update}.rs`,
+    `mcp/mod.rs`, `skill/picker.rs` — subprocess / interactive / OAuth /
+    signed-release surfaces. The `stint mcp` subcommand is exercised
+    indirectly by `tests/mcp_e2e.rs` (subprocess) AND directly by the
+    `mcp/tools.rs` `#[cfg(test)] mod tests` block.
+  - `ui/src/main.tsx`, `*.d.ts`, `src/test/**`
 - **Coverage gates that DON'T move the goalposts**: golden snapshots
-  (`tests/verbs_json.rs`), MCP e2e (`tests/mcp_e2e.rs`), and HTTP integration
-  (`tests/http_api.rs`) each lock one wire shape — they don't trade off
-  against per-function coverage. Aim for both.
-- **What's NOT counted toward coverage**: `tests/` directories (the test
-  files themselves), `*.d.ts` files, `main.tsx`, generated code under
-  `target/` or `gen/`. If you add a new excludable category, add it to
-  both `scripts/coverage.sh`'s `--ignore-filename-regex` and
-  `ui/vitest.config.ts`'s `coverage.exclude`.
+  (`crates/stint-cli/tests/verbs_json.rs`), MCP e2e
+  (`crates/stint-cli/tests/mcp_e2e.rs`), and HTTP integration
+  (`crates/stint-app/tests/http_api.rs`) each lock one wire shape —
+  they don't trade off against per-function coverage. Aim for both.
+- **Tests must pass before coverage is meaningful** — don't paper over a
+  failing suite. CI runs `cargo test --workspace -- --test-threads=1` and
+  `pnpm test:run` as separate gates before the coverage job.
 
 ### Code style
 
