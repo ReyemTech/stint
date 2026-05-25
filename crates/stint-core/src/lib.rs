@@ -15,6 +15,7 @@ pub mod store;
 pub mod sync;
 pub mod time;
 pub mod timer;
+pub mod url_scheme;
 pub mod verbs;
 
 pub use error::{Error, Result};
