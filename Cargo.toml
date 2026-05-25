@@ -55,6 +55,10 @@ keyring = { version = "3.6", features = ["apple-native"] }
 clap = { version = "4.5", features = ["derive", "env"] }
 dirs = "5.0"
 
+# mcp
+rmcp = { version = "1.7", features = ["server", "transport-io", "macros", "schemars"] }
+schemars = "1.0"
+
 # dev-only (named at workspace level so versions stay consistent)
 wiremock = "0.6"
 assert_cmd = "2.0"

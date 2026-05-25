@@ -7,6 +7,7 @@ embed_plist::embed_info_plist!("../Info.plist");
 mod at_parse;
 mod cmd;
 mod format;
+mod mcp;
 mod render;
 
 use anyhow::Result;
@@ -59,6 +60,8 @@ enum Command {
     /// Inspect the loopback HTTP API (bind address, port).
     #[command(subcommand)]
     Api(cmd::api::Command),
+    /// Run as an MCP server on stdio (for Claude Code, Codex, OpenCode, …).
+    Mcp(cmd::mcp::Args),
     /// Check for and apply updates to the standalone CLI. No-op for .app-bundled installs.
     Update {
         /// Print available version without applying.
@@ -92,6 +95,7 @@ async fn main() -> Result<()> {
             | Command::Calendar(_)
             | Command::Update { .. }
             | Command::Api(_)
+            | Command::Mcp(_)
     ) {
         let store = cmd::open_store().await?;
         cmd::maybe_recover(&store).await?;
@@ -118,5 +122,6 @@ async fn main() -> Result<()> {
             tokio::task::spawn_blocking(move || cmd::update::run(check, force, json)).await?
         }
         Command::Api(c) => cmd::api::run(c, json).await,
+        Command::Mcp(a) => cmd::mcp::run(a).await,
     }
 }
