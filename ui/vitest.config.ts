@@ -21,7 +21,7 @@ export default defineConfig({
       provider: "v8",
       include: ["src/**/*.{ts,tsx}"],
       exclude: ["src/main.tsx", "src/**/*.d.ts", "src/test/**"],
-      reporter: ["text", "html"],
+      reporter: ["text", "html", "json-summary", "lcov"],
     },
   },
 });
