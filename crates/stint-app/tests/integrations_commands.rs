@@ -8,9 +8,7 @@
 mod common;
 
 use stint_app::commands::integrations::{get_api_integration_state, set_api_enabled};
-use stint_core::config::{
-    Settings, DEFAULT_API_HOST, KEY_API_ENABLED, KEY_API_HOST, KEY_API_PORT,
-};
+use stint_core::config::{Settings, DEFAULT_API_HOST, KEY_API_ENABLED, KEY_API_HOST, KEY_API_PORT};
 use tauri::Manager;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -75,10 +73,7 @@ async fn get_api_integration_state_surfaces_persisted_host_port_and_base_url() {
         .set(KEY_API_HOST, "127.0.0.1")
         .await
         .expect("set host");
-    settings
-        .set(KEY_API_PORT, "47921")
-        .await
-        .expect("set port");
+    settings.set(KEY_API_PORT, "47921").await.expect("set port");
 
     let view = get_api_integration_state(handle.state())
         .await

@@ -3,8 +3,7 @@ use clap::CommandFactory;
 use std::path::PathBuf;
 
 pub fn run(out_dir: PathBuf) -> Result<()> {
-    std::fs::create_dir_all(&out_dir)
-        .with_context(|| format!("creating {}", out_dir.display()))?;
+    std::fs::create_dir_all(&out_dir).with_context(|| format!("creating {}", out_dir.display()))?;
 
     let cmd = crate::Cli::command();
     let man = clap_mangen::Man::new(cmd);

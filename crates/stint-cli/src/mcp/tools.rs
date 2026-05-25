@@ -407,7 +407,10 @@ mod tests {
     async fn stop_when_idle_returns_invalid_params() {
         let (server, _tmp) = make_server().await;
         let err = server.stop().await.unwrap_err();
-        assert!(err.to_string().to_lowercase().contains("no") || err.to_string().to_lowercase().contains("not"));
+        assert!(
+            err.to_string().to_lowercase().contains("no")
+                || err.to_string().to_lowercase().contains("not")
+        );
     }
 
     #[tokio::test]
@@ -516,8 +519,10 @@ mod tests {
             .await
             .unwrap_err();
         // NotFound also maps to invalid_params (see map_err).
-        assert!(err.to_string().to_lowercase().contains("not found")
-            || err.to_string().to_lowercase().contains("nope-not-real"));
+        assert!(
+            err.to_string().to_lowercase().contains("not found")
+                || err.to_string().to_lowercase().contains("nope-not-real")
+        );
     }
 
     #[tokio::test]

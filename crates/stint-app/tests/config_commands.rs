@@ -162,14 +162,18 @@ async fn settings_get_and_set_round_trip_non_secret_keys() {
     let handle = ctx.handle();
 
     // Unset key reads as None.
-    let v = settings_get(handle.state(), "api.host".into()).await.unwrap();
+    let v = settings_get(handle.state(), "api.host".into())
+        .await
+        .unwrap();
     assert!(v.is_none());
 
     settings_set(handle.state(), "api.host".into(), "127.0.0.1".into())
         .await
         .unwrap();
 
-    let v = settings_get(handle.state(), "api.host".into()).await.unwrap();
+    let v = settings_get(handle.state(), "api.host".into())
+        .await
+        .unwrap();
     assert_eq!(v.as_deref(), Some("127.0.0.1"));
 
     // And the value is visible in the Settings table directly.
@@ -225,11 +229,7 @@ async fn oauth_solidtime_start_errors_when_client_id_missing() {
         .unwrap();
 
     let err = oauth_solidtime_start(handle.state()).await.unwrap_err();
-    assert!(
-        err.message.contains("client_id"),
-        "got: {}",
-        err.message
-    );
+    assert!(err.message.contains("client_id"), "got: {}", err.message);
 }
 
 #[tokio::test(flavor = "multi_thread")]

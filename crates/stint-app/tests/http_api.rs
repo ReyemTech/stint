@@ -263,10 +263,7 @@ async fn maybe_spawn_returns_none_when_api_disabled() {
 async fn maybe_spawn_binds_when_enabled_and_records_port() {
     let ctx = common::make_app().await;
     let settings = Settings::new((*ctx.store).clone());
-    settings
-        .set(KEY_API_ENABLED, "true")
-        .await
-        .expect("enable");
+    settings.set(KEY_API_ENABLED, "true").await.expect("enable");
 
     let port_slot = Arc::new(RwLock::new(None));
     let bound = stint_app::http::maybe_spawn(ctx.store.clone(), port_slot.clone())

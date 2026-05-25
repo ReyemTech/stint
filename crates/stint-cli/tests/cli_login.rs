@@ -47,9 +47,10 @@ fn login_without_client_id_explains_how_to_set_it() {
         .args(["config", "login"])
         .assert()
         .failure()
-        .stderr(predicate::str::contains("solidtime.oauth.client_id is not set").or(
-            predicate::str::contains("missing OAuth client ID"),
-        ));
+        .stderr(
+            predicate::str::contains("solidtime.oauth.client_id is not set")
+                .or(predicate::str::contains("missing OAuth client ID")),
+        );
 }
 
 #[test]
