@@ -108,7 +108,6 @@ impl Harness for OpenCode {
             .ok_or_else(|| anyhow!("`mcp` exists but is not an object"))?;
 
         let desired = Self::desired_stint_entry();
-        let was_present = mcp_map.contains_key("stint");
         if mcp_map.get("stint") == Some(&desired) {
             return Ok(InstallAction::AlreadyUpToDate);
         }
@@ -120,8 +119,6 @@ impl Harness for OpenCode {
             .with_context(|| format!("writing {}", path.display()))?;
         Ok(if original.is_empty() {
             InstallAction::Installed
-        } else if was_present {
-            InstallAction::Updated
         } else {
             InstallAction::Updated
         })
@@ -146,14 +143,11 @@ impl Harness for OpenCode {
         if new_contents == original {
             return Ok(InstallAction::AlreadyUpToDate);
         }
-        let was_present = original.contains(BEGIN_MARKER);
         Self::backup(&path)?;
         fs::write(&path, new_contents)
             .with_context(|| format!("writing {}", path.display()))?;
         Ok(if original.is_empty() {
             InstallAction::Installed
-        } else if was_present {
-            InstallAction::Updated
         } else {
             InstallAction::Updated
         })

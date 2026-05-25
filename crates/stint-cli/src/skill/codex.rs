@@ -133,7 +133,6 @@ impl Harness for Codex {
             return Ok(InstallAction::AlreadyUpToDate);
         }
 
-        let was_present = servers_tbl.contains_key("stint");
         servers_tbl.insert("stint", Item::Table(server));
 
         let new_contents = doc.to_string();
@@ -143,9 +142,7 @@ impl Harness for Codex {
         Self::backup(&path)?;
         fs::write(&path, new_contents)
             .with_context(|| format!("writing {}", path.display()))?;
-        Ok(if was_present {
-            InstallAction::Updated
-        } else if original.is_empty() {
+        Ok(if original.is_empty() {
             InstallAction::Installed
         } else {
             InstallAction::Updated
@@ -173,14 +170,11 @@ impl Harness for Codex {
             return Ok(InstallAction::AlreadyUpToDate);
         }
 
-        let was_present = original.contains(BEGIN_MARKER);
         Self::backup(&path)?;
         fs::write(&path, new_contents)
             .with_context(|| format!("writing {}", path.display()))?;
-        Ok(if !path_existed(&original) {
+        Ok(if original.is_empty() {
             InstallAction::Installed
-        } else if was_present {
-            InstallAction::Updated
         } else {
             InstallAction::Updated
         })
@@ -245,10 +239,6 @@ impl Harness for Codex {
             skill_path: ag_path,
         })
     }
-}
-
-fn path_existed(original: &str) -> bool {
-    !original.is_empty()
 }
 
 /// Public wrapper so sibling harnesses (OpenCode) can reuse the marker logic.
