@@ -19,7 +19,7 @@ use clap::{Parser, Subcommand};
     version,
     about = "Time tracker that syncs with Solidtime"
 )]
-struct Cli {
+pub(crate) struct Cli {
     /// Emit machine-readable JSON instead of human text.
     #[arg(long, global = true)]
     json: bool,
@@ -29,7 +29,7 @@ struct Cli {
 }
 
 #[derive(Subcommand)]
-enum Command {
+pub(crate) enum Command {
     /// Start a new timer
     Start(cmd::start::Args),
     /// Stop the running timer
@@ -67,6 +67,11 @@ enum Command {
     /// Install / uninstall the stint MCP server + skill in editor harnesses.
     #[command(subcommand)]
     Skill(cmd::skill::Command),
+    /// Generate the stint(1) man page into the given directory.
+    GenerateMan {
+        /// Directory to write stint.1 into.
+        out_dir: std::path::PathBuf,
+    },
     /// Check for and apply updates to the standalone CLI. No-op for .app-bundled installs.
     Update {
         /// Print available version without applying.
@@ -102,6 +107,7 @@ async fn main() -> Result<()> {
             | Command::Api(_)
             | Command::Mcp(_)
             | Command::Skill(_)
+            | Command::GenerateMan { .. }
     ) {
         let store = cmd::open_store().await?;
         cmd::maybe_recover(&store).await?;
@@ -131,5 +137,6 @@ async fn main() -> Result<()> {
         Command::Api(c) => cmd::api::run(c, json).await,
         Command::Mcp(a) => cmd::mcp::run(a).await,
         Command::Skill(c) => cmd::skill::run(c, json).await,
+        Command::GenerateMan { out_dir } => cmd::generate_man::run(out_dir),
     }
 }

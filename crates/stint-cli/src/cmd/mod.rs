@@ -5,6 +5,7 @@ pub mod config_login;
 pub mod current;
 pub mod delete;
 pub mod edit;
+pub mod generate_man;
 pub mod list;
 pub mod mcp;
 pub mod projects;
