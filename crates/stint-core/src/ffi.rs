@@ -17,11 +17,13 @@
 //! Panic safety: each FFI fn body runs inside `catch_unwind`. A caught panic
 //! becomes a `-1` envelope rather than undefined behavior across the C ABI.
 
+use crate::config::Settings;
 use crate::store::Store;
 use crate::{paths, verbs, Error};
 use serde::{Deserialize, Serialize};
 use std::ffi::{c_char, CStr, CString};
 use std::panic;
+use std::ptr;
 use std::sync::OnceLock;
 use tokio::runtime::Runtime;
 
@@ -333,4 +335,194 @@ pub unsafe extern "C" fn stint_verb_delete_entry(
         Ok::<_, Error>(serde_json::json!({}))
     });
     0
+}
+
+// ---- settings -------------------------------------------------------
+
+/// Opaque key/value setter. Returns 0 on success, non-zero on failure
+/// (most commonly a closed DB or malformed UTF-8).
+///
+/// # Safety
+/// Both pointers must reference NUL-terminated UTF-8 strings.
+#[no_mangle]
+pub unsafe extern "C" fn stint_settings_set(key: *const c_char, value: *const c_char) -> i32 {
+    if key.is_null() || value.is_null() {
+        return -2;
+    }
+    let result = panic::catch_unwind(|| -> Result<(), Error> {
+        let key = unsafe { CStr::from_ptr(key) }
+            .to_str()
+            .map_err(|e| Error::Invariant(format!("non-utf8 key: {e}")))?;
+        let value = unsafe { CStr::from_ptr(value) }
+            .to_str()
+            .map_err(|e| Error::Invariant(format!("non-utf8 value: {e}")))?;
+        let store = store()?;
+        let settings = Settings::new(store);
+        runtime().block_on(settings.set(key, value))
+    });
+    match result {
+        Ok(Ok(())) => 0,
+        _ => 1,
+    }
+}
+
+/// Opaque value getter. Returns 0 with `*out_json` set to a malloc'd
+/// CString on success, or to NULL if the key is absent. Returns non-zero
+/// on internal failure.
+///
+/// # Safety
+/// `key` must be NUL-terminated UTF-8. `out_json` must be a valid pointer.
+/// Caller must free `*out_json` via [`stint_free_string`].
+#[no_mangle]
+pub unsafe extern "C" fn stint_settings_get(key: *const c_char, out_json: *mut *mut c_char) -> i32 {
+    if key.is_null() || out_json.is_null() {
+        return -2;
+    }
+    unsafe { *out_json = ptr::null_mut() };
+    let result = panic::catch_unwind(|| -> Result<Option<String>, Error> {
+        let key = unsafe { CStr::from_ptr(key) }
+            .to_str()
+            .map_err(|e| Error::Invariant(format!("non-utf8 key: {e}")))?;
+        let store = store()?;
+        let settings = Settings::new(store);
+        runtime().block_on(settings.get(key))
+    });
+    match result {
+        Ok(Ok(Some(v))) => {
+            if let Ok(c) = CString::new(v) {
+                unsafe { *out_json = c.into_raw() };
+            }
+            0
+        }
+        Ok(Ok(None)) => 0,
+        _ => 1,
+    }
+}
+
+/// Delete a settings key. Idempotent — returns 0 even if the key didn't exist.
+///
+/// # Safety
+/// `key` must be NUL-terminated UTF-8.
+#[no_mangle]
+pub unsafe extern "C" fn stint_settings_clear(key: *const c_char) -> i32 {
+    if key.is_null() {
+        return -2;
+    }
+    let result = panic::catch_unwind(|| -> Result<(), Error> {
+        let key = unsafe { CStr::from_ptr(key) }
+            .to_str()
+            .map_err(|e| Error::Invariant(format!("non-utf8 key: {e}")))?;
+        let store = store()?;
+        let settings = Settings::new(store);
+        runtime().block_on(settings.delete(key))
+    });
+    match result {
+        Ok(Ok(())) => 0,
+        _ => 1,
+    }
+}
+
+// ---- log forwarder --------------------------------------------------
+
+/// Forward a UTF-8 warning message into stint's tracing subscriber under
+/// the `stint_intents` target. Best-effort — silently drops malformed
+/// strings.
+///
+/// # Safety
+/// `msg` must be NUL-terminated UTF-8, or NULL (no-op).
+#[no_mangle]
+pub unsafe extern "C" fn stint_log_warn(msg: *const c_char) {
+    if msg.is_null() {
+        return;
+    }
+    if let Ok(s) = unsafe { CStr::from_ptr(msg) }.to_str() {
+        tracing::warn!(target: "stint_intents", "{}", s);
+    }
+}
+
+// ---- focus id (dlsym'd from Swift; null when framework absent) ------
+
+type FocusIdFn = unsafe extern "C" fn(*mut *mut c_char) -> i32;
+static FOCUS_ID_SYMBOL: OnceLock<Option<FocusIdFn>> = OnceLock::new();
+
+unsafe fn lookup_focus_id() -> Option<FocusIdFn> {
+    *FOCUS_ID_SYMBOL.get_or_init(|| {
+        // Use RTLD_DEFAULT (null) so dlsym walks the global symbol table —
+        // it will find swift_indexer_notify / stint_current_focus_id_swift
+        // when the Swift framework is loaded into the same process, and
+        // return null otherwise (CLI binaries, headless tests).
+        let name = std::ffi::CString::new("stint_current_focus_id_swift").unwrap();
+        let sym = unsafe { libc::dlsym(libc::RTLD_DEFAULT, name.as_ptr()) };
+        if sym.is_null() {
+            None
+        } else {
+            Some(unsafe { std::mem::transmute::<*mut libc::c_void, FocusIdFn>(sym) })
+        }
+    })
+}
+
+/// Return the currently-active macOS Focus identifier via Swift bridge.
+/// `*out_json` is set to a malloc'd CString on success, or NULL if no focus
+/// is active (or the Swift framework isn't loaded). Returns 0 in both cases.
+///
+/// # Safety
+/// `out_json` must be a valid `*mut c_char` slot. Caller frees via
+/// [`stint_free_string`].
+#[no_mangle]
+pub unsafe extern "C" fn stint_current_focus_id(out_json: *mut *mut c_char) -> i32 {
+    if out_json.is_null() {
+        return -2;
+    }
+    unsafe { *out_json = ptr::null_mut() };
+    if let Some(f) = unsafe { lookup_focus_id() } {
+        unsafe { f(out_json) }
+    } else {
+        0
+    }
+}
+
+// ---- indexer notify (Rust → Swift via dlsym) ------------------------
+
+/// Categorizes the payload Rust hands to the Swift indexer. Numeric values
+/// are a stable contract — see the spec's "Indexer lifecycle" section.
+#[repr(i32)]
+#[derive(Debug, Clone, Copy)]
+pub enum IndexerKind {
+    EntryStarted = 1,
+    EntryStopped = 2,
+    EntryUpdated = 3,
+    EntryDeleted = 4,
+    ProjectsReplaced = 5,
+    TasksReplaced = 6,
+}
+
+type IndexerNotifyFn = unsafe extern "C" fn(i32, *const c_char);
+static INDEXER_NOTIFY_SYMBOL: OnceLock<Option<IndexerNotifyFn>> = OnceLock::new();
+
+unsafe fn lookup_indexer_notify() -> Option<IndexerNotifyFn> {
+    *INDEXER_NOTIFY_SYMBOL.get_or_init(|| {
+        let name = std::ffi::CString::new("swift_indexer_notify").unwrap();
+        let sym = unsafe { libc::dlsym(libc::RTLD_DEFAULT, name.as_ptr()) };
+        if sym.is_null() {
+            None
+        } else {
+            Some(unsafe { std::mem::transmute::<*mut libc::c_void, IndexerNotifyFn>(sym) })
+        }
+    })
+}
+
+/// Notify the Swift Spotlight indexer about a mutation. No-op when the
+/// Swift framework isn't loaded (CLI builds, headless tests).
+///
+/// Call this from verb call sites and the pull worker after a successful
+/// write. The payload is verb-specific JSON; see Swift's `Spotlight/SpotlightIndexer.swift`
+/// `delta(kind:payload:)` for the decoders.
+pub fn notify_indexer(kind: IndexerKind, payload_json: &str) {
+    let Some(f) = (unsafe { lookup_indexer_notify() }) else {
+        return;
+    };
+    let Ok(c) = CString::new(payload_json) else {
+        return;
+    };
+    unsafe { f(kind as i32, c.as_ptr()) };
 }
