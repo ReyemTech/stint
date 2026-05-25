@@ -67,3 +67,16 @@ fn parse_percent_decodes_special_chars() {
         assert_eq!(description, "a+b c&d");
     }
 }
+
+#[test]
+fn parse_percent_decodes_multibyte_utf8() {
+    // `café` in UTF-8 is c, a, f, é → 63 61 66 c3 a9. The é must round-trip
+    // as a single grapheme, not two corrupted chars. Same for emoji (🎯 →
+    // f0 9f 8e af = 4 bytes).
+    let action = parse("stint://start?description=caf%C3%A9%20%F0%9F%8E%AF").unwrap();
+    if let Action::Start { description, .. } = action {
+        assert_eq!(description, "café 🎯");
+    } else {
+        panic!("expected Start");
+    }
+}

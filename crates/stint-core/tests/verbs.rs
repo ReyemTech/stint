@@ -181,6 +181,79 @@ async fn list_entries_returns_all_by_default() {
 }
 
 #[tokio::test]
+async fn list_entries_until_is_exclusive() {
+    // Adjacent windows [a, b) and [b, c) must partition cleanly — an entry
+    // whose start_at equals the boundary must show up in exactly one of them,
+    // not both.
+    let env = common::setup().await;
+    let store = &env.store;
+
+    let boundary = "2026-05-23T12:00:00Z";
+
+    verbs::start(
+        store,
+        StartParams {
+            description: "before".into(),
+            project_id: None,
+            task_id: None,
+            billable: false,
+            start_at: Some("2026-05-23T11:00:00Z".into()),
+            source: "test".into(),
+        },
+    )
+    .await
+    .unwrap();
+    verbs::stop(store).await.unwrap();
+
+    verbs::start(
+        store,
+        StartParams {
+            description: "at boundary".into(),
+            project_id: None,
+            task_id: None,
+            billable: false,
+            start_at: Some(boundary.into()),
+            source: "test".into(),
+        },
+    )
+    .await
+    .unwrap();
+    verbs::stop(store).await.unwrap();
+
+    // First window: [10:00, 12:00). The boundary entry must NOT appear.
+    let lower = verbs::list_entries(
+        store,
+        EntryFilter {
+            since: Some("2026-05-23T10:00:00Z".into()),
+            until: Some(boundary.into()),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+    assert_eq!(lower.len(), 1, "first window should contain only 'before'");
+    assert_eq!(lower[0].description, "before");
+
+    // Second window: [12:00, 13:00). The boundary entry IS in this one.
+    let upper = verbs::list_entries(
+        store,
+        EntryFilter {
+            since: Some(boundary.into()),
+            until: Some("2026-05-23T13:00:00Z".into()),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        upper.len(),
+        1,
+        "second window should contain only 'at boundary'"
+    );
+    assert_eq!(upper[0].description, "at boundary");
+}
+
+#[tokio::test]
 async fn list_entries_respects_limit() {
     let env = common::setup().await;
     let store = &env.store;
@@ -554,6 +627,76 @@ async fn update_entry_clearing_end_at_resumes_entry() {
     .unwrap();
 
     assert!(patched.end_at.is_none(), "end_at should be cleared");
+
+    // Clearing end_at re-opens the entry — running_timer must point at it,
+    // otherwise verbs::current would report idle and verbs::start would
+    // happily start a parallel entry. Verify the round-trip is honest.
+    let current = verbs::current(store).await.unwrap().expect("running");
+    assert_eq!(current.local_uuid, started.local_uuid);
+}
+
+#[tokio::test]
+async fn update_entry_clearing_end_at_rejects_when_another_timer_running() {
+    let env = common::setup().await;
+    let store = &env.store;
+
+    // First, create a stopped entry we'll try to re-open.
+    let stopped = verbs::start(
+        store,
+        StartParams {
+            description: "old, stopped".into(),
+            project_id: None,
+            task_id: None,
+            billable: false,
+            start_at: Some("2026-05-23T08:00:00Z".into()),
+            source: "test".into(),
+        },
+    )
+    .await
+    .unwrap();
+    verbs::stop(store).await.unwrap();
+
+    // Now start a different timer (currently running).
+    verbs::start(
+        store,
+        StartParams {
+            description: "currently running".into(),
+            project_id: None,
+            task_id: None,
+            billable: false,
+            start_at: None,
+            source: "test".into(),
+        },
+    )
+    .await
+    .unwrap();
+
+    // Attempting to clear the old entry's end_at should error — we'd end up
+    // with two timers running simultaneously.
+    let err = verbs::update_entry(
+        store,
+        &stopped.local_uuid,
+        EntryPatch {
+            end_at: Some(None),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap_err();
+    assert!(
+        err.to_string()
+            .to_lowercase()
+            .contains("another timer is running"),
+        "expected error about parallel running timer, got: {err}"
+    );
+
+    // The stopped entry's end_at must NOT have been cleared.
+    let entries = stint_core::store::entries::Entries::new(store.clone());
+    let row = entries.get(&stopped.local_uuid).await.unwrap().unwrap();
+    assert!(
+        row.end_at.is_some(),
+        "end_at should still be set after the failed clear"
+    );
 }
 
 #[tokio::test]

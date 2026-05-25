@@ -11,6 +11,7 @@
 
 use crate::store::entries::Entries;
 use crate::store::queue::{Queue, QueueOp};
+use crate::store::running::RunningTimer;
 use crate::store::Store;
 use crate::verbs::types::{EntryPatch, EntryView};
 use crate::{Error, Result};
@@ -70,7 +71,21 @@ pub async fn update_entry(store: &Store, local_uuid: &str, patch: EntryPatch) ->
             entries.set_end(local_uuid, end).await?;
         }
         (None, Some(None)) => {
+            // Re-opening a stopped entry: clearing end_at means the entry is
+            // running again, so `running_timer` must point at it. Reject if
+            // another timer is already running — two open entries would
+            // break `verbs::current` and `verbs::start`.
+            let running = RunningTimer::new(store.clone());
+            if let Some(other) = running.get().await? {
+                if other.local_uuid != local_uuid {
+                    return Err(Error::Invariant(format!(
+                        "cannot clear end_at: another timer is running ({})",
+                        other.local_uuid
+                    )));
+                }
+            }
             entries.clear_end(local_uuid).await?;
+            running.set(local_uuid).await?;
         }
         (Some(_), Some(None)) => {
             return Err(Error::Invariant(

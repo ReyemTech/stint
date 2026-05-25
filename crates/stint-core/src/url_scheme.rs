@@ -75,23 +75,27 @@ fn parse_query(q: &str) -> HashMap<String, String> {
 }
 
 fn percent_decode(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
+    // Accumulate raw bytes — a single decoded `%XX` octet may be one byte of a
+    // multi-byte UTF-8 sequence. Pushing each octet as a `char` would corrupt
+    // any non-ASCII content (accented chars, emoji, …). We only stringify at
+    // the end via `from_utf8_lossy`.
+    let mut out: Vec<u8> = Vec::with_capacity(s.len());
     let bytes = s.as_bytes();
     let mut i = 0;
     while i < bytes.len() {
         if bytes[i] == b'%' && i + 2 < bytes.len() {
             if let Ok(byte) = u8::from_str_radix(&s[i + 1..i + 3], 16) {
-                out.push(byte as char);
+                out.push(byte);
                 i += 3;
                 continue;
             }
         }
         if bytes[i] == b'+' {
-            out.push(' ');
+            out.push(b' ');
         } else {
-            out.push(bytes[i] as char);
+            out.push(bytes[i]);
         }
         i += 1;
     }
-    out
+    String::from_utf8_lossy(&out).into_owned()
 }

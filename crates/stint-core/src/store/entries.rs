@@ -139,9 +139,13 @@ impl Entries {
         Ok(row)
     }
 
+    /// Return entries whose `start_at` lies in `[from, to)` — lower bound
+    /// inclusive, upper bound exclusive. Exclusive `to` so adjacent windows
+    /// `[a, b)` and `[b, c)` partition cleanly with no duplicates for
+    /// windowed paginators / syncers.
     pub async fn list_between(&self, from: &str, to: &str) -> Result<Vec<TimeEntryRow>> {
         let rows = sqlx::query_as::<_, TimeEntryRow>(
-            "SELECT * FROM time_entries WHERE start_at >= ? AND start_at <= ? ORDER BY start_at",
+            "SELECT * FROM time_entries WHERE start_at >= ? AND start_at < ? ORDER BY start_at",
         )
         .bind(from)
         .bind(to)
