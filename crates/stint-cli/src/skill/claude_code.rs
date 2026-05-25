@@ -15,7 +15,7 @@ use std::path::PathBuf;
 use std::process::Command;
 
 /// Canonical skill content shipped with stint.
-const SKILL_CONTENT: &str = include_str!("../../skills/claude/SKILL.md");
+const SKILL_CONTENT: &str = include_str!("../../skills/stint/SKILL.md");
 
 pub struct ClaudeCode;
 
