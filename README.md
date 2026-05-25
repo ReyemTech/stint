@@ -1,211 +1,257 @@
-# stint
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/reyemtech/stint/main/.github/brand/stint-logotype-dark.svg">
+  <img alt="stint" src="https://raw.githubusercontent.com/reyemtech/stint/main/.github/brand/stint-logotype-light.svg" height="60">
+</picture>
 
-Time tracker with both a CLI (`stint`) and a macOS menu-bar app (`Stint.app`)
-that sync with a self-hosted Solidtime instance.
+**A time tracker for developers who want the speed of a CLI and the convenience of a menu-bar app — without sending your data to a third party.**
 
-**Docs:** [stint.reyem.tech](https://stint.reyem.tech) — install, quickstart, setup, CLI reference, troubleshooting.
+<p>
+  <a href="https://github.com/reyemtech/stint/actions/workflows/ci.yml"><img src="https://github.com/reyemtech/stint/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/reyemtech/stint/releases/latest"><img src="https://img.shields.io/github/v/release/reyemtech/stint" alt="Latest release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
+  <a href="https://reyemtech.github.io/stint"><img src="https://img.shields.io/badge/docs-stint.reyem.tech-blue" alt="Documentation"></a>
+  <img src="https://img.shields.io/badge/platform-macOS%2013%2B-black" alt="macOS 13+">
+  <img src="https://img.shields.io/badge/rustc-1.95-orange" alt="Rust 1.95">
+</p>
 
-## Status
+---
 
-- **Phase 1** ✅ — CLI + sync + crash recovery (`phase-1-complete` tag)
-- **Phase 2** ✅ — Tauri GUI + SolidJS UI + tray + dock visibility (`phase-2-complete` tag)
-- **Phase 2.5** ✅ — CI baseline (lint / test / typecheck on every push and PR) (`phase-2.5-complete` tag)
-- **Phase 3a** ✅ — OAuth 2.0 foundation + Solidtime OAuth sign-in (`phase-3a-complete` tag)
-- **Phase 3b** ✅ — Calendar integration (Google + Microsoft + CalDAV) (`phase-3b-complete` tag)
-- **Phase 3c** ✅ — Solidtime down-sync (`phase-3c-complete` tag)
-- **Phase 3.5** ✅ — Test coverage uplift across core / CLI / app / UI (`phase-3.5-complete` tag)
-- **Phase 3d** ✅ — Post-3b UX polish + sync resilience (project picker, calendar default project, editable times, backdate start, restart-from-entry, undo logged/ignored calendar events, billable inherited from project, sync-retry storm fix, adopt-on-overlap, in-app `SyncErrorBanner` showing the conflicting Solidtime entry, `stint sync` diagnostic subcommands, workspace coverage CI job) (`phase-3d-complete` tag)
-- **Phase 4** — Distribution: Homebrew cask + DMG + curl|sh installer + tauri-plugin-updater auto-update + semantic-release CD
-- **Phase 5** — Documentation site (GitHub Pages)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/reyemtech/stint/main/site/public/screenshots/popover-today.png" width="340" alt="stint popover showing today's time entries">
+</p>
 
-## Install
-
-> **Requires macOS 13 (Ventura) or later** for `Stint.app`. The CLI may run on
-> macOS 12, but only macOS 13+ is officially supported. All channels are
-> signed and notarized.
-
-**Homebrew (recommended):**
-
-    brew tap reyemtech/tap
-    brew install --cask stint
-
-**Direct DMG download:** [latest release](https://github.com/reyemtech/stint/releases/latest)
-
-**curl | sh (CLI only):**
-
-    curl -fsSL https://stint.reyem.tech/install.sh | sh
-
-**curl | sh (CLI + GUI):**
-
-    curl -fsSL https://stint.reyem.tech/install.sh | sh -s -- --gui
-
-**Pre-release builds:**
-
-    brew install --cask reyemtech/tap/stint-beta
-
-Updates are delivered automatically inside the app (Settings → Updates).
-You can disable auto-update or switch the update channel there.
-
-For standalone-CLI installs (no GUI), run `stint update` to self-update.
-`stint update --check` reports the available version without applying.
-
-## Run the CLI (from source)
+## Quick start
 
 ```bash
-cargo install --path crates/stint-cli
-stint config set solidtime.url https://time.reyem.ca
-stint config set solidtime.token        # prompts; stored in macOS Keychain
-stint config set solidtime.org <uuid>
-stint config test                        # ping the API
-stint start "what I'm working on"
+brew tap reyemtech/tap
+brew install --cask stint
+```
+
+Launch Stint.app from your Applications folder — it lives in your menu bar.
+Point it at your Solidtime instance and start tracking:
+
+```bash
+stint config set solidtime.url https://time.your-org.com
+stint start "designing the sync model"
 stint stop
-stint today
+stint today          # see what you logged
 ```
 
-## Run the GUI (dev mode)
+That's it. Your time is stored locally in SQLite and synced to your own
+Solidtime server in the background.
+
+**Prefer a standalone CLI?** No GUI needed:
 
 ```bash
-# one-time: install pnpm + tauri-cli
-brew install pnpm
-cargo install tauri-cli --version "^2.0"
-
-cd crates/stint-app
-cargo tauri dev
+curl -fsSL https://stint.reyem.tech/install.sh | sh
 ```
 
-A menu-bar icon appears. Click it to toggle the popover. Use the popover's
-"Open main window" button (or the tray menu's "Open Stint") for the full UI.
+---
 
-## Run the GUI (release build)
+## Why stint?
 
-```bash
-cargo tauri build
-# produces target/release/bundle/macos/Stint.app + a .dmg
-```
+**Toggl / Clockify** send your data to someone else's server and don't have
+a serious CLI. **Watson / tt** are terminal-only with no menu bar, calendar
+integration, or sync. **Hamster** is unmaintained.
 
-## Signing in with Solidtime OAuth (optional, alternative to API token)
+stint is the time tracker you'd write for yourself:
 
-stint supports OAuth 2.0 PKCE against your self-hosted Solidtime instance, in addition to the existing personal-access-token flow. The OAuth path lets the access-token rotate automatically (refresh-tokens stored in Keychain), but requires a one-time OAuth client registration on your Solidtime server.
+- **Two surfaces, one database.** CLI when you're in the terminal, GUI when
+  you want to glance at the menu bar. Both share `~/Library/Application Support/stint/stint.db`.
+  Start a timer in the terminal and see it update in the menu bar within a second.
+- **Local-first.** Every mutation writes to SQLite immediately. Sync happens
+  in the background — offline is fine, queue drains when you reconnect.
+- **Self-hosted.** Your data stays on your Solidtime instance. No monthly
+  SaaS bill, no third-party API dependency.
+- **Calendar-aware.** Connect Google Calendar, Microsoft, or CalDAV — read
+  events and log them with one click. stint learns your project defaults
+  so you barely have to type.
+- **OAuth + PAT.** Personal access tokens for quick setup, OAuth 2.0 PKCE
+  for automatic token rotation. Your choice per instance.
 
-**1. Register an OAuth client on your Solidtime instance.** SSH into the host running Solidtime and run:
+---
 
-```bash
-php artisan passport:client \
-    --public \
-    --name="stint" \
-    --redirect_uri="http://127.0.0.1/callback"
-```
+## Features
 
-Note the **Client ID** that's printed. (The wildcard port in the redirect URI is fine — Passport allows loopback redirect URIs to vary by port at runtime.)
+| | |
+|---|---|
+| **⌨️ CLI + 🖥️ GUI** | Track from the terminal or the menu bar. Same data, same database, instant cross-surface updates. |
+| **📡 Local-first sync** | Offline-safe. Writes queue locally and flush with exponential backoff when connectivity returns. |
+| **📅 Calendar import** | Read-only Google, Microsoft, and CalDAV. Convert events to time entries. Per-calendar include/exclude. |
+| **🔐 OAuth + PAT** | Personal access tokens or OAuth 2.0 PKCE against your Solidtime instance. Tokens stored in macOS Keychain. |
+| **♻️ Crash recovery** | Journaled queue won't lose entries. Recovery worker patches gaps on restart. |
+| **🔄 Live updates** | Timer state polls every 1s. `stint start` in the terminal, see it in the menu bar instantly. |
+| **📦 Self-updating** | Auto-update via `tauri-plugin-updater`. `stint update` for CLI-only installs. |
+| **🏠 Self-hosted** | Your Solidtime, your rules. No data leaves your infrastructure. |
 
-**2. Tell stint about the client ID.**
-
-```bash
-stint config set solidtime.oauth.client_id <THE-CLIENT-ID>
-```
-
-Or in the GUI: Settings → Authentication method → OAuth → fill in **Client ID**.
-
-**3. Sign in.**
-
-CLI: `stint config login`. GUI: Settings → click **Sign in with Solidtime**.
-
-A browser opens, you authenticate against Solidtime, and stint captures the redirect on a random loopback port. After this point, `solidtime.auth_mode` is `oauth`, and refresh-tokens rotate transparently.
-
-To switch back to API token: `stint config logout` (if you still have a PAT in Keychain it becomes active again), or pick **API token** in Settings.
-
-### Connecting a Google Calendar (Phase 3b)
-
-stint reads (read-only) your Google Calendar so you can convert events
-into time entries with one click. The stint binary ships with a
-registered Google OAuth client; you do **not** need to register your
-own.
-
-**First connect:**
-
-CLI:
-
-```
-stint calendar add google
-```
-
-GUI: open Settings → Calendar accounts → "Add Google account".
-
-The system browser opens, you grant `calendar.readonly`, and the
-account appears in the list. The Today view picks up today's events
-within a few seconds.
-
-**Managing per-calendar inclusion:**
-
-```
-stint calendar calendars <account-id> --exclude <calendar-id>
-stint calendar calendars <account-id> --include <calendar-id>
-```
-
-(Click "Calendars" on the account row in Settings for the GUI
-equivalent.)
-
-**Refresh window:** stint pulls last 7 + next 14 days at first
-connect, next 7 on launch/window focus, and last 1 + next 7 every
-15 minutes while the GUI is running.
-
-**Removing an account:**
-
-```
-stint calendar remove <account-id>
-```
-
-OAuth tokens for the account are deleted from Keychain; calendar
-rows are cascade-deleted from the local database. Any time entries
-already logged from calendar events remain (their `source_event_id`
-just becomes a dangling reference).
-
-## Other surfaces
-
-Beyond the menu-bar GUI and the interactive CLI, stint exposes the same
-operations through three more surfaces — all driven by the same
-`stint_core::verbs::*` façade, all documented at
-[stint.reyem.tech](https://stint.reyem.tech):
-
-- **Scriptable JSON** — every CLI verb accepts a global `--json` flag.
-  `stint --json current`, `stint --json start "writing tests"`,
-  `stint --json today | jq …`. Read verbs emit the canonical view
-  type; admin verbs emit a structured acknowledgement.
-- **AI integration (MCP)** — `stint mcp` is an MCP server over stdio
-  exposing 8 tools. `stint skill install <claude|codex|opencode>`
-  wires it into your harness in one shot, including a bundled
-  `SKILL.md` that teaches the agent when and how to call each tool.
-- **Loopback HTTP API** — off by default; enable with
-  `stint config set api.enabled true`. The GUI binds `127.0.0.1` on
-  an ephemeral port; discover the URL via `stint api info`. Endpoints
-  live under `/v1/`.
-- **`stint://` URL scheme** — for Raycast / Alfred / Shortcuts. Supports
-  `stint://start?description=…&project=…&billable=true`,
-  `stint://stop`, `stint://current`, `stint://entry/<local-uuid>`.
-
-The `stint(1)` man page (`man stint`) ships inside the Homebrew cask;
-for `cargo install` / `curl|sh` users, `scripts/install-man.sh`
-installs it to `/usr/local/share/man/man1/`.
+---
 
 ## Architecture
 
-Both surfaces share `~/Library/Application Support/stint/stint.db`. Secrets
-live in macOS Keychain under the `tech.reyem.stint.*` service prefix.
+```mermaid
+flowchart TB
+    subgraph Mac ["Your Mac"]
+        direction TB
+        CLI["stint CLI<br/>(clap, thin)"]
+        subgraph App ["Stint.app"]
+            Tauri["Tauri 2 (Rust)<br/>IPC commands"]
+            UI["SolidJS + Tailwind<br/>(Vite HMR)"]
+        end
+        subgraph Core ["stint-core (shared library)"]
+            SQLite[("SQLite Store")]
+            Sync["Sync Queue"]
+            Timer["Timer Service"]
+            SC["Solidtime Client<br/>(HTTP)"]
+            Cal["Calendar Integration<br/>(Google / MS / CalDAV)"]
+        end
+        Keychain["macOS Keychain<br/>(secrets / OAuth)"]
 
-- `crates/stint-core/` — shared library: SQLite store, Solidtime client, sync
-  queue, timer service, recovery, MCP/HTTP `verbs::` façade
-- `crates/stint-cli/` — the `stint` binary
-- `crates/stint-app/` — the Tauri 2 GUI binary (hosts the loopback HTTP API)
-- `ui/` — SolidJS + Tailwind frontend
+        CLI --> Core
+        Tauri --> Core
+        UI <--> Tauri
+        SQLite <--> Sync
+        SQLite <--> Timer
+        Timer <--> SC
+        SC <--> Sync
+        SQLite <--> Cal
+        Core <--> Keychain
+    end
 
-## Sync model
+    Solidtime["Solidtime API<br/>(self-hosted)"]
 
-Local-first. Mutations persist immediately and queue for upload. A worker
-drains the queue against Solidtime with exponential backoff. Offline → work
-queues up and flushes on reconnect.
+    SC <--> Solidtime
+```
 
-## Cross-surface live updates
+**Key design decisions:**
 
-The GUI polls the `running_timer` table every 1s while a window is open, so
-`stint start` in the terminal reflects in the menu bar popover within a
-second.
+- **`stint-core` is the only place business logic lives.** CLI and Tauri
+  commands are thin wrappers: parse input → call core → format output.
+- **SQLite is the source of truth.** The Solidtime server is a sync target,
+  not the primary store. Offline work never blocks.
+- **Secrets never touch disk unencrypted.** OAuth tokens, PATs, and calendar
+  credentials live in macOS Keychain under `tech.reyem.stint.*`.
+- **Sync is a queue, not a transaction.** Mutations write locally first, then
+  enqueue for upload. The worker drains with exponential backoff. If a
+  mutation conflicts on the server, the queue entry is abandoned and surfaced.
+
+---
+
+## Documentation
+
+Full documentation lives at **[stint.reyem.tech](https://stint.reyem.tech)**:
+
+- [Installation & setup](https://stint.reyem.tech/install)
+- [CLI reference](https://stint.reyem.tech/cli)
+- [GUI walkthrough](https://stint.reyem.tech/gui)
+- [Solidtime OAuth setup](https://stint.reyem.tech/oauth)
+- [Calendar configuration](https://stint.reyem.tech/calendar)
+- [Troubleshooting](https://stint.reyem.tech/troubleshooting)
+
+---
+
+## Development
+
+### Prerequisites
+
+```bash
+brew install pnpm rust
+cargo install tauri-cli --version "^2.0" --locked
+pnpm install
+```
+
+### Build & test
+
+```bash
+cargo build --workspace
+cargo test --workspace -- --test-threads=1
+cargo clippy --workspace --all-targets -- -D warnings
+```
+
+### Dev loops
+
+```bash
+# CLI
+cargo run -p stint-cli -- start "debugging sync"
+
+# GUI (Tauri + Vite HMR)
+cd crates/stint-app && cargo tauri dev
+
+# UI only (Vite without Tauri shell)
+cd ui && pnpm dev
+```
+
+### Project structure
+
+```
+crates/
+  stint-core/       # Business logic: store, sync, timer, Solidtime client
+  stint-cli/        # CLI binary (thin clap wrappers)
+  stint-app/        # Tauri 2 binary (windows, tray, IPC)
+ui/                 # SolidJS + Tailwind frontend
+site/               # Astro documentation site
+docs/superpowers/   # Design specs & implementation plans
+```
+
+### Testing conventions
+
+- **TDD for `stint-core`** — write the failing test, then the implementation.
+- **Integration over unit** for store-level code — tests run against a real
+  SQLite tempdir.
+- **Wiremock for HTTP** — Solidtime API tests never touch a real server.
+- **`assert_cmd` for CLI** — end-to-end binary tests.
+
+### Conventions
+
+- **Commits:** [Conventional Commits](https://www.conventionalcommits.org/)
+  with scopes (`feat(core):`, `fix(sync):`, `chore(ui):`, …).
+- **Branching:** `phase-N` branches from `main`, merged via merge commit,
+  tagged as `phase-N-complete`.
+- **Code style:** idiomatic Rust, no `unwrap` in production paths, typed
+  errors at the library boundary. SolidJS signals only — no class components.
+
+---
+
+## Contributing
+
+stint is developed in phases. Each phase has a written spec, a plan, and
+a `phase-N` branch. See the [open issues](https://github.com/reyemtech/stint/issues)
+and [phase roadmap](https://stint.reyem.tech/roadmap) for what's next.
+
+1. Read the [design spec](docs/superpowers/specs/2026-05-17-stint-design.md).
+2. Fork the repo and create a branch from `main`.
+3. Write tests first for core changes.
+4. Open a PR. CI runs lint, test, and typecheck.
+
+Small bug fixes and doc improvements are always welcome without a phase
+branch.
+
+---
+
+## Roadmap
+
+| Phase | Scope | Status |
+|---|---|---|
+| 1 | CLI + sync + crash recovery | ✅ shipped |
+| 2 | Tauri GUI + SolidJS UI | ✅ shipped |
+| 2.5 | CI baseline (lint / test / typecheck) | ✅ shipped |
+| 3a | OAuth 2.0 foundation + Solidtime OAuth | ✅ shipped |
+| 3b | Calendar (Google + MS + CalDAV) | ✅ shipped |
+| 3c | Solidtime down-sync | ✅ shipped |
+| 3.5 | Test coverage uplift | ✅ shipped |
+| 3d | UX polish + sync resilience | ✅ shipped |
+| 4 | Distribution (Homebrew cask + signing + release CD) | 🔜 planned |
+| 5 | Documentation site (GitHub Pages) | 🔜 planned |
+
+---
+
+## License
+
+MIT © [Reyem Technologies Inc.](https://reyem.tech)
+
+---
+
+<p align="center">
+  <a href="https://reyem.tech">reyem.tech</a> ·
+  <a href="https://github.com/reyemtech/stint">GitHub</a> ·
+  <a href="https://stint.reyem.tech">Docs</a>
+</p>
