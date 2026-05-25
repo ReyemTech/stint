@@ -27,5 +27,9 @@ pub async fn start(store: &Store, params: StartParams) -> Result<EntryView> {
         .await?
         .expect("just-inserted entry must exist");
 
-    Ok(row.into())
+    let view: EntryView = row.into();
+    if let Ok(payload) = serde_json::to_string(&view) {
+        crate::ffi::notify_indexer(crate::ffi::IndexerKind::EntryStarted, &payload);
+    }
+    Ok(view)
 }

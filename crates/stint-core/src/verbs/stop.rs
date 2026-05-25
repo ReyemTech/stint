@@ -13,5 +13,10 @@ pub async fn stop(store: &Store) -> Result<EntryView> {
         .get(&id)
         .await?
         .expect("just-stopped entry must exist");
-    Ok(row.into())
+
+    let view: EntryView = row.into();
+    if let Ok(payload) = serde_json::to_string(&view) {
+        crate::ffi::notify_indexer(crate::ffi::IndexerKind::EntryStopped, &payload);
+    }
+    Ok(view)
 }
