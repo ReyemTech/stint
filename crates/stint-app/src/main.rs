@@ -262,6 +262,34 @@ async fn handle_stint_url<R: tauri::Runtime>(
                 let _ = win.set_focus();
             }
         }
+        Action::OpenProject { project_id } => {
+            focus_main_window_at_route(app, &format!("/today?project={project_id}"));
+        }
+        Action::OpenTask { task_id } => {
+            // Resolve task → parent project so the Today view can filter by both.
+            let route = match stint_core::verbs::list_tasks(&store, None).await {
+                Ok(tasks) => tasks
+                    .into_iter()
+                    .find(|t| t.solidtime_id == task_id)
+                    .map(|t| format!("/today?project={}&task={}", t.project_id, task_id))
+                    .unwrap_or_else(|| "/today".into()),
+                Err(_) => "/today".into(),
+            };
+            focus_main_window_at_route(app, &route);
+        }
     }
     Ok(())
+}
+
+/// Bring the main window forward and emit a navigate event so the SolidJS
+/// router can land on the requested route. Payload is a bare string to
+/// match the existing `navigate` listener in `ui/src/App.tsx` (set by the
+/// tray menu and Settings shortcuts).
+fn focus_main_window_at_route<R: tauri::Runtime>(app: &tauri::AppHandle<R>, route: &str) {
+    use tauri::Emitter;
+    if let Some(win) = app.get_webview_window("main") {
+        let _ = win.show();
+        let _ = win.set_focus();
+    }
+    let _ = app.emit("navigate", route);
 }

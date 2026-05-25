@@ -1,10 +1,12 @@
 //! Parse `stint://` URLs into a typed `Action`.
 //!
-//! Supported forms (Phase 6a):
+//! Supported forms:
 //! - `stint://start?description=…&project=…&task=…&billable=true`
 //! - `stint://stop`
 //! - `stint://entry/<local_uuid>` (open in app)
 //! - `stint://current` (focus current entry view)
+//! - `stint://project/<solidtime_id>` (Phase 6b — Spotlight tap on a project entity)
+//! - `stint://task/<solidtime_id>` (Phase 6b — Spotlight tap on a task entity)
 
 use crate::{Error, Result};
 use std::collections::HashMap;
@@ -22,6 +24,12 @@ pub enum Action {
         local_uuid: String,
     },
     Current,
+    OpenProject {
+        project_id: String,
+    },
+    OpenTask {
+        task_id: String,
+    },
 }
 
 pub fn parse(input: &str) -> Result<Action> {
@@ -57,9 +65,26 @@ pub fn parse(input: &str) -> Result<Action> {
         "entry" => {
             let local_uuid = segments
                 .next()
+                .filter(|s| !s.is_empty())
                 .ok_or_else(|| Error::Invariant("entry requires local_uuid".into()))?
                 .to_string();
             Ok(Action::OpenEntry { local_uuid })
+        }
+        "project" => {
+            let project_id = segments
+                .next()
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| Error::Invariant("project requires id".into()))?
+                .to_string();
+            Ok(Action::OpenProject { project_id })
+        }
+        "task" => {
+            let task_id = segments
+                .next()
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| Error::Invariant("task requires id".into()))?
+                .to_string();
+            Ok(Action::OpenTask { task_id })
         }
         other => Err(Error::Invariant(format!("unknown stint action: {other}"))),
     }
