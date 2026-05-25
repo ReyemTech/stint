@@ -27,5 +27,10 @@ let package = Package(
                 ]),
             ]
         ),
+        .testTarget(
+            name: "StintIntentsTests",
+            dependencies: ["StintIntents"],
+            path: "Tests/StintIntentsTests"
+        ),
     ]
 )
