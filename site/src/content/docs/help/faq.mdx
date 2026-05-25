@@ -73,6 +73,38 @@ export const faqPage = {
         text: "Three paths, each works: in-app (Settings → Updates → Install, auto-checked every 24h); brew (brew upgrade --cask stint); standalone CLI (stint update). All three converge on the same release artifacts.",
       },
     },
+    {
+      "@type": "Question",
+      name: "Can I trigger stint from a shell script, Raycast, or Alfred?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Yes. Every CLI verb accepts a global --json flag for structured output (stint --json current, stint --json start \"writing tests\", etc.). For deep links from Raycast/Alfred/Shortcuts, use the stint:// URL scheme (stint://start?description=…, stint://stop, stint://current, stint://entry/<uuid>). See the Scripting and CLI reference pages.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "How do I drive stint from Claude, Codex, or OpenCode?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Run stint skill install <claude|codex|opencode> (or omit the harness for an interactive picker). It registers stint's MCP server with the harness and installs a SKILL.md / rules fragment teaching the agent when and how to call the eight tools. See the AI integration page.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Is the local HTTP API a privacy concern?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "It's off by default. When you enable it (stint config set api.enabled true), the server binds to 127.0.0.1 on an ephemeral port — loopback only, never reachable from another machine. It only runs while Stint.app is open; quitting the app closes the listener.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Can I deep-link into stint?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Yes. Stint.app registers the stint:// URL scheme on macOS. Supported actions: stint://start?description=…&project=…&billable=true, stint://stop, stint://current, stint://entry/<local-uuid>. Use open from the shell or wire them into Raycast / Alfred / Shortcuts.",
+      },
+    },
   ],
 };
 
@@ -164,6 +196,65 @@ Three paths, each works:
 3. **Standalone CLI**: `stint update`. Self-replaces the binary atomically.
 
 All three converge on the same release artifacts.
+
+## Can I trigger stint from a shell script, Raycast, or Alfred?
+
+Yes. Every CLI verb accepts a global `--json` flag for structured
+output:
+
+```bash
+stint --json current
+stint --json start "writing tests" --project p-uuid
+stint --json today | jq '.[] | .description'
+```
+
+For deep links from Raycast / Alfred / Shortcuts, use the `stint://`
+URL scheme:
+
+```bash
+open "stint://start?description=writing%20tests"
+open "stint://stop"
+open "stint://current"
+```
+
+See [Scripting stint](/scripting/) and the
+[CLI reference](/reference/cli/#stint-url-scheme).
+
+## How do I drive stint from Claude, Codex, or OpenCode?
+
+```bash
+stint skill install              # interactive picker
+stint skill install claude       # explicit
+```
+
+The installer registers stint's MCP server with the harness and lays
+down a `SKILL.md` / rules fragment so the agent knows when and how to
+call the eight tools (`start`, `stop`, `current`, `list_entries`,
+`list_projects`, `list_tasks`, `update_entry`, `delete_entry`). See
+[AI integration](/ai-integration/) for the full integration story.
+
+## Is the local HTTP API a privacy concern?
+
+The HTTP API is **off by default**. When you enable it
+(`stint config set api.enabled true`), the server binds to
+`127.0.0.1` on an ephemeral port — loopback only, never reachable from
+another machine on the network. It runs inside the Stint.app process,
+so quitting the app closes the listener. There's no separate daemon
+and no token (localhost is the trust boundary).
+
+## Can I deep-link into stint?
+
+Yes. Stint.app registers the `stint://` URL scheme on macOS:
+
+| URL | Effect |
+|---|---|
+| `stint://start?description=…&project=…&billable=true` | Start a timer |
+| `stint://stop` | Stop the running timer |
+| `stint://current` | Focus the current-entry view |
+| `stint://entry/<local-uuid>` | Open an entry in the main window |
+
+`open "stint://stop"` from the shell, or wire into Raycast / Alfred /
+Shortcuts.
 
 ## Where's the source?
 

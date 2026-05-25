@@ -62,3 +62,5 @@ The entry appears in Solidtime under the configured organization.
 - [Calendar setup](/getting-started/calendar/) — log meetings as time entries with one click
 - [Keyboard shortcuts](/reference/shortcuts/) — ⌘1 / ⌘2 / ⌘3 for routes, Esc to dismiss the popover
 - [CLI commands](/reference/cli/) — complete command reference
+- [Scripting stint](/scripting/) — `--json` output, the loopback HTTP API, and `stint://` URLs for Raycast / Alfred / shell pipelines
+- [AI integration](/ai-integration/) — wire stint into Claude Code, Codex, or OpenCode with one `stint skill install`

@@ -23,6 +23,9 @@ Installs `Stint.app` to `/Applications` and symlinks the CLI at
 Auto-updates happen via Homebrew (`brew upgrade --cask stint`) *and* via the
 in-app updater — both keep you current; whichever runs first wins.
 
+The cask bundles the `stint(1)` man page inside the .app and exposes it
+to `man(1)`, so `man stint` works straight after install.
+
 ## Direct DMG download
 
 Grab the latest `.dmg` from the
@@ -41,6 +44,11 @@ curl -fsSL https://stint.reyem.tech/install.sh | sh
 Installs the standalone `stint` binary to `/usr/local/bin/stint` (if
 writable) or `~/.local/bin/stint`. The standalone CLI self-updates via
 `stint update`.
+
+To install the man page for this path, run `scripts/install-man.sh`
+from a checkout of [the repo](https://github.com/reyemtech/stint) — it
+calls `stint generate-man` and drops `stint.1` into
+`/usr/local/share/man/man1/`.
 
 ## `curl | sh` — CLI + GUI
 
