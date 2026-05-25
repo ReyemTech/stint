@@ -7,12 +7,19 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 
+[lib]
+name = "stint_cli"
+path = "src/lib.rs"
+
 [[bin]]
 name = "stint"
 path = "src/main.rs"
 
 [dependencies]
 stint-core = { path = "../stint-core" }
+toml_edit = "0.22"
+dialoguer = "0.11"
+which = "6"
 # embed-plist injects Info.plist into the binary's __TEXT,__info_plist Mach-O
 # section. Required for the CLI to satisfy hardened-runtime kernel validation
 # when distributed inside Stint.app/Contents/MacOS/.

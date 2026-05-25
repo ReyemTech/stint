@@ -9,6 +9,7 @@ pub mod mcp;
 pub mod projects;
 pub mod pull;
 pub mod restart;
+pub mod skill;
 pub mod start;
 pub mod stop;
 pub mod sync;

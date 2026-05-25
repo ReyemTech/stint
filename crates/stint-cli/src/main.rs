@@ -62,6 +62,9 @@ enum Command {
     Api(cmd::api::Command),
     /// Run as an MCP server on stdio (for Claude Code, Codex, OpenCode, …).
     Mcp(cmd::mcp::Args),
+    /// Install / uninstall the stint MCP server + skill in editor harnesses.
+    #[command(subcommand)]
+    Skill(cmd::skill::Command),
     /// Check for and apply updates to the standalone CLI. No-op for .app-bundled installs.
     Update {
         /// Print available version without applying.
@@ -96,6 +99,7 @@ async fn main() -> Result<()> {
             | Command::Update { .. }
             | Command::Api(_)
             | Command::Mcp(_)
+            | Command::Skill(_)
     ) {
         let store = cmd::open_store().await?;
         cmd::maybe_recover(&store).await?;
@@ -123,5 +127,6 @@ async fn main() -> Result<()> {
         }
         Command::Api(c) => cmd::api::run(c, json).await,
         Command::Mcp(a) => cmd::mcp::run(a).await,
+        Command::Skill(c) => cmd::skill::run(c, json).await,
     }
 }
