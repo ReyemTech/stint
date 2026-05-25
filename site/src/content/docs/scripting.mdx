@@ -1,0 +1,48 @@
+---
+title: Scripting stint
+description: Use stint from shell scripts, automations, and integrations via --json or the local HTTP API.
+---
+
+stint exposes every operation through two scriptable surfaces.
+
+## CLI with --json
+
+Every CLI command accepts a global `--json` flag that emits structured output instead of human text.
+
+```bash
+stint --json current
+# null  (or { "local_uuid": …, "description": …, … })
+
+stint --json list --limit 10
+
+stint --json start "writing tests" --project p-uuid
+# { "local_uuid": "…", "description": "writing tests", … }
+```
+
+Write verbs (`start`, `stop`, `edit`, `delete`) return the affected entry as JSON.
+
+## Local HTTP API
+
+Off by default. Enable with `stint config set api.enabled true` (or via Settings → Integrations in the GUI). The API binds to `127.0.0.1` on an ephemeral port, persisted to `api.port`.
+
+Discover the URL:
+
+```bash
+stint --json api info
+# { "enabled": true, "host": "127.0.0.1", "port": 54321, "base_url": "http://127.0.0.1:54321" }
+```
+
+Endpoints (all under `/v1/`):
+
+| Method | Path | Body |
+|---|---|---|
+| `POST` | `/v1/start` | `{ "description": "...", "project_id": "...", "billable": true, "source": "myscript" }` |
+| `POST` | `/v1/stop` | empty |
+| `GET`  | `/v1/current` | — |
+| `GET`  | `/v1/entries?since=…&until=…&project_id=…&limit=50` | — |
+| `GET`  | `/v1/projects` | — |
+| `GET`  | `/v1/tasks?project_id=…` | — |
+| `PATCH`| `/v1/entries/:id` | partial `EntryPatch` |
+| `DELETE` | `/v1/entries/:id` | — |
+
+The HTTP API is only reachable while Stint.app is running. When the app is quit, fall back to the CLI.

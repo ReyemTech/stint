@@ -102,6 +102,13 @@ export default defineConfig({
           ],
         },
         {
+          label: "Integration",
+          items: [
+            { label: "Scripting", slug: "scripting" },
+            { label: "AI integration", slug: "ai-integration" },
+          ],
+        },
+        {
           label: "Help",
           items: [
             { label: "Troubleshooting", slug: "help/troubleshooting" },
