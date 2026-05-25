@@ -99,9 +99,35 @@ Tests/StintIntentsIntegrationTests/       # separate target — links real stint
 
 ---
 
-## Task A1: SPM spike — verify framework + AppShortcut metadata generates
+## Task A1: SPM spike — verify framework + AppShortcut metadata generates ✅ PASSED
 
-**Goal:** In ≤30 minutes, build a stub `StintIntents.framework` via Swift Package Manager containing one `AppIntent` and one `AppShortcutsProvider` with a single phrase. Verify the resulting bundle contains a `Metadata.appintents` stencil and that `pluginkit -mvD` (or `Metadata.appintents` parse) sees the intent. If this fails, fall back to an Xcode `.xcodeproj` (Task A1.fallback).
+**Result (2026-05-25):** Build pipeline locked in. Findings recorded inline so subsequent tasks (especially H1) reference the right tool and paths.
+
+**Key findings:**
+
+1. **`swift build` does NOT run `appintentsmetadataprocessor`.** The dylib it produces has Swift type metadata for the intent types but no `Metadata.appintents` stencil that macOS uses for OS-level intent discovery at install time.
+2. **`xcodebuild` against `Package.swift` (no .xcodeproj needed) DOES run the processor.** Command:
+   ```bash
+   xcodebuild -scheme StintIntents -configuration Release \
+              -destination 'platform=macOS' \
+              -derivedDataPath ./build/derived
+   ```
+3. **App Shortcut phrase rule (enforced by the processor):** every phrase must contain `\(.applicationName)`. Build fails otherwise with `Invalid Utterance. Every App Shortcut utterance should have one '${applicationName}' in it.`
+4. **Output paths** (relative to derived data root):
+   - Framework: `Build/Products/Release/PackageFrameworks/StintIntents.framework/`
+   - Metadata bundle (separate from framework): `Build/Products/Release/StintIntents.appintents/Metadata.appintents/`
+5. **Stencil format:** the `Metadata.appintents` directory contains `version.json` + `extract.actionsdata` (JSON, listing each `AppIntent` type, its phrases, and the `autoShortcutProviderMangledName`).
+6. **Critical packaging step:** Xcode does NOT auto-inject the `Metadata.appintents` into the framework. Task H1's `build.rs` must copy it into `StintIntents.framework/Versions/A/Resources/Metadata.appintents/` so macOS can discover the intents when the framework is embedded in `Stint.app/Contents/Frameworks/`.
+7. **Framework's Info.plist needs `NSAppIntentsPackage=YES`** for the OS to scan the embedded framework for intent metadata. SPM-generated frameworks don't include this key — build.rs must inject it.
+
+**No commit for the spike itself** — only the Package.swift seed and the `.gitignore` for `.build/`, `build/`, `.swiftpm/` are committed (and an empty `.gitkeep` to retain the Sources/StintIntents/ directory).
+
+Subsequent tasks reference these findings:
+- Task H1: `cargo build -p stint-app` runs `xcodebuild` (not `swift build`), then copies `Metadata.appintents` into the framework's Resources and patches the Info.plist.
+- Task G1: every App Shortcut phrase must include `\(.applicationName)`.
+- Task J3: CI gate parses `Metadata.appintents/extract.actionsdata` JSON (not strings-based fingerprinting) — it's a proper JSON document.
+
+**Original spike steps preserved below for reference; A1.fallback (Xcode .xcodeproj) is no longer needed.**
 
 **Files:**
 - Create: `crates/stint-app/swift/StintIntents/Package.swift` (throwaway version)
@@ -223,11 +249,9 @@ No commit for this task on its own — the spike is exploratory.
 
 ---
 
-## Task A1.fallback (executed only if A1 fails): Xcode .xcodeproj packaging
+## Task A1.fallback — N/A
 
-Switch the Swift target to an Xcode project. Same `crates/stint-app/swift/StintIntents/` directory; replace `Package.swift` with `StintIntents.xcodeproj` generated via Xcode template "Framework". Update all later tasks that invoke `swift build` to instead invoke `xcodebuild -project StintIntents.xcodeproj -scheme StintIntents -configuration Release build`. This is a mechanical swap; the source files and APIs in subsequent tasks stay identical.
-
-If reached, the cost is roughly 1 hour: re-create the Xcode project skeleton, verify metadata stencil generates (it does — this is Apple's primary path), update Task H1's build.rs invocation. No other tasks change.
+Spike passed with the SPM+xcodebuild hybrid. The Xcode `.xcodeproj` fallback is not needed.
 
 ---
 
