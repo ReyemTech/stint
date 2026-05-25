@@ -36,6 +36,29 @@ Eight tools, all stable across releases:
 
 The agent is instructed to call `current` before `start` (to avoid colliding with an already-running timer) and to prefer `update_entry` over backdated `start` when logging past work. Entries created through MCP tools are tagged `source: "mcp"`.
 
+## What the bundled SKILL.md teaches
+
+The skill file is `include_str!`-bundled at compile time into all three
+harness installers, so the same guidance lands in your AI client
+regardless of which harness you picked. It covers:
+
+- **Surface ladder** — MCP tools first, then `stint --json`, then the
+  HTTP API as a fallback. Pick one surface per request.
+- **Workflow recipes** — start / stop / switch projects, log a meeting
+  that just ended, resume yesterday's work, "how much on project X this
+  week?", edit project/task/billable, stop-and-discard.
+- **Project / task ID resolution** — fuzzy-matching user wording
+  ("the auth project") against `list_projects`, asking when ambiguous.
+- **Time math** — UTC vs. local windows, ISO 8601 conventions, the
+  ≤24h-per-entry rule.
+- **Recovery patterns** — what specific Invariant errors mean and how
+  to recover (timer-already-running, can't set start_at on a running
+  entry, MCP server wedged, etc.).
+- **What NOT to do** — don't poll `current`, don't backdate beyond 24
+  hours, don't invent UUIDs, don't bypass the queue.
+
+Source: `crates/stint-cli/skills/stint/SKILL.md`.
+
 ## Dry run + status
 
 ```bash

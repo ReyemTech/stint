@@ -13,13 +13,44 @@ Every CLI command accepts a global `--json` flag that emits structured output in
 stint --json current
 # null  (or { "local_uuid": …, "description": …, … })
 
-stint --json list --limit 10
+stint --json list 2026-05-20T00:00:00Z 2026-05-23T23:59:59Z
 
 stint --json start "writing tests" --project p-uuid
 # { "local_uuid": "…", "description": "writing tests", … }
+
+stint --json stop
+# { "local_uuid": "…", "end_at": "2026-05-24T15:30:00Z", … }
 ```
 
-Write verbs (`start`, `stop`, `edit`, `delete`) return the affected entry as JSON.
+Read verbs (`current`, `today`, `list`, `projects list`, `api info`,
+`skill status`) emit the canonical view type. Write verbs (`start`,
+`stop`, `edit`, `restart`, `delete`) return the affected entry. Admin
+verbs (`sync`, `pull`, `config`, `calendar`, `update`,
+`skill install/uninstall`) emit a structured acknowledgement such as
+`{ "refreshed": true }`.
+
+A typical shell pipeline using `jq`:
+
+```bash
+# Is anything running right now?
+stint --json current | jq -r '.description // "nothing"'
+
+# Total seconds tracked today against project p-uuid:
+stint --json today | jq '[.[] | select(.project_id == "p-uuid")
+  | (.end_at // now | fromdateiso8601) - (.start_at | fromdateiso8601)
+  ] | add // 0'
+```
+
+## Reference paths
+
+If you can't remember a flag or verb, the CLI is self-describing:
+
+- `stint --help` — top-level command list
+- `stint <verb> --help` — flags for one verb
+- `man stint` — full man page (installed by the Homebrew cask; for
+  cargo / `curl|sh` users, run `scripts/install-man.sh` from a checkout
+  to install it system-wide, or `stint generate-man <dir>` to drop the
+  raw groff file anywhere)
 
 ## Local HTTP API
 
