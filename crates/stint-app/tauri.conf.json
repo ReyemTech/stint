@@ -61,7 +61,10 @@
       "providerShortName": null,
       "hardenedRuntime": true,
       "entitlements": "entitlements.plist",
-      "minimumSystemVersion": "13.0"
+      "minimumSystemVersion": "13.0",
+      "frameworks": [
+        "Frameworks/StintIntents.framework"
+      ]
     }
   },
   "plugins": {

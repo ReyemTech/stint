@@ -90,6 +90,13 @@ async fn main() -> Result<()> {
         .setup(move |app| {
             tray::build(app.handle())?;
 
+            // Initialize the StintIntents Swift framework if it's loaded into
+            // the app bundle. The framework exports stint_intents_init as an
+            // @_cdecl symbol; we look it up via dlsym so this path no-ops on
+            // builds where the framework is absent (raw dev binaries from
+            // scripts/dev-app.sh, missing build artifacts, etc).
+            init_stint_intents();
+
             // Register stint:// URL scheme handler. Each incoming URL is parsed
             // by stint_core::url_scheme and dispatched to the verbs façade.
             {
@@ -292,4 +299,27 @@ fn focus_main_window_at_route<R: tauri::Runtime>(app: &tauri::AppHandle<R>, rout
         let _ = win.set_focus();
     }
     let _ = app.emit("navigate", route);
+}
+
+/// Best-effort init of the StintIntents Swift framework via dlsym lookup
+/// of `stint_intents_init`. No-op when the symbol isn't present (the
+/// framework isn't bundled into the running binary).
+fn init_stint_intents() {
+    use std::ffi::CString;
+    type InitFn = unsafe extern "C" fn() -> i32;
+    let name = CString::new("stint_intents_init").unwrap();
+    let sym = unsafe { libc::dlsym(libc::RTLD_DEFAULT, name.as_ptr()) };
+    if sym.is_null() {
+        tracing::debug!(
+            "stint_intents_init not present; Spotlight/App Intents integration disabled"
+        );
+        return;
+    }
+    let f: InitFn = unsafe { std::mem::transmute(sym) };
+    let rc = unsafe { f() };
+    if rc != 0 {
+        tracing::warn!(rc, "stint_intents_init returned non-zero");
+    } else {
+        tracing::info!("StintIntents framework initialized");
+    }
 }

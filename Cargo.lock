@@ -4889,6 +4889,7 @@ dependencies = [
  "axum",
  "chrono",
  "dirs 5.0.1",
+ "libc",
  "semver",
  "serde",
  "serde_json",
