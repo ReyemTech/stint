@@ -56,6 +56,9 @@ enum Command {
     /// Connect, list, and manage calendar accounts.
     #[command(subcommand)]
     Calendar(cmd::calendar::CalendarCmd),
+    /// Inspect the loopback HTTP API (bind address, port).
+    #[command(subcommand)]
+    Api(cmd::api::Command),
     /// Check for and apply updates to the standalone CLI. No-op for .app-bundled installs.
     Update {
         /// Print available version without applying.
@@ -84,7 +87,11 @@ async fn main() -> Result<()> {
     // because calendar commands open their own store and recovery is irrelevant.
     if !matches!(
         cli.command,
-        Command::Sync(_) | Command::Pull(_) | Command::Calendar(_) | Command::Update { .. }
+        Command::Sync(_)
+            | Command::Pull(_)
+            | Command::Calendar(_)
+            | Command::Update { .. }
+            | Command::Api(_)
     ) {
         let store = cmd::open_store().await?;
         cmd::maybe_recover(&store).await?;
@@ -110,5 +117,6 @@ async fn main() -> Result<()> {
         Command::Update { check, force } => {
             tokio::task::spawn_blocking(move || cmd::update::run(check, force, json)).await?
         }
+        Command::Api(c) => cmd::api::run(c, json).await,
     }
 }
