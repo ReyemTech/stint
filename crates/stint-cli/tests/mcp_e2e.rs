@@ -144,3 +144,172 @@ fn mcp_server_lists_tools_and_starts_entry() {
     let _ = child.kill();
     let _ = child.wait();
 }
+
+/// Exercises every remaining tool (stop, list_entries, list_projects,
+/// list_tasks, update_entry, delete_entry) plus the `map_err →
+/// invalid_params` arm for `Error::NotFound`. Keeps the wire-level
+/// fidelity of `mcp_server_lists_tools_and_starts_entry` but skips the
+/// `tools/list` assertions which that test already covers.
+#[test]
+fn mcp_server_round_trips_all_remaining_tools() {
+    let dir = tempdir().unwrap();
+    let db = dir.path().join("stint.db");
+
+    let mut child = Command::new(env!("CARGO_BIN_EXE_stint"))
+        .arg("mcp")
+        .env("STINT_DB", &db)
+        .env("STINT_LOG", "off")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn `stint mcp`");
+
+    let mut stdin = child.stdin.take().unwrap();
+    let mut stdout = BufReader::new(child.stdout.take().unwrap());
+
+    // initialize handshake
+    let init = json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {},
+            "clientInfo": { "name": "stint-mcp-e2e", "version": "0" }
+        }
+    });
+    writeln!(stdin, "{init}").unwrap();
+    let _ = read_one(&mut stdout);
+    writeln!(
+        stdin,
+        "{}",
+        json!({"jsonrpc":"2.0","method":"notifications/initialized"})
+    )
+    .unwrap();
+
+    let mut next_id = 100;
+    let mut call = |stdin: &mut std::process::ChildStdin,
+                    stdout: &mut BufReader<std::process::ChildStdout>,
+                    name: &str,
+                    args: Value|
+     -> Value {
+        next_id += 1;
+        let req = json!({
+            "jsonrpc": "2.0",
+            "id": next_id,
+            "method": "tools/call",
+            "params": { "name": name, "arguments": args }
+        });
+        writeln!(stdin, "{req}").unwrap();
+        read_one(stdout)
+    };
+
+    // start → record uuid
+    let resp = call(
+        &mut stdin,
+        &mut stdout,
+        "start",
+        json!({"description": "round trip"}),
+    );
+    let payload: Value =
+        serde_json::from_str(resp["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
+    let uuid = payload["local_uuid"].as_str().unwrap().to_string();
+
+    // stop → entry now has end_at
+    let resp = call(&mut stdin, &mut stdout, "stop", json!({}));
+    let payload: Value =
+        serde_json::from_str(resp["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(payload["local_uuid"], uuid);
+    assert!(payload["end_at"].is_string());
+
+    // current → null after stop
+    let resp = call(&mut stdin, &mut stdout, "current", json!({}));
+    let payload_text = resp["result"]["content"][0]["text"].as_str().unwrap();
+    assert_eq!(payload_text, "null");
+
+    // list_entries → one entry
+    let resp = call(
+        &mut stdin,
+        &mut stdout,
+        "list_entries",
+        json!({"limit": 10}),
+    );
+    let arr: Value =
+        serde_json::from_str(resp["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert!(arr.is_array());
+    assert_eq!(arr.as_array().unwrap().len(), 1);
+
+    // list_projects → empty (no seed)
+    let resp = call(&mut stdin, &mut stdout, "list_projects", json!({}));
+    let arr: Value =
+        serde_json::from_str(resp["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(arr, json!([]));
+
+    // list_tasks → empty, with and without project_id
+    let resp = call(&mut stdin, &mut stdout, "list_tasks", json!({}));
+    let arr: Value =
+        serde_json::from_str(resp["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(arr, json!([]));
+    let resp = call(
+        &mut stdin,
+        &mut stdout,
+        "list_tasks",
+        json!({"project_id": "p-1"}),
+    );
+    let arr: Value =
+        serde_json::from_str(resp["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(arr, json!([]));
+
+    // update_entry → flip billable + change description
+    let resp = call(
+        &mut stdin,
+        &mut stdout,
+        "update_entry",
+        json!({"local_uuid": uuid, "description": "renamed", "billable": true}),
+    );
+    let payload: Value =
+        serde_json::from_str(resp["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(payload["description"], "renamed");
+    assert_eq!(payload["billable"], true);
+
+    // update_entry on unknown uuid → invalid_params (map_err NotFound arm)
+    let resp = call(
+        &mut stdin,
+        &mut stdout,
+        "update_entry",
+        json!({"local_uuid": "does-not-exist", "description": "noop"}),
+    );
+    assert!(
+        resp["error"].is_object(),
+        "expected error response, got: {resp}"
+    );
+    assert_eq!(
+        resp["error"]["code"], -32602,
+        "expected invalid_params (-32602), got: {resp}"
+    );
+
+    // delete_entry → ok:true
+    let resp = call(
+        &mut stdin,
+        &mut stdout,
+        "delete_entry",
+        json!({"local_uuid": uuid}),
+    );
+    let payload_text = resp["result"]["content"][0]["text"].as_str().unwrap();
+    assert_eq!(payload_text, r#"{"ok":true}"#);
+
+    // delete_entry is idempotent → ok:true even on a missing uuid
+    let resp = call(
+        &mut stdin,
+        &mut stdout,
+        "delete_entry",
+        json!({"local_uuid": "already-gone"}),
+    );
+    let payload_text = resp["result"]["content"][0]["text"].as_str().unwrap();
+    assert_eq!(payload_text, r#"{"ok":true}"#);
+
+    drop(stdin);
+    let _ = child.kill();
+    let _ = child.wait();
+}
