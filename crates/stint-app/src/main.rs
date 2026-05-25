@@ -1,6 +1,7 @@
 mod app_state;
 mod calendar_worker;
 mod commands;
+mod http;
 mod logging;
 mod menu;
 mod pull_worker;
@@ -84,6 +85,19 @@ async fn main() -> Result<()> {
         ])
         .setup(move |app| {
             tray::build(app.handle())?;
+
+            // Loopback HTTP API (opt-in via `api.enabled` setting). Spawned on
+            // the Tokio runtime so it lives for the GUI process lifetime.
+            {
+                let store_for_http = store_for_worker.clone();
+                tokio::spawn(async move {
+                    match http::maybe_spawn(store_for_http).await {
+                        Ok(Some(port)) => tracing::info!(port, "http api listening"),
+                        Ok(None) => {}
+                        Err(e) => tracing::error!("http api failed to start: {e}"),
+                    }
+                });
+            }
 
             // Periodic background sync (drains queue every 30s while running).
             sync_worker::spawn(app.handle().clone(), store_for_worker.clone());
