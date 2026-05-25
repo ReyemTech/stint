@@ -34,6 +34,18 @@ You have up to three ways to talk to stint. Use the highest one that works.
 
 **Pick a surface and stick with it within a single user request** to avoid mixing read/write paths.
 
+### Bonus surfaces (Phase 6b — user-facing, agent-aware)
+
+These are macOS shell surfaces. Agents don't invoke them directly, but should know they exist when answering questions about how the user works with stint:
+
+- **App Intents in Shortcuts.app + Siri** — 5 App Shortcuts (Start Timer, Stop Timer, Current Timer, Switch Project, Log Past Work) callable via voice ("Hey Siri, start tracking in Stint") and Spotlight quick actions. All 8 verbs + 2 composed (SwitchProject, LogPast) are discoverable as Custom Shortcuts.
+- **Core Spotlight** — entries, projects, and tasks are indexed. Cmd+Space → "client meeting" → tap → opens the entry. Cmd+Space → "Acme" → tap → opens stint filtered to that project.
+- **macOS Focus filter** — `System Settings → Focus → <mode> → Add Filter → Stint → Default Project`. While that focus is active, new `stint start` calls without an explicit project pick up the Focus-defaulted project. **Race window:** if the user activates a focus while Stint.app is cold-launching, the default may not have been written yet — the next `stint start` will record the entry without the project, fixable via `stint edit`.
+- **stint:// URL routes** (additions for 6b):
+  - `stint://project/<solidtime_id>` → opens Today view filtered to the project.
+  - `stint://task/<solidtime_id>` → resolves task → parent project, filters by both.
+  - Existing: `stint://start?description=…&project=…`, `stint://stop`, `stint://current`, `stint://entry/<local_uuid>`.
+
 ## When to use this skill
 
 Triggers (not exhaustive):

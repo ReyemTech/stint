@@ -54,6 +54,10 @@ jobs:
       - name: cargo test
         run: cargo test --workspace -- --test-threads=1
 
+      - name: Swift test (StintIntents framework)
+        working-directory: crates/stint-app/swift/StintIntents
+        run: xcodebuild -scheme StintIntents -destination 'platform=macOS' -derivedDataPath ./build/derived test
+
       - name: pnpm install (root workspace)
         run: pnpm install --frozen-lockfile
 
