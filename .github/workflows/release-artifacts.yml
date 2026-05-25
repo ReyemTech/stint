@@ -130,6 +130,19 @@ jobs:
             target/aarch64-apple-darwin/release/stint \
             target/x86_64-apple-darwin/release/stint
 
+      # Regenerate the bundled man page AFTER the version bump but BEFORE
+      # `cargo tauri build`. The bundle.resources entry in tauri.conf.json
+      # references `resources/man1/stint.1`; doing this here guarantees the
+      # file on disk is at the bumped version when Tauri's bundle stage reads
+      # it. (The old beforeBuildCommand approach was unreliable — Tauri's
+      # bundle stage appears to snapshot resources during early config-parse
+      # rather than reading fresh from disk on every bundle pass.)
+      - name: Regenerate stint(1) man page at bumped version
+        run: |
+          ./target/universal-apple-darwin/release/stint generate-man \
+            crates/stint-app/resources/man1
+          head -3 crates/stint-app/resources/man1/stint.1   # version sanity in log
+
       - name: Build universal Tauri app (.app only — DMG is built later from embedded version)
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
