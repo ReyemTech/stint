@@ -282,3 +282,309 @@ where
     StintServer: ServerHandler,
 {
 }
+
+// ---------------------------------------------------------------------------
+// Tests
+//
+// These exercise each tool method directly. The `tests/mcp_e2e.rs` integration
+// test also covers them, but it runs `stint mcp` in a child process — the
+// child's coverage data isn't merged with the parent test process, so without
+// these unit tests `mcp/tools.rs` shows 0% line coverage despite being fully
+// exercised. Tests below construct `StintServer` over a tempdir-backed store
+// and call the tool methods directly.
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use stint_core::store::Store;
+    use tempfile::TempDir;
+
+    async fn make_server() -> (StintServer, TempDir) {
+        let tmp = TempDir::new().unwrap();
+        let db = tmp.path().join("stint.db");
+        let store = Store::connect(&db).await.unwrap();
+        (StintServer::new(store), tmp)
+    }
+
+    fn parse(s: &str) -> serde_json::Value {
+        serde_json::from_str(s).expect("tool response must be valid JSON")
+    }
+
+    #[tokio::test]
+    async fn current_returns_null_when_idle() {
+        let (server, _tmp) = make_server().await;
+        let result = server.current().await.unwrap();
+        assert!(parse(&result).is_null());
+    }
+
+    #[tokio::test]
+    async fn start_creates_entry_and_marks_source_mcp() {
+        let (server, _tmp) = make_server().await;
+        let result = server
+            .start(Parameters(StartInput {
+                description: "writing tools tests".into(),
+                project_id: None,
+                task_id: None,
+                billable: true,
+                start_at: None,
+            }))
+            .await
+            .unwrap();
+        let v = parse(&result);
+        assert_eq!(v["description"], "writing tools tests");
+        assert_eq!(v["source"], "mcp");
+        assert_eq!(v["billable"], true);
+        assert!(v["local_uuid"].is_string());
+        assert!(v["end_at"].is_null());
+    }
+
+    #[tokio::test]
+    async fn start_then_current_returns_running_entry() {
+        let (server, _tmp) = make_server().await;
+        let started = parse(
+            &server
+                .start(Parameters(StartInput {
+                    description: "loop".into(),
+                    project_id: None,
+                    task_id: None,
+                    billable: false,
+                    start_at: None,
+                }))
+                .await
+                .unwrap(),
+        );
+        let current = parse(&server.current().await.unwrap());
+        assert_eq!(current["local_uuid"], started["local_uuid"]);
+    }
+
+    #[tokio::test]
+    async fn stop_after_start_returns_completed_entry() {
+        let (server, _tmp) = make_server().await;
+        server
+            .start(Parameters(StartInput {
+                description: "to stop".into(),
+                project_id: None,
+                task_id: None,
+                billable: false,
+                start_at: None,
+            }))
+            .await
+            .unwrap();
+        let stopped = parse(&server.stop().await.unwrap());
+        assert_eq!(stopped["description"], "to stop");
+        assert!(stopped["end_at"].is_string());
+    }
+
+    #[tokio::test]
+    async fn start_when_already_running_returns_invalid_params() {
+        let (server, _tmp) = make_server().await;
+        server
+            .start(Parameters(StartInput {
+                description: "first".into(),
+                project_id: None,
+                task_id: None,
+                billable: false,
+                start_at: None,
+            }))
+            .await
+            .unwrap();
+        let err = server
+            .start(Parameters(StartInput {
+                description: "second".into(),
+                project_id: None,
+                task_id: None,
+                billable: false,
+                start_at: None,
+            }))
+            .await
+            .unwrap_err();
+        // Invariant errors map to invalid_params per the map_err helper.
+        assert!(err.to_string().to_lowercase().contains("already"));
+    }
+
+    #[tokio::test]
+    async fn stop_when_idle_returns_invalid_params() {
+        let (server, _tmp) = make_server().await;
+        let err = server.stop().await.unwrap_err();
+        assert!(err.to_string().to_lowercase().contains("no") || err.to_string().to_lowercase().contains("not"));
+    }
+
+    #[tokio::test]
+    async fn list_entries_returns_empty_array_then_one_after_start_stop() {
+        let (server, _tmp) = make_server().await;
+        let empty = parse(
+            &server
+                .list_entries(Parameters(ListEntriesInput::default()))
+                .await
+                .unwrap(),
+        );
+        assert!(empty.is_array());
+        assert_eq!(empty.as_array().unwrap().len(), 0);
+
+        server
+            .start(Parameters(StartInput {
+                description: "a".into(),
+                project_id: None,
+                task_id: None,
+                billable: false,
+                start_at: None,
+            }))
+            .await
+            .unwrap();
+        server.stop().await.unwrap();
+
+        let one = parse(
+            &server
+                .list_entries(Parameters(ListEntriesInput::default()))
+                .await
+                .unwrap(),
+        );
+        assert_eq!(one.as_array().unwrap().len(), 1);
+        assert_eq!(one[0]["description"], "a");
+    }
+
+    #[tokio::test]
+    async fn list_projects_returns_empty_array_on_fresh_store() {
+        let (server, _tmp) = make_server().await;
+        let v = parse(&server.list_projects().await.unwrap());
+        assert!(v.is_array());
+        assert_eq!(v.as_array().unwrap().len(), 0);
+    }
+
+    #[tokio::test]
+    async fn list_tasks_handles_none_filter() {
+        let (server, _tmp) = make_server().await;
+        let v = parse(
+            &server
+                .list_tasks(Parameters(ListTasksInput::default()))
+                .await
+                .unwrap(),
+        );
+        assert!(v.is_array());
+    }
+
+    #[tokio::test]
+    async fn update_entry_modifies_description_and_billable() {
+        let (server, _tmp) = make_server().await;
+        let started = parse(
+            &server
+                .start(Parameters(StartInput {
+                    description: "before".into(),
+                    project_id: None,
+                    task_id: None,
+                    billable: false,
+                    start_at: None,
+                }))
+                .await
+                .unwrap(),
+        );
+        server.stop().await.unwrap();
+        let uuid = started["local_uuid"].as_str().unwrap().to_string();
+
+        let updated = parse(
+            &server
+                .update_entry(Parameters(UpdateEntryInput {
+                    local_uuid: uuid.clone(),
+                    description: Some("after".into()),
+                    project_id: None,
+                    task_id: None,
+                    billable: Some(true),
+                    start_at: None,
+                    end_at: None,
+                }))
+                .await
+                .unwrap(),
+        );
+        assert_eq!(updated["description"], "after");
+        assert_eq!(updated["billable"], true);
+    }
+
+    #[tokio::test]
+    async fn update_entry_on_unknown_uuid_returns_invalid_params() {
+        let (server, _tmp) = make_server().await;
+        let err = server
+            .update_entry(Parameters(UpdateEntryInput {
+                local_uuid: "nope-not-real".into(),
+                description: Some("x".into()),
+                project_id: None,
+                task_id: None,
+                billable: None,
+                start_at: None,
+                end_at: None,
+            }))
+            .await
+            .unwrap_err();
+        // NotFound also maps to invalid_params (see map_err).
+        assert!(err.to_string().to_lowercase().contains("not found")
+            || err.to_string().to_lowercase().contains("nope-not-real"));
+    }
+
+    #[tokio::test]
+    async fn delete_entry_returns_ok_envelope() {
+        let (server, _tmp) = make_server().await;
+        let started = parse(
+            &server
+                .start(Parameters(StartInput {
+                    description: "doomed".into(),
+                    project_id: None,
+                    task_id: None,
+                    billable: false,
+                    start_at: None,
+                }))
+                .await
+                .unwrap(),
+        );
+        server.stop().await.unwrap();
+        let uuid = started["local_uuid"].as_str().unwrap().to_string();
+
+        let result = server
+            .delete_entry(Parameters(DeleteEntryInput {
+                local_uuid: uuid.clone(),
+            }))
+            .await
+            .unwrap();
+        assert_eq!(result, r#"{"ok":true}"#);
+    }
+
+    #[tokio::test]
+    async fn delete_entry_is_idempotent_on_missing_uuid() {
+        let (server, _tmp) = make_server().await;
+        let result = server
+            .delete_entry(Parameters(DeleteEntryInput {
+                local_uuid: "ghost".into(),
+            }))
+            .await
+            .unwrap();
+        assert_eq!(result, r#"{"ok":true}"#);
+    }
+
+    #[test]
+    fn update_entry_input_split_preserves_three_way_distinction() {
+        // project_id absent → None (no change); explicit None → Some(None) (clear).
+        let cleared = UpdateEntryInput {
+            local_uuid: "u".into(),
+            description: None,
+            project_id: Some(None),
+            task_id: None,
+            billable: None,
+            start_at: None,
+            end_at: None,
+        };
+        let (_uuid, patch) = cleared.split();
+        assert_eq!(patch.project_id, Some(None));
+        assert_eq!(patch.task_id, None);
+
+        let setval = UpdateEntryInput {
+            local_uuid: "u".into(),
+            description: None,
+            project_id: Some(Some("p-1".into())),
+            task_id: None,
+            billable: None,
+            start_at: None,
+            end_at: None,
+        };
+        let (_uuid, patch) = setval.split();
+        assert_eq!(patch.project_id, Some(Some("p-1".into())));
+    }
+}
