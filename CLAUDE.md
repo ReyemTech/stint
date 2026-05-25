@@ -1,10 +1,9 @@
 # CLAUDE.md — Repo notes for AI coding agents
 
 This file is the entry point for any AI coding assistant (Claude Code,
-Cursor, Codex, etc.) working in this repository. Read it before touching code.
-
-A duplicate `AGENTS.md` exists for non-Claude agents; both files point to the
-same content — keep them in sync.
+Cursor, Codex, OpenCode, etc.) working in this repository. Read it before
+touching code. Per-harness skills + MCP integration are managed via
+`stint skill install <harness>` — see "Gotchas" below.
 
 ## What stint is
 
@@ -123,15 +122,58 @@ git checkout -b phase-2.5
 ### Testing discipline
 
 - **TDD for `stint-core`** — write the failing test, then the implementation.
-  See any of `crates/stint-core/tests/*.rs` for the pattern.
+  See any of `crates/stint-core/tests/*.rs` for the pattern. New verbs land
+  with their happy path **and** at least one error / edge case test.
 - **Integration over unit** for store-level code — tests run against a real
-  SQLite tempdir via `tests/common/mod.rs` `setup()`.
+  SQLite tempdir via `tests/common/mod.rs` `setup()`. Helpers like
+  `seed_projects` / `seed_tasks` use the public `Reference` API rather than
+  raw SQL so the tests don't drift when the schema evolves.
 - **Wiremock for HTTP** — `crates/stint-core/tests/solidtime.rs` and
-  `sync_*` files show the pattern.
-- **`assert_cmd` for CLI** — `crates/stint-cli/tests/cli_e2e.rs`.
-- **For UI**: no automated tests yet. Manual visual verification only —
-  `cargo tauri dev` and click through every route after a change.
-  Compile-pass is NOT proof the UI works.
+  `sync_*` files show the pattern. Real network calls are forbidden in tests.
+- **`assert_cmd` + `insta` for CLI** — `crates/stint-cli/tests/cli_e2e.rs`
+  for end-to-end exercise of the binary; `tests/verbs_json.rs` golden
+  snapshots lock the `--json` output shape per verb.
+- **`tower::ServiceExt::oneshot` for HTTP API** — see
+  `crates/stint-app/tests/http_api.rs`. In-process exercise of the same
+  `axum::Router` production uses; never binds a real socket.
+- **MCP server: spawn-and-talk** — `crates/stint-cli/tests/mcp_e2e.rs`
+  spawns `stint mcp` as a child process and exchanges line-delimited
+  JSON-RPC over stdio. Use this pattern for any new tool.
+- **Skill installer: tempdir HOME** — `crates/stint-cli/tests/skill_*.rs`
+  swap `HOME` to a tempdir before exercising file mutations; never touches
+  the user's real `~/.claude`, `~/.codex`, or `~/.config/opencode`.
+- **UI**: `vitest` + `jsdom` + `@solidjs/testing-library`. Tests live next
+  to whatever they cover (`ui/src/test/{components,routes,stores,lib}/`).
+  Run via `pnpm test` (watch) or `pnpm test:coverage` (one-shot report).
+  Manual smoke (`scripts/dev-app.sh` click-through) is still required for
+  visual / UX changes — compile-pass and unit-pass don't prove the UI works.
+- **`vi.mock` factories are hoisted** — top-level `const`s referenced by a
+  factory must be wrapped in `vi.hoisted(() => …)` or the factory runs
+  before they're initialized. See `ui/src/test/stores/timer.test.ts`.
+
+### Coverage standards
+
+- **Rust workspace**: `scripts/coverage.sh` runs `cargo-llvm-cov` once and
+  emits text + lcov + html under `target/coverage/`. CI uploads the lcov
+  artifact via `.github/workflows/ci.yml`'s `coverage` job. Tests must
+  pass before coverage is meaningful — don't paper over a failing suite.
+- **UI workspace**: `pnpm --filter stint-ui test:coverage` (or
+  `cd ui && pnpm test:coverage`) runs `vitest run --coverage` with the v8
+  provider. Excludes are configured in `ui/vitest.config.ts` —
+  `src/main.tsx`, type-only declarations, and the test directory itself.
+- **Target — ≥80% overall, ≥70% per file as a floor.** A file falling
+  below 70% should either grow tests or have an explicit reason logged in
+  this file's gotchas. New code lands with tests sufficient to keep its
+  own file ≥80%; lower is a code review block.
+- **Coverage gates that DON'T move the goalposts**: golden snapshots
+  (`tests/verbs_json.rs`), MCP e2e (`tests/mcp_e2e.rs`), and HTTP integration
+  (`tests/http_api.rs`) each lock one wire shape — they don't trade off
+  against per-function coverage. Aim for both.
+- **What's NOT counted toward coverage**: `tests/` directories (the test
+  files themselves), `*.d.ts` files, `main.tsx`, generated code under
+  `target/` or `gen/`. If you add a new excludable category, add it to
+  both `scripts/coverage.sh`'s `--ignore-filename-regex` and
+  `ui/vitest.config.ts`'s `coverage.exclude`.
 
 ### Code style
 
