@@ -4,24 +4,32 @@ import { createRoot } from "solid-js";
 // Mock the IPC layer before importing the store. The store reads from
 // `~/api` and `@tauri-apps/api/event` at module-eval time — must mock
 // before the first import statement that pulls those in.
-vi.mock("@tauri-apps/api/event", () => ({
-  listen: vi.fn().mockResolvedValue(() => {}),
-}));
+//
 // Tauri timer commands now return the verbs `EntryView` shape (richer than
 // the legacy `string` id). Mocks return a minimal valid view; callers in
 // the store currently discard the return value, so only the type matters.
-const stubEntryView = (overrides: Partial<Record<string, unknown>> = {}) => ({
-  local_uuid: "local-uuid-1",
-  solidtime_id: null,
-  description: "stub",
-  project_id: null,
-  task_id: null,
-  billable: false,
-  start_at: new Date().toISOString(),
-  end_at: null,
-  source: "gui",
-  ...overrides,
-});
+//
+// `stubEntryView` is wrapped in `vi.hoisted` because `vi.mock` factories are
+// hoisted above all other top-level statements — a plain `const` declared
+// here wouldn't be initialized in time.
+const { stubEntryView } = vi.hoisted(() => ({
+  stubEntryView: (overrides: Partial<Record<string, unknown>> = {}) => ({
+    local_uuid: "local-uuid-1",
+    solidtime_id: null,
+    description: "stub",
+    project_id: null,
+    task_id: null,
+    billable: false,
+    start_at: new Date().toISOString(),
+    end_at: null,
+    source: "gui",
+    ...overrides,
+  }),
+}));
+
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn().mockResolvedValue(() => {}),
+}));
 
 vi.mock("~/api", () => ({
   api: {
