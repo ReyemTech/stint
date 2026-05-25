@@ -3,6 +3,9 @@
 **/*.rs.bk
 *.pdb
 
+# Claude Code session-local files
+.claude/
+
 # Tauri
 /src-tauri/target/
 /ui/dist/
