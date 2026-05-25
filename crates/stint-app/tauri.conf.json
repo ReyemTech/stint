@@ -5,7 +5,7 @@
   "identifier": "tech.reyem.stint",
   "build": {
     "beforeDevCommand": "pnpm --filter stint-ui dev",
-    "beforeBuildCommand": "pnpm --filter stint-ui build && cargo build --release -p stint-cli && ../../target/release/stint generate-man resources/man1",
+    "beforeBuildCommand": "pnpm --filter stint-ui build",
     "devUrl": "http://localhost:5173",
     "frontendDist": "../../ui/dist"
   },
