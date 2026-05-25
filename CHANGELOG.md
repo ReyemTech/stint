@@ -1,3 +1,10 @@
+## [0.3.1](https://github.com/ReyemTech/stint/compare/v0.3.0...v0.3.1) (2026-05-25)
+
+### Bug Fixes
+
+* **app:** correct relative path in beforeBuildCommand for generate-man ([3893bc1](https://github.com/ReyemTech/stint/commit/3893bc1e5aaddcaee9314ec86677be673505e7ad))
+* **release:** regen man page explicitly between version bump and tauri build ([a6f3a10](https://github.com/ReyemTech/stint/commit/a6f3a101bd8bae465440d18b6bfe60f38fdcdbec)), closes [#26](https://github.com/ReyemTech/stint/issues/26)
+
 ## [0.3.0](https://github.com/ReyemTech/stint/compare/v0.2.0...v0.3.0) (2026-05-25)
 
 ### Features
