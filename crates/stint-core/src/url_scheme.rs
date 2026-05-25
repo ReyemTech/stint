@@ -18,7 +18,9 @@ pub enum Action {
         billable: bool,
     },
     Stop,
-    OpenEntry { local_uuid: String },
+    OpenEntry {
+        local_uuid: String,
+    },
     Current,
 }
 

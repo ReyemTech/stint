@@ -38,8 +38,9 @@ impl OpenCode {
                 "{}.bak",
                 path.extension().and_then(|s| s.to_str()).unwrap_or("")
             ));
-            fs::copy(path, &backup)
-                .with_context(|| format!("backing up {} to {}", path.display(), backup.display()))?;
+            fs::copy(path, &backup).with_context(|| {
+                format!("backing up {} to {}", path.display(), backup.display())
+            })?;
         }
         Ok(())
     }
@@ -70,8 +71,7 @@ impl Harness for OpenCode {
     }
 
     fn detect(&self) -> bool {
-        which::which("opencode").is_ok()
-            || Self::config_dir().map(|p| p.exists()).unwrap_or(false)
+        which::which("opencode").is_ok() || Self::config_dir().map(|p| p.exists()).unwrap_or(false)
     }
 
     fn install_mcp(&self, dry_run: bool) -> Result<InstallAction> {
@@ -80,8 +80,7 @@ impl Harness for OpenCode {
             return Ok(InstallAction::Skipped);
         }
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)
-                .with_context(|| format!("creating {}", parent.display()))?;
+            fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
         }
         let original = if path.exists() {
             fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?
@@ -115,8 +114,7 @@ impl Harness for OpenCode {
 
         let new_contents = serde_json::to_string_pretty(&doc)? + "\n";
         Self::backup(&path)?;
-        fs::write(&path, &new_contents)
-            .with_context(|| format!("writing {}", path.display()))?;
+        fs::write(&path, &new_contents).with_context(|| format!("writing {}", path.display()))?;
         Ok(if original.is_empty() {
             InstallAction::Installed
         } else {
@@ -130,8 +128,7 @@ impl Harness for OpenCode {
             return Ok(InstallAction::Skipped);
         }
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)
-                .with_context(|| format!("creating {}", parent.display()))?;
+            fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
         }
         let original = if path.exists() {
             fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?
@@ -144,8 +141,7 @@ impl Harness for OpenCode {
             return Ok(InstallAction::AlreadyUpToDate);
         }
         Self::backup(&path)?;
-        fs::write(&path, new_contents)
-            .with_context(|| format!("writing {}", path.display()))?;
+        fs::write(&path, new_contents).with_context(|| format!("writing {}", path.display()))?;
         Ok(if original.is_empty() {
             InstallAction::Installed
         } else {
@@ -195,11 +191,7 @@ impl Harness for OpenCode {
             .as_ref()
             .and_then(|p| fs::read_to_string(p).ok())
             .and_then(|s| serde_json::from_str::<Value>(&s).ok())
-            .and_then(|v| {
-                v.get("mcp")
-                    .and_then(|m| m.get("stint"))
-                    .map(|_| true)
-            })
+            .and_then(|v| v.get("mcp").and_then(|m| m.get("stint")).map(|_| true))
             .unwrap_or(false);
         let skill_installed = ag_path
             .as_ref()

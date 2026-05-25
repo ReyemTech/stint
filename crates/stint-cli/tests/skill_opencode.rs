@@ -46,7 +46,10 @@ fn opencode_mcp_install_creates_json_with_stint_entry() {
         let v: Value = serde_json::from_str(&raw).unwrap();
         assert_eq!(v["mcp"]["stint"]["type"], "local");
         assert_eq!(v["mcp"]["stint"]["enabled"], true);
-        assert_eq!(v["mcp"]["stint"]["command"], serde_json::json!(["stint", "mcp"]));
+        assert_eq!(
+            v["mcp"]["stint"]["command"],
+            serde_json::json!(["stint", "mcp"])
+        );
     });
 }
 
@@ -149,10 +152,12 @@ fn opencode_uninstall_removes_only_stint() {
         let v: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
         assert!(v["mcp"].get("stint").is_none());
         assert!(v["mcp"].get("other").is_some());
-        assert!(!config_dir().join("AGENTS.md").exists() || {
-            let s = fs::read_to_string(config_dir().join("AGENTS.md")).unwrap();
-            !s.contains("stint:begin")
-        });
+        assert!(
+            !config_dir().join("AGENTS.md").exists() || {
+                let s = fs::read_to_string(config_dir().join("AGENTS.md")).unwrap();
+                !s.contains("stint:begin")
+            }
+        );
     });
 }
 

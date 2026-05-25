@@ -7,7 +7,9 @@ use axum::Json;
 use serde::Deserialize;
 use std::sync::Arc;
 use stint_core::store::Store;
-use stint_core::verbs::{self, EntryFilter, EntryPatch, EntryView, ProjectView, StartParams, TaskView};
+use stint_core::verbs::{
+    self, EntryFilter, EntryPatch, EntryView, ProjectView, StartParams, TaskView,
+};
 
 use super::error::ApiError;
 
@@ -24,9 +26,7 @@ pub async fn stop(State(store): State<ApiState>) -> Result<Json<EntryView>, ApiE
     Ok(Json(verbs::stop(&store).await?))
 }
 
-pub async fn current(
-    State(store): State<ApiState>,
-) -> Result<Json<Option<EntryView>>, ApiError> {
+pub async fn current(State(store): State<ApiState>) -> Result<Json<Option<EntryView>>, ApiError> {
     Ok(Json(verbs::current(&store).await?))
 }
 

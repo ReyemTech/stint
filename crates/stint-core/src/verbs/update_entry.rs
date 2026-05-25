@@ -15,11 +15,7 @@ use crate::store::Store;
 use crate::verbs::types::{EntryPatch, EntryView};
 use crate::{Error, Result};
 
-pub async fn update_entry(
-    store: &Store,
-    local_uuid: &str,
-    patch: EntryPatch,
-) -> Result<EntryView> {
+pub async fn update_entry(store: &Store, local_uuid: &str, patch: EntryPatch) -> Result<EntryView> {
     let entries = Entries::new(store.clone());
 
     // Fail fast if the row doesn't exist — every setter would otherwise no-op

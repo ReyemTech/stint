@@ -17,9 +17,7 @@ async fn start_stop_current_via_http() {
         .oneshot(
             Request::post("/v1/start")
                 .header("content-type", "application/json")
-                .body(Body::from(
-                    r#"{"description":"http test","source":"http"}"#,
-                ))
+                .body(Body::from(r#"{"description":"http test","source":"http"}"#))
                 .unwrap(),
         )
         .await
@@ -29,25 +27,19 @@ async fn start_stop_current_via_http() {
     // current
     let resp = app
         .clone()
-        .oneshot(
-            Request::get("/v1/current")
-                .body(Body::empty())
-                .unwrap(),
-        )
+        .oneshot(Request::get("/v1/current").body(Body::empty()).unwrap())
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
-    let bytes = axum::body::to_bytes(resp.into_body(), 16 * 1024).await.unwrap();
+    let bytes = axum::body::to_bytes(resp.into_body(), 16 * 1024)
+        .await
+        .unwrap();
     let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(v["description"], "http test");
 
     // stop
     let resp = app
-        .oneshot(
-            Request::post("/v1/stop")
-                .body(Body::empty())
-                .unwrap(),
-        )
+        .oneshot(Request::post("/v1/stop").body(Body::empty()).unwrap())
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);

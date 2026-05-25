@@ -73,7 +73,9 @@ impl Harness for ClaudeCode {
             return Ok(InstallAction::AlreadyUpToDate);
         }
         let status = Command::new("claude")
-            .args(["mcp", "add", "stint", "--scope", "user", "--", "stint", "mcp"])
+            .args([
+                "mcp", "add", "stint", "--scope", "user", "--", "stint", "mcp",
+            ])
             .status()
             .context("failed to invoke `claude mcp add`")?;
         if !status.success() {
@@ -90,12 +92,11 @@ impl Harness for ClaudeCode {
             return Ok(InstallAction::Skipped);
         }
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)
-                .with_context(|| format!("creating {}", parent.display()))?;
+            fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
         }
         if path.exists() {
-            let existing = fs::read_to_string(&path)
-                .with_context(|| format!("reading {}", path.display()))?;
+            let existing =
+                fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
             if existing == SKILL_CONTENT {
                 return Ok(InstallAction::AlreadyUpToDate);
             }
@@ -107,8 +108,7 @@ impl Harness for ClaudeCode {
                 .with_context(|| format!("writing {}", path.display()))?;
             return Ok(InstallAction::Updated);
         }
-        fs::write(&path, SKILL_CONTENT)
-            .with_context(|| format!("writing {}", path.display()))?;
+        fs::write(&path, SKILL_CONTENT).with_context(|| format!("writing {}", path.display()))?;
         Ok(InstallAction::Installed)
     }
 
@@ -116,8 +116,7 @@ impl Harness for ClaudeCode {
         // Skill file: remove if present.
         let path = Self::skill_path()?;
         if path.exists() {
-            fs::remove_file(&path)
-                .with_context(|| format!("removing {}", path.display()))?;
+            fs::remove_file(&path).with_context(|| format!("removing {}", path.display()))?;
         }
         // Also try to drop the parent dir if it became empty.
         if let Some(parent) = path.parent() {
@@ -134,10 +133,7 @@ impl Harness for ClaudeCode {
 
     fn status(&self) -> Result<HarnessStatus> {
         let skill_path = Self::skill_path().ok();
-        let skill_installed = skill_path
-            .as_ref()
-            .map(|p| p.exists())
-            .unwrap_or(false);
+        let skill_installed = skill_path.as_ref().map(|p| p.exists()).unwrap_or(false);
         Ok(HarnessStatus {
             name: self.name(),
             display: self.display(),

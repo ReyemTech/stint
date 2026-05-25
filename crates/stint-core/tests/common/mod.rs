@@ -54,8 +54,5 @@ pub async fn seed_tasks(store: &Store, tasks: &[(&str, &str, &str)]) {
             done: 0,
         })
         .collect();
-    reference
-        .upsert_tasks(&rows)
-        .await
-        .expect("seed tasks");
+    reference.upsert_tasks(&rows).await.expect("seed tasks");
 }

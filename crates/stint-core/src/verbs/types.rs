@@ -132,16 +132,14 @@ mod tests {
         let absent: EntryPatch = serde_json::from_str("{}").unwrap();
         assert_eq!(absent.project_id, None, "absent field must be None");
 
-        let cleared: EntryPatch =
-            serde_json::from_str(r#"{"project_id": null}"#).unwrap();
+        let cleared: EntryPatch = serde_json::from_str(r#"{"project_id": null}"#).unwrap();
         assert_eq!(
             cleared.project_id,
             Some(None),
             "explicit null must be Some(None) = clear"
         );
 
-        let set: EntryPatch =
-            serde_json::from_str(r#"{"project_id": "abc"}"#).unwrap();
+        let set: EntryPatch = serde_json::from_str(r#"{"project_id": "abc"}"#).unwrap();
         assert_eq!(
             set.project_id,
             Some(Some("abc".into())),
@@ -154,16 +152,14 @@ mod tests {
         let absent: EntryPatch = serde_json::from_str("{}").unwrap();
         assert_eq!(absent.task_id, None, "absent field must be None");
 
-        let cleared: EntryPatch =
-            serde_json::from_str(r#"{"task_id": null}"#).unwrap();
+        let cleared: EntryPatch = serde_json::from_str(r#"{"task_id": null}"#).unwrap();
         assert_eq!(
             cleared.task_id,
             Some(None),
             "explicit null must be Some(None) = clear"
         );
 
-        let set: EntryPatch =
-            serde_json::from_str(r#"{"task_id": "xyz"}"#).unwrap();
+        let set: EntryPatch = serde_json::from_str(r#"{"task_id": "xyz"}"#).unwrap();
         assert_eq!(
             set.task_id,
             Some(Some("xyz".into())),
@@ -176,8 +172,7 @@ mod tests {
         let absent: EntryPatch = serde_json::from_str("{}").unwrap();
         assert_eq!(absent.end_at, None, "absent field must be None");
 
-        let cleared: EntryPatch =
-            serde_json::from_str(r#"{"end_at": null}"#).unwrap();
+        let cleared: EntryPatch = serde_json::from_str(r#"{"end_at": null}"#).unwrap();
         assert_eq!(
             cleared.end_at,
             Some(None),

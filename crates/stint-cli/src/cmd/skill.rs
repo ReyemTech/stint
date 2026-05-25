@@ -59,8 +59,7 @@ pub async fn run(cmd: Command, json: bool) -> Result<()> {
             );
         }
         Command::Status => {
-            let rows: Result<Vec<_>> =
-                skill::all_harnesses().iter().map(|h| h.status()).collect();
+            let rows: Result<Vec<_>> = skill::all_harnesses().iter().map(|h| h.status()).collect();
             let rows = rows?;
             crate::render::render(&rows, json, |rs| {
                 for r in rs {

@@ -41,8 +41,9 @@ impl Codex {
                 )
                 .trim_start_matches('.'),
             );
-            fs::copy(path, &backup)
-                .with_context(|| format!("backing up {} to {}", path.display(), backup.display()))?;
+            fs::copy(path, &backup).with_context(|| {
+                format!("backing up {} to {}", path.display(), backup.display())
+            })?;
         }
         Ok(())
     }
@@ -72,7 +73,10 @@ impl Harness for Codex {
     }
 
     fn detect(&self) -> bool {
-        which::which("codex").is_ok() || Self::home().map(|h| h.join(".codex").exists()).unwrap_or(false)
+        which::which("codex").is_ok()
+            || Self::home()
+                .map(|h| h.join(".codex").exists())
+                .unwrap_or(false)
     }
 
     fn install_mcp(&self, dry_run: bool) -> Result<InstallAction> {
@@ -81,8 +85,7 @@ impl Harness for Codex {
             return Ok(InstallAction::Skipped);
         }
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)
-                .with_context(|| format!("creating {}", parent.display()))?;
+            fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
         }
         let original = if path.exists() {
             fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?
@@ -113,19 +116,12 @@ impl Harness for Codex {
             .get("stint")
             .and_then(|i| i.as_table())
             .map(|existing| {
-                existing
-                    .get("command")
-                    .and_then(|v| v.as_str())
-                    == Some("stint")
-                    && existing
-                        .get("args")
-                        .and_then(|v| v.as_array())
-                        .map(|a| {
-                            a.iter()
-                                .map(|v| v.as_str().unwrap_or_default().to_string())
-                                .collect::<Vec<_>>()
-                        })
-                        == Some(vec!["mcp".to_string()])
+                existing.get("command").and_then(|v| v.as_str()) == Some("stint")
+                    && existing.get("args").and_then(|v| v.as_array()).map(|a| {
+                        a.iter()
+                            .map(|v| v.as_str().unwrap_or_default().to_string())
+                            .collect::<Vec<_>>()
+                    }) == Some(vec!["mcp".to_string()])
             })
             .unwrap_or(false);
 
@@ -140,8 +136,7 @@ impl Harness for Codex {
             return Ok(InstallAction::AlreadyUpToDate);
         }
         Self::backup(&path)?;
-        fs::write(&path, new_contents)
-            .with_context(|| format!("writing {}", path.display()))?;
+        fs::write(&path, new_contents).with_context(|| format!("writing {}", path.display()))?;
         Ok(if original.is_empty() {
             InstallAction::Installed
         } else {
@@ -155,8 +150,7 @@ impl Harness for Codex {
             return Ok(InstallAction::Skipped);
         }
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)
-                .with_context(|| format!("creating {}", parent.display()))?;
+            fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
         }
         let original = if path.exists() {
             fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?
@@ -171,8 +165,7 @@ impl Harness for Codex {
         }
 
         Self::backup(&path)?;
-        fs::write(&path, new_contents)
-            .with_context(|| format!("writing {}", path.display()))?;
+        fs::write(&path, new_contents).with_context(|| format!("writing {}", path.display()))?;
         Ok(if original.is_empty() {
             InstallAction::Installed
         } else {
@@ -187,10 +180,7 @@ impl Harness for Codex {
             let original = fs::read_to_string(&cfg_path)?;
             if let Ok(mut doc) = original.parse::<DocumentMut>() {
                 if Self::config_has_stint(&doc) {
-                    if let Some(tbl) = doc
-                        .get_mut("mcp_servers")
-                        .and_then(|i| i.as_table_mut())
-                    {
+                    if let Some(tbl) = doc.get_mut("mcp_servers").and_then(|i| i.as_table_mut()) {
                         tbl.remove("stint");
                     }
                     Self::backup(&cfg_path)?;

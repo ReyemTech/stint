@@ -37,7 +37,11 @@ fn claude_skill_install_creates_file() {
         let path = dirs::home_dir()
             .unwrap()
             .join(".claude/skills/stint/SKILL.md");
-        assert!(path.exists(), "skill file not written at {}", path.display());
+        assert!(
+            path.exists(),
+            "skill file not written at {}",
+            path.display()
+        );
     });
 }
 
@@ -86,7 +90,11 @@ fn claude_skill_install_dry_run_writes_nothing() {
         let path = dirs::home_dir()
             .unwrap()
             .join(".claude/skills/stint/SKILL.md");
-        assert!(!path.exists(), "dry run wrote skill file at {}", path.display());
+        assert!(
+            !path.exists(),
+            "dry run wrote skill file at {}",
+            path.display()
+        );
     });
 }
 

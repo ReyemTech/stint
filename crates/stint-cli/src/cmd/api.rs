@@ -7,9 +7,7 @@
 
 use anyhow::Result;
 use serde::Serialize;
-use stint_core::config::{
-    Settings, DEFAULT_API_HOST, KEY_API_ENABLED, KEY_API_HOST, KEY_API_PORT,
-};
+use stint_core::config::{Settings, DEFAULT_API_HOST, KEY_API_ENABLED, KEY_API_HOST, KEY_API_PORT};
 
 use super::open_store;
 
@@ -50,9 +48,7 @@ pub async fn run(cmd: Command, json: bool) -> Result<()> {
                     "enabled: {}\nhost:    {}\nport:    {}\nurl:     {}",
                     i.enabled,
                     i.host,
-                    i.port
-                        .map(|p| p.to_string())
-                        .unwrap_or_else(|| "-".into()),
+                    i.port.map(|p| p.to_string()).unwrap_or_else(|| "-".into()),
                     i.base_url.as_deref().unwrap_or("-"),
                 );
             });

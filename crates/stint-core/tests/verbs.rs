@@ -383,7 +383,9 @@ async fn delete_entry_removes_row() {
     .unwrap();
     verbs::stop(store).await.unwrap();
 
-    verbs::delete_entry(store, &started.local_uuid).await.unwrap();
+    verbs::delete_entry(store, &started.local_uuid)
+        .await
+        .unwrap();
 
     let entries = Entries::new(store.clone());
     let row = entries.get(&started.local_uuid).await.unwrap();
