@@ -65,6 +65,7 @@ pub async fn make_app() -> AppContext {
 
     app.manage(RwLock::new(AppState {
         store: store.clone(),
+        http_api_port: Arc::new(RwLock::new(None)),
     }));
 
     AppContext {

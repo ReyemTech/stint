@@ -12,6 +12,7 @@ use stint_core::config::{Settings, DEFAULT_API_HOST, KEY_API_ENABLED, KEY_API_HO
 use stint_core::store::Store;
 use stint_core::Result;
 use tokio::net::TcpListener;
+use tokio::sync::RwLock;
 
 /// Build the axum router. Exposed so integration tests can drive it via
 /// `tower::ServiceExt::oneshot` without binding a real socket.
@@ -29,8 +30,13 @@ pub fn build_router(store: Arc<Store>) -> Router {
 }
 
 /// Spawn the HTTP server if enabled. Returns the bound port (also persisted
-/// to `api.port`) or `None` when disabled.
-pub async fn maybe_spawn(store: Arc<Store>) -> Result<Option<u16>> {
+/// to `api.port`) or `None` when disabled. The bound port is recorded into
+/// `port_slot` so the Integrations panel can distinguish "enabled and live"
+/// from "enabled but pending restart".
+pub async fn maybe_spawn(
+    store: Arc<Store>,
+    port_slot: Arc<RwLock<Option<u16>>>,
+) -> Result<Option<u16>> {
     let settings = Settings::new((*store).clone());
     let enabled = settings.get(KEY_API_ENABLED).await?.as_deref() == Some("true");
     if !enabled {
@@ -56,6 +62,7 @@ pub async fn maybe_spawn(store: Arc<Store>) -> Result<Option<u16>> {
         .map_err(|e| stint_core::Error::Invariant(format!("bind {addr}: {e}")))?;
     let bound = listener.local_addr().unwrap().port();
     settings.set(KEY_API_PORT, &bound.to_string()).await?;
+    *port_slot.write().await = Some(bound);
 
     let app = build_router(store);
     tokio::spawn(async move {

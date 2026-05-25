@@ -25,6 +25,7 @@ async fn main() -> Result<()> {
 
     let app_state = AppState::init().await?;
     let store_for_worker = app_state.store.clone();
+    let http_port_slot = app_state.http_api_port.clone();
 
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_positioner::init())
@@ -79,6 +80,8 @@ async fn main() -> Result<()> {
             commands::sync::sync_now,
             commands::sync::list_sync_errors,
             commands::sync::get_sync_error_overlaps,
+            commands::integrations::get_api_integration_state,
+            commands::integrations::set_api_enabled,
             commands::ui::show_main_window,
             updater::check_for_updates,
             updater::install_update,
@@ -106,11 +109,15 @@ async fn main() -> Result<()> {
             }
 
             // Loopback HTTP API (opt-in via `api.enabled` setting). Spawned on
-            // the Tokio runtime so it lives for the GUI process lifetime.
+            // the Tokio runtime so it lives for the GUI process lifetime. The
+            // bound port is recorded in `http_port_slot` so the Settings
+            // → Integrations panel can show "live this session" vs "pending
+            // restart".
             {
                 let store_for_http = store_for_worker.clone();
+                let slot = http_port_slot.clone();
                 tokio::spawn(async move {
-                    match http::maybe_spawn(store_for_http).await {
+                    match http::maybe_spawn(store_for_http, slot).await {
                         Ok(Some(port)) => tracing::info!(port, "http api listening"),
                         Ok(None) => {}
                         Err(e) => tracing::error!("http api failed to start: {e}"),
