@@ -82,6 +82,21 @@ jobs:
           toolchain: "1.95.0"
           components: llvm-tools-preview
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: '**/pnpm-lock.yaml'
+
+      - name: pnpm install (ui)
+        run: pnpm -C ui install --frozen-lockfile
+
       # Separate cache key from `build` — instrumented binaries can't share
       # build artifacts with the regular test job.
       - name: Cache cargo
@@ -92,12 +107,19 @@ jobs:
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
 
-      - name: Run workspace coverage
+      - name: Run unified coverage (Rust + UI)
         run: scripts/coverage.sh
 
-      - name: Upload lcov artifact
+      - name: Upload Rust lcov artifact
         uses: actions/upload-artifact@v4
         with:
           name: coverage-lcov
           path: target/coverage/lcov.info
+          retention-days: 30
+
+      - name: Upload UI coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-ui
+          path: ui/coverage/
           retention-days: 30
