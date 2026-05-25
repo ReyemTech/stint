@@ -2,6 +2,7 @@ pub mod api;
 pub mod calendar;
 pub mod config;
 pub mod config_login;
+pub mod current;
 pub mod delete;
 pub mod edit;
 pub mod list;

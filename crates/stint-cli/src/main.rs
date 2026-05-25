@@ -34,6 +34,8 @@ enum Command {
     Start(cmd::start::Args),
     /// Stop the running timer
     Stop,
+    /// Show the currently running timer (or none)
+    Current,
     /// Start a new timer using an existing entry's description/project/billable
     Restart(cmd::restart::Args),
     /// Show today's entries
@@ -109,6 +111,7 @@ async fn main() -> Result<()> {
     match cli.command {
         Command::Start(args) => cmd::start::run(args, json).await,
         Command::Stop => cmd::stop::run(json).await,
+        Command::Current => cmd::current::run(json).await,
         Command::Restart(args) => cmd::restart::run(args, json).await,
         Command::Today => cmd::today::run(json).await,
         Command::List(args) => cmd::list::run(args, json).await,
