@@ -1,0 +1,79 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH stint 1  "stint 0.2.0" 
+.SH NAME
+stint \- Time tracker that syncs with Solidtime
+.SH SYNOPSIS
+\fBstint\fR [\fB\-\-json\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fB\-V\fR|\fB\-\-version\fR] <\fIsubcommands\fR>
+.SH DESCRIPTION
+Time tracker that syncs with Solidtime
+.SH OPTIONS
+.TP
+\fB\-\-json\fR
+Emit machine\-readable JSON instead of human text
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.TP
+\fB\-V\fR, \fB\-\-version\fR
+Print version
+.SH SUBCOMMANDS
+.TP
+stint\-start(1)
+Start a new timer
+.TP
+stint\-stop(1)
+Stop the running timer
+.TP
+stint\-current(1)
+Show the currently running timer (or none)
+.TP
+stint\-restart(1)
+Start a new timer using an existing entry\*(Aqs description/project/billable
+.TP
+stint\-today(1)
+Show today\*(Aqs entries
+.TP
+stint\-list(1)
+List entries between two dates
+.TP
+stint\-edit(1)
+Edit an entry
+.TP
+stint\-delete(1)
+Delete an entry
+.TP
+stint\-config(1)
+View and modify configuration
+.TP
+stint\-projects(1)
+Refresh and list projects/tasks/tags
+.TP
+stint\-sync(1)
+Sync queue commands (drain, retry\-abandoned)
+.TP
+stint\-pull(1)
+Pull running\-timer and recent state from Solidtime
+.TP
+stint\-calendar(1)
+Connect, list, and manage calendar accounts
+.TP
+stint\-api(1)
+Inspect the loopback HTTP API (bind address, port)
+.TP
+stint\-mcp(1)
+Run as an MCP server on stdio (for Claude Code, Codex, OpenCode, …)
+.TP
+stint\-skill(1)
+Install / uninstall the stint MCP server + skill in editor harnesses
+.TP
+stint\-generate\-man(1)
+Generate the stint(1) man page into the given directory
+.TP
+stint\-update(1)
+Check for and apply updates to the standalone CLI. No\-op for .app\-bundled installs
+.TP
+stint\-help(1)
+Print this message or the help of the given subcommand(s)
+.SH VERSION
+v0.2.0
