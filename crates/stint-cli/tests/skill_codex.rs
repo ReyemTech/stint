@@ -79,15 +79,22 @@ fn codex_mcp_install_preserves_existing_keys() {
 }
 
 #[test]
-fn codex_skill_install_appends_block_to_agents_md() {
+fn codex_skill_install_writes_skill_file() {
     with_temp_home(|| {
         let h = Codex;
         let action = h.install_skill(false).expect("install_skill");
-        assert!(matches!(action, InstallAction::Installed));
-        let agents = fs::read_to_string(home().join(".codex/AGENTS.md")).unwrap();
-        assert!(agents.contains("<!-- stint:begin -->"));
-        assert!(agents.contains("<!-- stint:end -->"));
-        assert!(agents.contains("stint (time tracker)"));
+        assert!(
+            matches!(action, InstallAction::Installed),
+            "expected Installed, got {action:?}"
+        );
+        let path = home().join(".agents/skills/stint/SKILL.md");
+        assert!(path.exists(), "skill not written at {}", path.display());
+        let contents = fs::read_to_string(&path).unwrap();
+        assert!(
+            contents.contains("name: stint"),
+            "frontmatter missing from skill body"
+        );
+        assert!(contents.contains("# stint"));
     });
 }
 
@@ -105,23 +112,21 @@ fn codex_skill_install_is_idempotent() {
 }
 
 #[test]
-fn codex_skill_install_replaces_existing_block() {
+fn codex_skill_install_updates_when_content_differs() {
     with_temp_home(|| {
-        let ag_path = home().join(".codex/AGENTS.md");
-        fs::create_dir_all(ag_path.parent().unwrap()).unwrap();
-        fs::write(
-            &ag_path,
-            "# my notes\n\n<!-- stint:begin -->\nstale\n<!-- stint:end -->\n\n## other\n",
-        )
-        .unwrap();
         let h = Codex;
+        let path = home().join(".agents/skills/stint/SKILL.md");
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, "stale content").unwrap();
+
         let action = h.install_skill(false).expect("install_skill");
-        assert!(matches!(action, InstallAction::Updated));
-        let agents = fs::read_to_string(&ag_path).unwrap();
-        assert!(agents.contains("# my notes"));
-        assert!(agents.contains("## other"));
-        assert!(agents.contains("stint (time tracker)"));
-        assert!(!agents.contains("stale"));
+        assert!(
+            matches!(action, InstallAction::Updated),
+            "expected Updated, got {action:?}"
+        );
+        let backup = path.with_extension("md.bak");
+        assert!(backup.exists(), "no backup at {}", backup.display());
+        assert_eq!(fs::read_to_string(&backup).unwrap(), "stale content");
     });
 }
 
@@ -137,7 +142,7 @@ fn codex_skill_install_dry_run_writes_nothing() {
             h.install_mcp(true).unwrap(),
             InstallAction::Skipped
         ));
-        assert!(!home().join(".codex/AGENTS.md").exists());
+        assert!(!home().join(".agents/skills/stint/SKILL.md").exists());
         assert!(!home().join(".codex/config.toml").exists());
     });
 }
@@ -146,14 +151,12 @@ fn codex_skill_install_dry_run_writes_nothing() {
 fn codex_uninstall_strips_stint_pieces_only() {
     with_temp_home(|| {
         let cfg_path = home().join(".codex/config.toml");
-        let ag_path = home().join(".codex/AGENTS.md");
         fs::create_dir_all(cfg_path.parent().unwrap()).unwrap();
         fs::write(
             &cfg_path,
             "model = \"o4-mini\"\n\n[mcp_servers.other]\ncommand = \"foo\"\n",
         )
         .unwrap();
-        fs::write(&ag_path, "# my notes\n\n## other\n").unwrap();
 
         let h = Codex;
         h.install_mcp(false).expect("install_mcp");
@@ -164,9 +167,12 @@ fn codex_uninstall_strips_stint_pieces_only() {
         assert!(cfg.contains("[mcp_servers.other]"));
         assert!(!cfg.contains("[mcp_servers.stint]"));
 
-        let agents = fs::read_to_string(&ag_path).unwrap();
-        assert!(agents.contains("# my notes"));
-        assert!(!agents.contains("stint:begin"));
+        let skill_path = home().join(".agents/skills/stint/SKILL.md");
+        assert!(
+            !skill_path.exists(),
+            "skill lingered at {}",
+            skill_path.display()
+        );
     });
 }
 
