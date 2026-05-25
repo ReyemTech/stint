@@ -8,6 +8,52 @@ with its actual flag names + positional arguments. If anything here
 disagrees with `stint <cmd> --help`, the help output is the source of
 truth — file an issue and we'll fix the page.
 
+## Discoverability
+
+Three places double as the canonical CLI reference — use whichever you
+have handy:
+
+- `stint --help` — every top-level subcommand
+- `stint <verb> --help` (or `-h`) — flags for one verb
+  (e.g. `stint start --help`)
+- `man stint` — the full man page; installed by the Homebrew cask, or
+  via `scripts/install-man.sh` for cargo / `curl|sh` installs
+
+## Global flags
+
+### `--json`
+
+Every CLI command accepts a global `--json` flag (placed before or after
+the subcommand). It swaps human-readable text for machine-readable JSON
+on stdout. Errors still write a structured message to stderr and exit
+non-zero.
+
+```bash
+stint --json current
+# null   — or { "local_uuid": …, "description": …, … }
+
+stint --json start "writing tests" --project p-uuid
+# { "local_uuid": "…", "description": "writing tests", … }
+
+stint --json sync
+# { "refreshed": true }
+```
+
+The output convention:
+
+- **Read verbs** (`current`, `today`, `list`, `projects list`,
+  `api info`, `skill status`, …) emit the canonical view type (entry,
+  list of entries, info struct).
+- **Write verbs** (`start`, `stop`, `edit`, `restart`, `delete`) emit
+  the affected entry as JSON.
+- **Admin verbs** (`sync`, `pull`, `config set/show/test/login/logout`,
+  `calendar *`, `update`, `skill install/uninstall`) emit a structured
+  acknowledgement like `{ "refreshed": true }` or
+  `{ "uninstalled": true, "harness": "claude" }`.
+
+JSON output makes stint scriptable from any language with a JSON parser.
+See [Scripting stint](/scripting/) for end-to-end examples.
+
 ## Timer
 
 ### `stint start <description> [--project <uuid>] [--task <uuid>] [--at <when>]`
@@ -37,6 +83,20 @@ entry).
 ### `stint stop`
 
 Stops the running timer. Errors if none is running.
+
+### `stint current`
+
+Prints the currently running entry (description, project, start time,
+elapsed). With `--json`, emits the entry object or `null` when nothing
+is running.
+
+```bash
+stint current
+# → writing tests · 0:14 elapsed · started 14:02
+
+stint --json current
+# → null   (or the entry object)
+```
 
 ### `stint restart <local-uuid>`
 
@@ -239,6 +299,110 @@ on-focus window).
 ```bash
 stint calendar refresh acc-uuid
 ```
+
+## HTTP API
+
+### `stint api info`
+
+Reports the loopback HTTP API's state — whether it's enabled, the bound
+host (defaults to `127.0.0.1`), the ephemeral port the GUI picked, and
+the resolved base URL. The CLI does not start the server itself; the GUI
+process hosts it.
+
+```bash
+stint --json api info
+# { "enabled": true, "host": "127.0.0.1", "port": 54321,
+#   "base_url": "http://127.0.0.1:54321" }
+```
+
+Enable the API with `stint config set api.enabled true` (or via Settings
+→ Integrations) and (re)start the GUI. See [Scripting stint](/scripting/)
+for endpoint details.
+
+## AI / MCP
+
+### `stint mcp`
+
+Runs stint as an [MCP](https://modelcontextprotocol.io/) server over
+stdio. MCP-aware clients (Claude Code, Codex, OpenCode, …) spawn this as
+a child process — you don't typically invoke it directly. Exposes 8
+tools (`start`, `stop`, `current`, `list_entries`, `list_projects`,
+`list_tasks`, `update_entry`, `delete_entry`).
+
+See [AI integration](/ai-integration/) for setup.
+
+### `stint skill install [<harness>] [--dry-run]`
+
+Wires stint's MCP server + the bundled `SKILL.md` into an AI harness's
+config. Without `<harness>`, opens an interactive picker. With
+`--dry-run`, prints what would change without writing files.
+
+```bash
+stint skill install              # interactive picker
+stint skill install claude       # explicit
+stint skill install codex --dry-run
+```
+
+Supported harnesses: `claude` (Claude Code), `codex` (OpenAI Codex CLI),
+`opencode`.
+
+### `stint skill uninstall [<harness>]`
+
+Reverses an install. Removes both the MCP registration and the skill /
+rules fragment. `.bak` backups of any mutated config files are
+preserved.
+
+### `stint skill status`
+
+Reports per-harness install state.
+
+```text
+Claude Code     detected=true   mcp=true   skill=true
+Codex CLI       detected=false  mcp=false  skill=false
+OpenCode        detected=true   mcp=true   skill=true
+```
+
+See [AI integration](/ai-integration/) for the full integration story.
+
+### `stint generate-man <out-dir>`
+
+Writes the `stint.1` man page into `<out-dir>`. Used by the Tauri build
+to bundle the man page inside `Stint.app/Contents/Resources/man/`, and
+by `scripts/install-man.sh` to install it system-wide for
+`cargo install` / `curl|sh` users.
+
+```bash
+stint generate-man /tmp
+man /tmp/stint.1
+```
+
+## `stint://` URL scheme
+
+Stint.app registers the `stint://` URL scheme on macOS so other tools
+(Raycast, Alfred, Shortcuts, browser bookmarklets, scripts) can deep-
+link into the app. Use `open` to dispatch a URL:
+
+| URL shape | Effect |
+|---|---|
+| `stint://start?description=…&project=<uuid>&task=<uuid>&billable=true` | Starts a timer (description required; project/task/billable optional) |
+| `stint://stop` | Stops the running timer |
+| `stint://current` | Focuses the current-entry view |
+| `stint://entry/<local-uuid>` | Opens the given entry in the main window |
+
+Examples:
+
+```bash
+open "stint://start?description=writing%20tests"
+open "stint://start?description=fix%20bug&project=abc-123&billable=true"
+open "stint://stop"
+open "stint://entry/01HPYJK..."
+```
+
+Standard percent-encoding rules apply (`%20` for spaces, `+` also
+decodes to space). The scheme is only registered when `Stint.app` is
+installed via DMG / brew / `cargo tauri build`; raw `cargo run` builds
+don't register the handler. See
+[Troubleshooting](/help/troubleshooting/) if `stint://` URLs don't open.
 
 ## Update
 

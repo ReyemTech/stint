@@ -33,7 +33,7 @@ async fn start_timer_persists_entry_and_enqueues_create_op() {
     let handle = ctx.handle();
     let state = handle.state();
 
-    let id = start_timer(
+    let view = start_timer(
         handle.clone(),
         state,
         StartTimerArgs {
@@ -46,6 +46,7 @@ async fn start_timer_persists_entry_and_enqueues_create_op() {
     )
     .await
     .expect("start_timer succeeds");
+    let id = view.local_uuid.clone();
     assert!(!id.is_empty());
 
     // Entry persisted with pending_create state.
@@ -118,7 +119,7 @@ async fn stop_timer_sets_end_and_clears_running() {
     let ctx = common::make_app().await;
     let handle = ctx.handle();
 
-    let id = start_timer(
+    let view = start_timer(
         handle.clone(),
         handle.state(),
         StartTimerArgs {
@@ -131,9 +132,10 @@ async fn stop_timer_sets_end_and_clears_running() {
     )
     .await
     .unwrap();
+    let id = view.local_uuid.clone();
 
-    let stopped_id = stop_timer(handle.clone(), handle.state()).await.unwrap();
-    assert_eq!(stopped_id, id);
+    let stopped = stop_timer(handle.clone(), handle.state()).await.unwrap();
+    assert_eq!(stopped.local_uuid, id);
 
     let row = Entries::new((*ctx.store).clone())
         .get(&id)
@@ -154,7 +156,7 @@ async fn restart_entry_starts_new_timer_with_same_metadata() {
     let handle = ctx.handle();
 
     // Seed a completed entry to act as the template.
-    let template_id = start_timer(
+    let template_view = start_timer(
         handle.clone(),
         handle.state(),
         StartTimerArgs {
@@ -167,11 +169,13 @@ async fn restart_entry_starts_new_timer_with_same_metadata() {
     )
     .await
     .unwrap();
+    let template_id = template_view.local_uuid.clone();
     stop_timer(handle.clone(), handle.state()).await.unwrap();
 
-    let new_id = restart_entry(handle.clone(), handle.state(), template_id.clone())
+    let new_view = restart_entry(handle.clone(), handle.state(), template_id.clone())
         .await
         .expect("restart succeeds");
+    let new_id = new_view.local_uuid.clone();
     assert_ne!(new_id, template_id, "restart creates a new local_uuid");
 
     let entries = Entries::new((*ctx.store).clone());
@@ -199,7 +203,7 @@ async fn restart_entry_stops_existing_running_timer_first() {
     let handle = ctx.handle();
 
     // Seed a completed template entry.
-    let template_id = start_timer(
+    let template_view = start_timer(
         handle.clone(),
         handle.state(),
         StartTimerArgs {
@@ -212,10 +216,11 @@ async fn restart_entry_stops_existing_running_timer_first() {
     )
     .await
     .unwrap();
+    let template_id = template_view.local_uuid.clone();
     stop_timer(handle.clone(), handle.state()).await.unwrap();
 
     // Start an unrelated timer.
-    let blocking_id = start_timer(
+    let blocking_view = start_timer(
         handle.clone(),
         handle.state(),
         StartTimerArgs {
@@ -228,11 +233,13 @@ async fn restart_entry_stops_existing_running_timer_first() {
     )
     .await
     .unwrap();
+    let blocking_id = blocking_view.local_uuid.clone();
 
     // Restart should stop the blocking timer and start a fresh one.
-    let new_id = restart_entry(handle.clone(), handle.state(), template_id.clone())
+    let new_view = restart_entry(handle.clone(), handle.state(), template_id.clone())
         .await
         .unwrap();
+    let new_id = new_view.local_uuid.clone();
 
     let entries = Entries::new((*ctx.store).clone());
     let blocking_row = entries.get(&blocking_id).await.unwrap().unwrap();
@@ -264,7 +271,7 @@ async fn delete_entry_on_pending_create_hard_deletes_the_row() {
     let ctx = common::make_app().await;
     let handle = ctx.handle();
 
-    let id = start_timer(
+    let view = start_timer(
         handle.clone(),
         handle.state(),
         StartTimerArgs {
@@ -277,6 +284,7 @@ async fn delete_entry_on_pending_create_hard_deletes_the_row() {
     )
     .await
     .unwrap();
+    let id = view.local_uuid.clone();
     stop_timer(handle.clone(), handle.state()).await.unwrap();
 
     delete_entry(handle.clone(), handle.state(), id.clone())
@@ -292,7 +300,7 @@ async fn update_description_round_trips() {
     let ctx = common::make_app().await;
     let handle = ctx.handle();
 
-    let id = start_timer(
+    let view = start_timer(
         handle.clone(),
         handle.state(),
         StartTimerArgs {
@@ -305,6 +313,7 @@ async fn update_description_round_trips() {
     )
     .await
     .unwrap();
+    let id = view.local_uuid.clone();
 
     update_description(handle.clone(), handle.state(), id.clone(), "new".into())
         .await
@@ -323,7 +332,7 @@ async fn set_entry_project_round_trips() {
     let ctx = common::make_app().await;
     let handle = ctx.handle();
 
-    let id = start_timer(
+    let view = start_timer(
         handle.clone(),
         handle.state(),
         StartTimerArgs {
@@ -336,6 +345,7 @@ async fn set_entry_project_round_trips() {
     )
     .await
     .unwrap();
+    let id = view.local_uuid.clone();
 
     set_entry_project(
         handle.clone(),
@@ -370,7 +380,7 @@ async fn set_entry_billable_round_trips() {
     let ctx = common::make_app().await;
     let handle = ctx.handle();
 
-    let id = start_timer(
+    let view = start_timer(
         handle.clone(),
         handle.state(),
         StartTimerArgs {
@@ -383,6 +393,7 @@ async fn set_entry_billable_round_trips() {
     )
     .await
     .unwrap();
+    let id = view.local_uuid.clone();
 
     set_entry_billable(handle.clone(), handle.state(), id.clone(), true)
         .await
@@ -413,7 +424,7 @@ async fn update_entry_times_updates_both_fields_and_enqueues_update_when_synced(
 
     // Start + stop to get a completed entry, then mark synced so the
     // command's maybe_enqueue_update sees a "dirty" → enqueue path.
-    let id = start_timer(
+    let view = start_timer(
         handle.clone(),
         handle.state(),
         StartTimerArgs {
@@ -426,6 +437,7 @@ async fn update_entry_times_updates_both_fields_and_enqueues_update_when_synced(
     )
     .await
     .unwrap();
+    let id = view.local_uuid.clone();
     stop_timer(handle.clone(), handle.state()).await.unwrap();
     let entries = Entries::new((*ctx.store).clone());
     entries.mark_synced(&id, "remote-id").await.unwrap();
@@ -464,7 +476,7 @@ async fn update_entry_times_rejects_end_le_start() {
     let ctx = common::make_app().await;
     let handle = ctx.handle();
 
-    let id = start_timer(
+    let view = start_timer(
         handle.clone(),
         handle.state(),
         StartTimerArgs {
@@ -477,6 +489,7 @@ async fn update_entry_times_rejects_end_le_start() {
     )
     .await
     .unwrap();
+    let id = view.local_uuid.clone();
     stop_timer(handle.clone(), handle.state()).await.unwrap();
 
     let err = update_entry_times(
@@ -500,7 +513,7 @@ async fn get_running_timer_returns_view_after_start() {
     let ctx = common::make_app().await;
     let handle = ctx.handle();
 
-    let id = start_timer(
+    let started = start_timer(
         handle.clone(),
         handle.state(),
         StartTimerArgs {
@@ -513,6 +526,7 @@ async fn get_running_timer_returns_view_after_start() {
     )
     .await
     .unwrap();
+    let id = started.local_uuid.clone();
 
     let view = get_running_timer(handle.state())
         .await

@@ -2,6 +2,16 @@ pub mod secrets;
 
 use crate::{store::Store, time, Result};
 
+/// Settings key: whether the loopback HTTP API is enabled.
+pub const KEY_API_ENABLED: &str = "api.enabled";
+/// Settings key: bind host for the loopback HTTP API.
+pub const KEY_API_HOST: &str = "api.host";
+/// Settings key: bound port for the loopback HTTP API (persisted after bind).
+pub const KEY_API_PORT: &str = "api.port";
+
+/// Default bind host for the loopback HTTP API.
+pub const DEFAULT_API_HOST: &str = "127.0.0.1";
+
 pub struct Settings {
     store: Store,
 }

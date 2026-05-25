@@ -7,6 +7,8 @@ embed_plist::embed_info_plist!("../Info.plist");
 mod at_parse;
 mod cmd;
 mod format;
+mod mcp;
+mod render;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -17,17 +19,23 @@ use clap::{Parser, Subcommand};
     version,
     about = "Time tracker that syncs with Solidtime"
 )]
-struct Cli {
+pub(crate) struct Cli {
+    /// Emit machine-readable JSON instead of human text.
+    #[arg(long, global = true)]
+    json: bool,
+
     #[command(subcommand)]
     command: Command,
 }
 
 #[derive(Subcommand)]
-enum Command {
+pub(crate) enum Command {
     /// Start a new timer
     Start(cmd::start::Args),
     /// Stop the running timer
     Stop,
+    /// Show the currently running timer (or none)
+    Current,
     /// Start a new timer using an existing entry's description/project/billable
     Restart(cmd::restart::Args),
     /// Show today's entries
@@ -51,6 +59,19 @@ enum Command {
     /// Connect, list, and manage calendar accounts.
     #[command(subcommand)]
     Calendar(cmd::calendar::CalendarCmd),
+    /// Inspect the loopback HTTP API (bind address, port).
+    #[command(subcommand)]
+    Api(cmd::api::Command),
+    /// Run as an MCP server on stdio (for Claude Code, Codex, OpenCode, …).
+    Mcp(cmd::mcp::Args),
+    /// Install / uninstall the stint MCP server + skill in editor harnesses.
+    #[command(subcommand)]
+    Skill(cmd::skill::Command),
+    /// Generate the stint(1) man page into the given directory.
+    GenerateMan {
+        /// Directory to write stint.1 into.
+        out_dir: std::path::PathBuf,
+    },
     /// Check for and apply updates to the standalone CLI. No-op for .app-bundled installs.
     Update {
         /// Print available version without applying.
@@ -79,30 +100,43 @@ async fn main() -> Result<()> {
     // because calendar commands open their own store and recovery is irrelevant.
     if !matches!(
         cli.command,
-        Command::Sync(_) | Command::Pull(_) | Command::Calendar(_) | Command::Update { .. }
+        Command::Sync(_)
+            | Command::Pull(_)
+            | Command::Calendar(_)
+            | Command::Update { .. }
+            | Command::Api(_)
+            | Command::Mcp(_)
+            | Command::Skill(_)
+            | Command::GenerateMan { .. }
     ) {
         let store = cmd::open_store().await?;
         cmd::maybe_recover(&store).await?;
     }
 
+    let json = cli.json;
     match cli.command {
-        Command::Start(args) => cmd::start::run(args).await,
-        Command::Stop => cmd::stop::run().await,
-        Command::Restart(args) => cmd::restart::run(args).await,
-        Command::Today => cmd::today::run().await,
-        Command::List(args) => cmd::list::run(args).await,
-        Command::Edit(args) => cmd::edit::run(args).await,
-        Command::Delete(args) => cmd::delete::run(args).await,
-        Command::Config(c) => cmd::config::run(c).await,
-        Command::Projects(p) => cmd::projects::run(p).await,
-        Command::Sync(args) => cmd::sync::run(args).await,
-        Command::Pull(args) => cmd::pull::run(args).await,
+        Command::Start(args) => cmd::start::run(args, json).await,
+        Command::Stop => cmd::stop::run(json).await,
+        Command::Current => cmd::current::run(json).await,
+        Command::Restart(args) => cmd::restart::run(args, json).await,
+        Command::Today => cmd::today::run(json).await,
+        Command::List(args) => cmd::list::run(args, json).await,
+        Command::Edit(args) => cmd::edit::run(args, json).await,
+        Command::Delete(args) => cmd::delete::run(args, json).await,
+        Command::Config(c) => cmd::config::run(c, json).await,
+        Command::Projects(p) => cmd::projects::run(p, json).await,
+        Command::Sync(args) => cmd::sync::run(args, json).await,
+        Command::Pull(args) => cmd::pull::run(args, json).await,
         Command::Calendar(c) => {
             let store = cmd::open_store().await?;
-            cmd::calendar::run(c, store).await
+            cmd::calendar::run(c, store, json).await
         }
         Command::Update { check, force } => {
-            tokio::task::spawn_blocking(move || cmd::update::run(check, force)).await?
+            tokio::task::spawn_blocking(move || cmd::update::run(check, force, json)).await?
         }
+        Command::Api(c) => cmd::api::run(c, json).await,
+        Command::Mcp(a) => cmd::mcp::run(a).await,
+        Command::Skill(c) => cmd::skill::run(c, json).await,
+        Command::GenerateMan { out_dir } => cmd::generate_man::run(out_dir),
     }
 }

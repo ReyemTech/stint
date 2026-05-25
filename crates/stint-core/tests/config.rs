@@ -68,3 +68,27 @@ async fn delete_removes_key() {
     s.delete("key").await.unwrap();
     assert_eq!(s.get("key").await.unwrap(), None);
 }
+
+#[tokio::test]
+async fn api_settings_round_trip() {
+    let env = common::setup().await;
+    let s = Settings::new(env.store.clone());
+    s.set(stint_core::config::KEY_API_ENABLED, "true")
+        .await
+        .unwrap();
+    s.set(stint_core::config::KEY_API_PORT, "0").await.unwrap();
+    assert_eq!(
+        s.get(stint_core::config::KEY_API_ENABLED)
+            .await
+            .unwrap()
+            .as_deref(),
+        Some("true")
+    );
+    assert_eq!(
+        s.get(stint_core::config::KEY_API_PORT)
+            .await
+            .unwrap()
+            .as_deref(),
+        Some("0")
+    );
+}

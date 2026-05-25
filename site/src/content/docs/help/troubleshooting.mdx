@@ -128,6 +128,68 @@ Likely one of:
 - The release was published less than 30 seconds ago and you're hitting a
   CDN cache; retry shortly.
 
+## MCP server doesn't appear in my AI client
+
+The harness's MCP startup spawns `stint mcp` as a child process. If the
+tools don't appear:
+
+1. Confirm `stint` is on the harness's `PATH`. Run `which stint` from
+   the same shell the harness launches under. Many launchers don't
+   inherit your interactive shell's PATH — fix the symptom by editing
+   the MCP server entry to use the absolute path to the binary
+   (e.g. `/opt/homebrew/bin/stint`).
+2. Re-run the installer: `stint skill install claude` (or `codex` /
+   `opencode`). It writes the absolute path it sees at install time.
+3. Spot-check the server starts at all:
+   `echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"0"}}}' | stint mcp`
+   You should get a JSON response on stdout.
+4. Verify install state: `stint skill status` — `detected` / `mcp` /
+   `skill` should all be `true` for the harness in question.
+
+## `stint://` URLs don't open the app
+
+The URL scheme handler is registered by macOS LaunchServices when it
+sees the `CFBundleURLSchemes` key in a real `.app` bundle's
+`Info.plist`. That happens automatically for:
+
+- Brew cask installs
+- DMG drag-and-drop installs
+- `cargo tauri build` (the produced bundle is picked up next time
+  LaunchServices scans it)
+
+It does **not** happen for `scripts/dev-app.sh` or raw `cargo run`
+builds — those launch the binary directly with no bundle in sight. To
+test deep links during development, run `cargo tauri build` once and
+let LaunchServices register the resulting `Stint.app`. Force a re-scan
+with:
+
+```bash
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister \
+  -f /Applications/Stint.app
+```
+
+## HTTP API returns "connection refused"
+
+`stint api info` is your first stop:
+
+```bash
+stint --json api info
+# { "enabled": false, … }
+# or
+# { "enabled": true, "port": 54321, "base_url": "http://127.0.0.1:54321" }
+```
+
+Three failure modes:
+
+- `enabled: false` — flip it on in **Settings → Integrations** in the
+  GUI (or `stint config set api.enabled true`), then restart Stint.
+  The CLI doesn't host the API; only the GUI process does.
+- `enabled: true` but Stint.app isn't running — start it. The port is
+  re-bound on every launch.
+- Pinned `api.port` collides with another process — clear it
+  (`stint config set api.port ""`) and the GUI will pick a fresh
+  ephemeral port. Re-run `stint api info` to discover the new URL.
+
 ## Where to find logs
 
 ```

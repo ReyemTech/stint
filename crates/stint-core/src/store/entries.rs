@@ -139,9 +139,13 @@ impl Entries {
         Ok(row)
     }
 
+    /// Return entries whose `start_at` lies in `[from, to)` — lower bound
+    /// inclusive, upper bound exclusive. Exclusive `to` so adjacent windows
+    /// `[a, b)` and `[b, c)` partition cleanly with no duplicates for
+    /// windowed paginators / syncers.
     pub async fn list_between(&self, from: &str, to: &str) -> Result<Vec<TimeEntryRow>> {
         let rows = sqlx::query_as::<_, TimeEntryRow>(
-            "SELECT * FROM time_entries WHERE start_at >= ? AND start_at <= ? ORDER BY start_at",
+            "SELECT * FROM time_entries WHERE start_at >= ? AND start_at < ? ORDER BY start_at",
         )
         .bind(from)
         .bind(to)
@@ -210,6 +214,21 @@ impl Entries {
         .await
     }
 
+    pub async fn set_task(&self, local_uuid: &str, task_id: Option<&str>) -> Result<()> {
+        self.update_one(local_uuid, |s| {
+            sqlx::query(
+                "UPDATE time_entries
+                 SET task_id = ?, sync_state = ?, updated_at = ?
+                 WHERE local_uuid = ?",
+            )
+            .bind(task_id)
+            .bind(s.next_state())
+            .bind(time::now_utc())
+            .bind(local_uuid)
+        })
+        .await
+    }
+
     pub async fn set_billable(&self, local_uuid: &str, billable: bool) -> Result<()> {
         self.update_one(local_uuid, |s| {
             sqlx::query(
@@ -218,6 +237,20 @@ impl Entries {
                  WHERE local_uuid = ?",
             )
             .bind(if billable { 1 } else { 0 })
+            .bind(s.next_state())
+            .bind(time::now_utc())
+            .bind(local_uuid)
+        })
+        .await
+    }
+
+    pub async fn clear_end(&self, local_uuid: &str) -> Result<()> {
+        self.update_one(local_uuid, |s| {
+            sqlx::query(
+                "UPDATE time_entries
+                 SET end_at = NULL, sync_state = ?, updated_at = ?
+                 WHERE local_uuid = ?",
+            )
             .bind(s.next_state())
             .bind(time::now_utc())
             .bind(local_uuid)

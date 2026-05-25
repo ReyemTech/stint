@@ -7,12 +7,19 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 
+[lib]
+name = "stint_cli"
+path = "src/lib.rs"
+
 [[bin]]
 name = "stint"
 path = "src/main.rs"
 
 [dependencies]
 stint-core = { path = "../stint-core" }
+toml_edit = "0.22"
+dialoguer = "0.11"
+which = "6"
 # embed-plist injects Info.plist into the binary's __TEXT,__info_plist Mach-O
 # section. Required for the CLI to satisfy hardened-runtime kernel validation
 # when distributed inside Stint.app/Contents/MacOS/.
@@ -20,8 +27,10 @@ embed_plist = "1.2"
 tokio.workspace = true
 anyhow.workspace = true
 clap.workspace = true
+clap_mangen = "0.3"
 serde.workspace = true
 serde_json.workspace = true
+serde_with.workspace = true
 chrono.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
@@ -34,9 +43,12 @@ sha2 = "0.10"
 tar = "0.4"
 flate2 = "1"
 tempfile.workspace = true
+rmcp = { workspace = true }
+schemars = { workspace = true }
 
 [dev-dependencies]
 assert_cmd.workspace = true
 tempfile.workspace = true
 wiremock.workspace = true
 predicates = "3.1"
+insta = { version = "1.43", features = ["json"] }

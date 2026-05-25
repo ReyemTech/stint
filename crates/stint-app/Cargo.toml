@@ -31,8 +31,10 @@ chrono.workspace = true
 tauri = { version = "2.1", features = ["macos-private-api", "tray-icon", "image-png"] }
 tauri-plugin-opener = "2.2"
 tauri-plugin-positioner = { version = "2.3", features = ["tray-icon"] }
+tauri-plugin-deep-link = "2"
 tauri-plugin-updater = { version = "2", optional = true }
 semver = { version = "1.0", optional = true }
+axum = { workspace = true }
 
 [build-dependencies]
 tauri-build = { version = "2.0", features = [] }
@@ -42,3 +44,4 @@ tempfile.workspace = true
 wiremock.workspace = true
 serde_json.workspace = true
 tauri = { version = "2.1", features = ["test"] }
+tower = "0.5"

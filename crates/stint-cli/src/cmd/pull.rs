@@ -19,7 +19,7 @@ pub struct Args {
     pub switch: bool,
 }
 
-pub async fn run(args: Args) -> Result<()> {
+pub async fn run(args: Args, json: bool) -> Result<()> {
     let store = open_store().await?;
     let settings = Settings::new(store.clone());
     let secrets = Secrets::default();
@@ -36,28 +36,61 @@ pub async fn run(args: Args) -> Result<()> {
 
     let report = pull(&store, &client, Trigger::Manual).await?;
 
-    println!(
-        "+{} entries, ~{} updates, -{} deletes",
-        report.inserted, report.updated, report.deleted
-    );
-    if let Some(adopted) = &report.adopted {
-        println!("Adopted remote running timer (local uuid: {adopted})");
-    }
+    // Resolve conflict before reporting so the JSON ack reflects what was
+    // actually done. Conflict errors still go to stderr in human mode.
+    let mut conflict_action: Option<&'static str> = None;
     if let Some(c) = &report.conflict {
-        eprintln!(
-            "Conflict: remote timer \"{}\" started {} differs from local \"{}\".",
-            c.remote_description, c.remote_start_at, c.local_description
-        );
+        if !json {
+            eprintln!(
+                "Conflict: remote timer \"{}\" started {} differs from local \"{}\".",
+                c.remote_description, c.remote_start_at, c.local_description
+            );
+        }
         if args.stop_remote {
             resolve_conflict(&store, &client, ConflictAction::StopRemote, &c.remote_id).await?;
-            eprintln!("Stopped remote timer; local timer continues.");
+            conflict_action = Some("stop_remote");
+            if !json {
+                eprintln!("Stopped remote timer; local timer continues.");
+            }
         } else if args.switch {
             resolve_conflict(&store, &client, ConflictAction::Switch, &c.remote_id).await?;
-            eprintln!("Switched: local timer stopped, remote timer adopted.");
+            conflict_action = Some("switch");
+            if !json {
+                eprintln!("Switched: local timer stopped, remote timer adopted.");
+            }
         } else if args.dismiss {
-            eprintln!("Dismissed. Re-run later to resolve.");
-        } else {
+            conflict_action = Some("dismiss");
+            if !json {
+                eprintln!("Dismissed. Re-run later to resolve.");
+            }
+        } else if !json {
             eprintln!("Re-run with --stop-remote, --switch, or --dismiss.");
+        }
+    }
+
+    if json {
+        let payload = serde_json::json!({
+            "inserted": report.inserted,
+            "updated": report.updated,
+            "deleted": report.deleted,
+            "adopted": report.adopted,
+            "conflict": report.conflict.as_ref().map(|c| serde_json::json!({
+                "remote_id": c.remote_id,
+                "remote_description": c.remote_description,
+                "remote_start_at": c.remote_start_at,
+                "local_local_uuid": c.local_local_uuid,
+                "local_description": c.local_description,
+            })),
+            "conflict_action": conflict_action,
+        });
+        crate::render::render(&payload, true, |_| {});
+    } else {
+        println!(
+            "+{} entries, ~{} updates, -{} deletes",
+            report.inserted, report.updated, report.deleted
+        );
+        if let Some(adopted) = &report.adopted {
+            println!("Adopted remote running timer (local uuid: {adopted})");
         }
     }
     Ok(())

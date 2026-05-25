@@ -1,0 +1,79 @@
+---
+title: Scripting stint
+description: Use stint from shell scripts, automations, and integrations via --json or the local HTTP API.
+---
+
+stint exposes every operation through two scriptable surfaces.
+
+## CLI with --json
+
+Every CLI command accepts a global `--json` flag that emits structured output instead of human text.
+
+```bash
+stint --json current
+# null  (or { "local_uuid": …, "description": …, … })
+
+stint --json list 2026-05-20T00:00:00Z 2026-05-23T23:59:59Z
+
+stint --json start "writing tests" --project p-uuid
+# { "local_uuid": "…", "description": "writing tests", … }
+
+stint --json stop
+# { "local_uuid": "…", "end_at": "2026-05-24T15:30:00Z", … }
+```
+
+Read verbs (`current`, `today`, `list`, `projects list`, `api info`,
+`skill status`) emit the canonical view type. Write verbs (`start`,
+`stop`, `edit`, `restart`, `delete`) return the affected entry. Admin
+verbs (`sync`, `pull`, `config`, `calendar`, `update`,
+`skill install/uninstall`) emit a structured acknowledgement such as
+`{ "refreshed": true }`.
+
+A typical shell pipeline using `jq`:
+
+```bash
+# Is anything running right now?
+stint --json current | jq -r '.description // "nothing"'
+
+# Total seconds tracked today against project p-uuid:
+stint --json today | jq '[.[] | select(.project_id == "p-uuid")
+  | (.end_at // now | fromdateiso8601) - (.start_at | fromdateiso8601)
+  ] | add // 0'
+```
+
+## Reference paths
+
+If you can't remember a flag or verb, the CLI is self-describing:
+
+- `stint --help` — top-level command list
+- `stint <verb> --help` — flags for one verb
+- `man stint` — full man page (installed by the Homebrew cask; for
+  cargo / `curl|sh` users, run `scripts/install-man.sh` from a checkout
+  to install it system-wide, or `stint generate-man <dir>` to drop the
+  raw groff file anywhere)
+
+## Local HTTP API
+
+Off by default. Enable with `stint config set api.enabled true` (or via Settings → Integrations in the GUI). The API binds to `127.0.0.1` on an ephemeral port, persisted to `api.port`.
+
+Discover the URL:
+
+```bash
+stint --json api info
+# { "enabled": true, "host": "127.0.0.1", "port": 54321, "base_url": "http://127.0.0.1:54321" }
+```
+
+Endpoints (all under `/v1/`):
+
+| Method | Path | Body |
+|---|---|---|
+| `POST` | `/v1/start` | `{ "description": "...", "project_id": "...", "billable": true, "source": "myscript" }` |
+| `POST` | `/v1/stop` | empty |
+| `GET`  | `/v1/current` | — |
+| `GET`  | `/v1/entries?since=…&until=…&project_id=…&limit=50` | — |
+| `GET`  | `/v1/projects` | — |
+| `GET`  | `/v1/tasks?project_id=…` | — |
+| `PATCH`| `/v1/entries/:id` | partial `EntryPatch` |
+| `DELETE` | `/v1/entries/:id` | — |
+
+The HTTP API is only reachable while Stint.app is running. When the app is quit, fall back to the CLI.

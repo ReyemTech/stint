@@ -1,0 +1,78 @@
+---
+title: AI integration
+description: Drive stint from Claude Code, Codex, OpenCode, or any MCP client.
+---
+
+stint ships an MCP server (`stint mcp`) and a one-shot installer that wires it into your AI harness of choice.
+
+## Quick install
+
+```bash
+stint skill install            # interactive picker
+stint skill install claude     # explicit
+stint skill install codex
+stint skill install opencode
+```
+
+This does two things:
+
+1. **Registers stint as an MCP server** in your harness's config (uses each harness's native mechanism — `claude mcp add` for Claude Code, `~/.codex/config.toml` TOML merge for Codex, `~/.config/opencode/opencode.json` for OpenCode)
+2. **Installs a skill / rules fragment** so the agent knows when to use the tools (Claude: `~/.claude/skills/stint/SKILL.md`; Codex/OpenCode: `<!-- stint:begin -->`/`<!-- stint:end -->` block in `AGENTS.md`)
+
+## What the agent can do
+
+Eight tools, all stable across releases:
+
+| Tool | Purpose |
+|---|---|
+| `start` | Start a new entry |
+| `stop` | Stop the running entry |
+| `current` | Get the running entry (or null) |
+| `list_entries` | Query entries with optional filters |
+| `list_projects` | List projects |
+| `list_tasks` | List tasks (optionally for one project) |
+| `update_entry` | Patch fields on an entry |
+| `delete_entry` | Soft-delete an entry |
+
+The agent is instructed to call `current` before `start` (to avoid colliding with an already-running timer) and to prefer `update_entry` over backdated `start` when logging past work. Entries created through MCP tools are tagged `source: "mcp"`.
+
+## What the bundled SKILL.md teaches
+
+The skill file is `include_str!`-bundled at compile time into all three
+harness installers, so the same guidance lands in your AI client
+regardless of which harness you picked. It covers:
+
+- **Surface ladder** — MCP tools first, then `stint --json`, then the
+  HTTP API as a fallback. Pick one surface per request.
+- **Workflow recipes** — start / stop / switch projects, log a meeting
+  that just ended, resume yesterday's work, "how much on project X this
+  week?", edit project/task/billable, stop-and-discard.
+- **Project / task ID resolution** — fuzzy-matching user wording
+  ("the auth project") against `list_projects`, asking when ambiguous.
+- **Time math** — UTC vs. local windows, ISO 8601 conventions, the
+  ≤24h-per-entry rule.
+- **Recovery patterns** — what specific Invariant errors mean and how
+  to recover (timer-already-running, can't set start_at on a running
+  entry, MCP server wedged, etc.).
+- **What NOT to do** — don't poll `current`, don't backdate beyond 24
+  hours, don't invent UUIDs, don't bypass the queue.
+
+Source: `crates/stint-cli/skills/stint/SKILL.md`.
+
+## Dry run + status
+
+```bash
+stint skill install claude --dry-run    # preview without writing files
+stint skill status                       # who's installed where
+# Claude Code     detected=true   mcp=true   skill=true
+# Codex CLI       detected=false  mcp=false  skill=false
+# OpenCode        detected=true   mcp=true   skill=true
+```
+
+## Uninstall
+
+```bash
+stint skill uninstall claude
+```
+
+Removes both the MCP registration and the skill file. Backups (`.bak` siblings) of any mutated config are preserved.

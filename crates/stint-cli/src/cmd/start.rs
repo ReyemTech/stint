@@ -1,5 +1,5 @@
 use anyhow::Result;
-use stint_core::timer::{StartArgs, TimerService};
+use stint_core::verbs::{self, StartParams};
 
 use crate::at_parse;
 
@@ -22,23 +22,26 @@ pub struct Args {
     pub at: Option<String>,
 }
 
-pub async fn run(args: Args) -> Result<()> {
+pub async fn run(args: Args, json: bool) -> Result<()> {
     let store = open_store().await?;
-    let timer = TimerService::new(store);
     let start_at = match args.at.as_deref() {
         Some(s) => Some(at_parse::parse_at_arg(s)?),
         None => None,
     };
-    let id = timer
-        .start(StartArgs {
+    let view = verbs::start(
+        &store,
+        StartParams {
             description: args.description.clone(),
             project_id: args.project,
             task_id: args.task,
             billable: false,
-            source: "cli".into(),
             start_at,
-        })
-        .await?;
-    println!("Started: {} ({})", args.description, id);
+            source: "cli".into(),
+        },
+    )
+    .await?;
+    crate::render::render(&view, json, |v| {
+        println!("Started: {} ({})", v.description, v.local_uuid);
+    });
     Ok(())
 }

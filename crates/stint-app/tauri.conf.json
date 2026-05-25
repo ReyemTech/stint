@@ -5,7 +5,7 @@
   "identifier": "tech.reyem.stint",
   "build": {
     "beforeDevCommand": "pnpm --filter stint-ui dev",
-    "beforeBuildCommand": "pnpm --filter stint-ui build",
+    "beforeBuildCommand": "pnpm --filter stint-ui build && cargo build --release -p stint-cli && ../target/release/stint generate-man resources/man1",
     "devUrl": "http://localhost:5173",
     "frontendDist": "../../ui/dist"
   },
@@ -47,6 +47,9 @@
       "dmg",
       "app"
     ],
+    "resources": {
+      "resources/man1/stint.1": "man/man1/stint.1"
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -62,6 +65,11 @@
     }
   },
   "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["stint"]
+      }
+    },
     "updater": {
       "active": true,
       "endpoints": [

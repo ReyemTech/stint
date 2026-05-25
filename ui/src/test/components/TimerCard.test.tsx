@@ -33,6 +33,23 @@ import { api } from "~/api";
 
 const flushMicrotasks = () => new Promise<void>((r) => setTimeout(r, 0));
 
+/// Build a minimal `RunningTimer` (alias of `EntryView`) for tests that
+/// only care about the few fields the UI reads. Defaults the new
+/// post-verbs fields (`solidtime_id`, `task_id`, `end_at`, `source`) to
+/// nulls / "gui" so callers stay terse.
+const runningTimer = (overrides: Partial<RunningTimer>): RunningTimer => ({
+  local_uuid: "uuid-1",
+  solidtime_id: null,
+  description: "",
+  project_id: null,
+  task_id: null,
+  billable: false,
+  start_at: new Date().toISOString(),
+  end_at: null,
+  source: "gui",
+  ...overrides,
+});
+
 beforeEach(() => {
   setRunning(null);
   setElapsedSecs(0);
@@ -98,13 +115,12 @@ describe("<TimerCard> — start form (no timer running)", () => {
 
 describe("<TimerCard> — running timer panel", () => {
   it("shows the elapsed duration + description and a Stop button", () => {
-    setRunning({
-      local_uuid: "uuid-1",
-      description: "morning standup",
-      start_at: new Date(Date.now() - 60_000).toISOString(),
-      project_id: null,
-      billable: false,
-    });
+    setRunning(
+      runningTimer({
+        description: "morning standup",
+        start_at: new Date(Date.now() - 60_000).toISOString(),
+      }),
+    );
     setElapsedSecs(60);
     const { getByText } = render(() => <TimerCard />);
     expect(getByText("morning standup")).toBeDefined();
@@ -113,13 +129,7 @@ describe("<TimerCard> — running timer panel", () => {
   });
 
   it("clicking Stop invokes timer.stop()", async () => {
-    setRunning({
-      local_uuid: "uuid-1",
-      description: "x",
-      start_at: new Date().toISOString(),
-      project_id: null,
-      billable: false,
-    });
+    setRunning(runningTimer({ description: "x" }));
     const { getByText } = render(() => <TimerCard />);
     fireEvent.click(getByText("Stop"));
     await flushMicrotasks();
@@ -127,13 +137,7 @@ describe("<TimerCard> — running timer panel", () => {
   });
 
   it("running panel shows the ProjectPicker for live project changes", async () => {
-    setRunning({
-      local_uuid: "uuid-1",
-      description: "x",
-      start_at: new Date().toISOString(),
-      project_id: null,
-      billable: false,
-    });
+    setRunning(runningTimer({ description: "x" }));
     const { getByLabelText } = render(() => <TimerCard />);
     await flushMicrotasks();
     expect(getByLabelText("Open project list")).toBeDefined();

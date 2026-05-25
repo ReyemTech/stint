@@ -26,6 +26,7 @@ anyhow = "1.0"
 # serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+serde_with = "3"
 
 # time / ids
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
@@ -41,6 +42,7 @@ sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio",
 
 # http
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+axum = { version = "0.7", default-features = false, features = ["tokio", "http1", "json", "query", "matched-path"] }
 
 # oauth
 oauth2 = { version = "5", default-features = false, features = ["reqwest", "rustls-tls"] }
@@ -52,6 +54,10 @@ keyring = { version = "3.6", features = ["apple-native"] }
 # cli
 clap = { version = "4.5", features = ["derive", "env"] }
 dirs = "5.0"
+
+# mcp
+rmcp = { version = "1.7", features = ["server", "transport-io", "macros", "schemars"] }
+schemars = "1.0"
 
 # dev-only (named at workspace level so versions stay consistent)
 wiremock = "0.6"

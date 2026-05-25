@@ -13,6 +13,7 @@ import Accordion from "~/components/ui/Accordion";
 import Button from "~/components/ui/Button";
 import Pill from "~/components/ui/Pill";
 import ProjectPicker from "~/components/ui/ProjectPicker";
+import IntegrationsPanel from "~/routes/Settings/IntegrationsPanel";
 import UpdatesPanel from "~/routes/Settings/UpdatesPanel";
 import type { CalendarAccount, CalendarRow, OrgChoice, Project } from "~/types";
 
@@ -405,6 +406,13 @@ export default function Settings() {
         <div class="mt-4 border-t border-black/[0.05] pt-4 dark:border-white/[0.04]">
           <Button onClick={handleAddGoogle}>Add Google account</Button>
         </div>
+      </Accordion>
+
+      <Accordion
+        title="Integrations"
+        hint="Local HTTP API, AI agents (MCP), and the stint:// URL scheme."
+      >
+        <IntegrationsPanel />
       </Accordion>
 
       <Accordion

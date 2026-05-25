@@ -79,6 +79,23 @@ on-disk app. GitHub sees the download as one of many anonymous fetches.
 You can disable the periodic check entirely under
 **Settings → Updates**.
 
+## Local listeners
+
+stint has one optional local-only listener: the **loopback HTTP API**.
+It is **off by default**. When you opt in
+(`stint config set api.enabled true` or **Settings → Integrations**),
+the GUI process binds to `127.0.0.1` on an ephemeral port for the
+duration of the app session. The bind address is hard-locked to
+loopback — never the external interface, never a public port — so the
+listener is unreachable from other machines on the network and from the
+internet. There is no token: the trust boundary is "anything already
+running as your user on this machine." Quitting Stint.app closes the
+listener; relaunching binds a fresh ephemeral port.
+
+The same model applies to the bundled MCP server (`stint mcp`), which
+speaks over stdio when an AI harness spawns it as a child process — no
+socket is opened at all.
+
 ## What stint stores on your Mac
 
 All persistence is local. Nothing is uploaded to a Reyem Tech server

@@ -56,10 +56,14 @@ pub struct ForceAdoptArgs {
 
 /// `stint sync` with no subcommand defaults to drain — keeps the old
 /// invocation working.
-pub async fn run(args: SyncArgs) -> Result<()> {
+pub async fn run(args: SyncArgs, json: bool) -> Result<()> {
     match args.sub.unwrap_or(SyncCmd::Drain) {
-        SyncCmd::Drain => drain().await,
-        SyncCmd::RetryAbandoned => retry_abandoned().await,
+        SyncCmd::Drain => drain(json).await,
+        SyncCmd::RetryAbandoned => retry_abandoned(json).await,
+        // Diagnostic verbs — `--json` is accepted at the global level for
+        // uniformity but these print multi-line free-form text. Silent
+        // ignore is better than half-baked acks; refactor when there's an
+        // actual structured consumer.
         SyncCmd::ForceAdopt(a) => force_adopt(a).await,
         SyncCmd::Active => active().await,
         SyncCmd::Diagnose(a) => diagnose(a).await,
@@ -234,26 +238,36 @@ async fn force_adopt(args: ForceAdoptArgs) -> Result<()> {
     Ok(())
 }
 
-async fn drain() -> Result<()> {
+async fn drain(json: bool) -> Result<()> {
     let store = open_store().await?;
     let client = build_client(&store).await?;
     let n = drain_once(&store, &client).await?;
-    println!("Drained {n} item(s) from the sync queue.");
+    let ack = serde_json::json!({ "drained": n });
+    crate::render::render(&ack, json, |_| {
+        println!("Drained {n} item(s) from the sync queue.");
+    });
     Ok(())
 }
 
-async fn retry_abandoned() -> Result<()> {
+async fn retry_abandoned(json: bool) -> Result<()> {
     let store = open_store().await?;
     let n = Queue::new(store.clone()).resurrect_abandoned().await?;
-    println!("Reset {n} abandoned queue row(s); next drain will retry them.");
     if n == 0 {
+        let ack = serde_json::json!({ "reset": 0, "drained": 0 });
+        crate::render::render(&ack, json, |_| {
+            println!("Reset 0 abandoned queue row(s); next drain will retry them.");
+        });
         return Ok(());
     }
     // Drain immediately so the user sees the result without waiting for
     // the background worker tick.
     let client = build_client(&store).await?;
     let drained = drain_once(&store, &client).await?;
-    println!("Drained {drained} item(s).");
+    let ack = serde_json::json!({ "reset": n, "drained": drained });
+    crate::render::render(&ack, json, |_| {
+        println!("Reset {n} abandoned queue row(s); next drain will retry them.");
+        println!("Drained {drained} item(s).");
+    });
     Ok(())
 }
 

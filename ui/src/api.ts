@@ -6,6 +6,7 @@ import type {
   CalendarRow,
   ConfigEntry,
   Entry,
+  EntryView,
   OrgChoice,
   OverlapCandidate,
   Project,
@@ -22,7 +23,7 @@ export const api = {
     billable = false,
     startAt?: string | null,
   ) =>
-    invoke<string>("start_timer", {
+    invoke<EntryView>("start_timer", {
       args: {
         description,
         project_id: projectId ?? null,
@@ -31,11 +32,11 @@ export const api = {
         start_at: startAt ?? null,
       },
     }),
-  stopTimer: () => invoke<string>("stop_timer"),
+  stopTimer: () => invoke<EntryView>("stop_timer"),
   deleteEntry: (localUuid: string) =>
     invoke<void>("delete_entry", { localUuid }),
   restartEntry: (localUuid: string) =>
-    invoke<string>("restart_entry", { localUuid }),
+    invoke<EntryView>("restart_entry", { localUuid }),
   updateDescription: (localUuid: string, description: string) =>
     invoke<void>("update_description", { localUuid, description }),
   setEntryProject: (localUuid: string, projectId: string | null) =>

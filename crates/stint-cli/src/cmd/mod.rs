@@ -1,12 +1,17 @@
+pub mod api;
 pub mod calendar;
 pub mod config;
 pub mod config_login;
+pub mod current;
 pub mod delete;
 pub mod edit;
+pub mod generate_man;
 pub mod list;
+pub mod mcp;
 pub mod projects;
 pub mod pull;
 pub mod restart;
+pub mod skill;
 pub mod start;
 pub mod stop;
 pub mod sync;

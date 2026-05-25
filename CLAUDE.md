@@ -1,10 +1,9 @@
 # CLAUDE.md — Repo notes for AI coding agents
 
 This file is the entry point for any AI coding assistant (Claude Code,
-Cursor, Codex, etc.) working in this repository. Read it before touching code.
-
-A duplicate `AGENTS.md` exists for non-Claude agents; both files point to the
-same content — keep them in sync.
+Cursor, Codex, OpenCode, etc.) working in this repository. Read it before
+touching code. Per-harness skills + MCP integration are managed via
+`stint skill install <harness>` — see "Gotchas" below.
 
 ## What stint is
 
@@ -123,15 +122,82 @@ git checkout -b phase-2.5
 ### Testing discipline
 
 - **TDD for `stint-core`** — write the failing test, then the implementation.
-  See any of `crates/stint-core/tests/*.rs` for the pattern.
+  See any of `crates/stint-core/tests/*.rs` for the pattern. New verbs land
+  with their happy path **and** at least one error / edge case test.
 - **Integration over unit** for store-level code — tests run against a real
-  SQLite tempdir via `tests/common/mod.rs` `setup()`.
+  SQLite tempdir via `tests/common/mod.rs` `setup()`. Helpers like
+  `seed_projects` / `seed_tasks` use the public `Reference` API rather than
+  raw SQL so the tests don't drift when the schema evolves.
 - **Wiremock for HTTP** — `crates/stint-core/tests/solidtime.rs` and
-  `sync_*` files show the pattern.
-- **`assert_cmd` for CLI** — `crates/stint-cli/tests/cli_e2e.rs`.
-- **For UI**: no automated tests yet. Manual visual verification only —
-  `cargo tauri dev` and click through every route after a change.
-  Compile-pass is NOT proof the UI works.
+  `sync_*` files show the pattern. Real network calls are forbidden in tests.
+- **`assert_cmd` + `insta` for CLI** — `crates/stint-cli/tests/cli_e2e.rs`
+  for end-to-end exercise of the binary; `tests/verbs_json.rs` golden
+  snapshots lock the `--json` output shape per verb.
+- **`tower::ServiceExt::oneshot` for HTTP API** — see
+  `crates/stint-app/tests/http_api.rs`. In-process exercise of the same
+  `axum::Router` production uses; never binds a real socket.
+- **MCP server: spawn-and-talk** — `crates/stint-cli/tests/mcp_e2e.rs`
+  spawns `stint mcp` as a child process and exchanges line-delimited
+  JSON-RPC over stdio. Use this pattern for any new tool.
+- **Skill installer: tempdir HOME** — `crates/stint-cli/tests/skill_*.rs`
+  swap `HOME` to a tempdir before exercising file mutations; never touches
+  the user's real `~/.claude`, `~/.codex`, or `~/.config/opencode`.
+- **UI**: `vitest` + `jsdom` + `@solidjs/testing-library`. Tests live next
+  to whatever they cover (`ui/src/test/{components,routes,stores,lib}/`).
+  Run via `pnpm test` (watch) or `pnpm test:coverage` (one-shot report).
+  Manual smoke (`scripts/dev-app.sh` click-through) is still required for
+  visual / UX changes — compile-pass and unit-pass don't prove the UI works.
+- **`vi.mock` factories are hoisted** — top-level `const`s referenced by a
+  factory must be wrapped in `vi.hoisted(() => …)` or the factory runs
+  before they're initialized. See `ui/src/test/stores/timer.test.ts`.
+
+### Coverage standards
+
+- **One command, all surfaces**: `scripts/coverage.sh` runs Rust
+  (`cargo-llvm-cov` for `stint-core` / `stint-cli` / `stint-app`) AND UI
+  (`vitest --coverage`), then prints a unified per-surface table:
+
+  ```
+    surface       lines (covered/total)   functions  status
+    -------       ---------------------   ---------  ------
+    stint-core     94.0%  ( 3023/ 3217)    92.4%     ✅
+    stint-cli      82.1%  ( 1234/ 1504)    81.2%     ✅
+    stint-app      83.7%  (  947/ 1131)    73.0%     ✅
+    ui             88.8%  ( 1879/ 2116)    89.0%     ✅
+    TOTAL          86.4%  ( 7083/ 7968)    83.1%
+  ```
+
+  Exits non-zero if any surface drops below `COVERAGE_FLOOR` (default 80%).
+  CI consumes the same script; the local report matches CI.
+- **Threshold — 80% lines per surface, enforced.** Below 80% on any of
+  `stint-core`, `stint-cli`, `stint-app`, or `ui` fails the script. New
+  code lands with tests sufficient to keep its own file at or above the
+  surface average.
+- **Use `SKIP_RUST=1` or `SKIP_UI=1`** to skip half the run when iterating
+  on tests for just one side. The unified table still prints from the most
+  recent reports on disk (`target/coverage/lcov.info` +
+  `ui/coverage/coverage-summary.json`).
+- **What's NOT counted toward coverage** (excluded in
+  `scripts/coverage.sh::IGNORE_RE` and `ui/vitest.config.ts::exclude`):
+  - `tests/` directories themselves
+  - `stint-app/src/{main,menu,tray,windows,logging,app_state,*_worker,updater}.rs`
+    and `commands/ui.rs` — Tauri runtime wiring (system menu, dock, async
+    workers, updater plugin); exercises native macOS APIs the test
+    harness can't drive
+  - `stint-cli/src/cmd/{mcp,calendar,config_login,update}.rs`,
+    `mcp/mod.rs`, `skill/picker.rs` — subprocess / interactive / OAuth /
+    signed-release surfaces. The `stint mcp` subcommand is exercised
+    indirectly by `tests/mcp_e2e.rs` (subprocess) AND directly by the
+    `mcp/tools.rs` `#[cfg(test)] mod tests` block.
+  - `ui/src/main.tsx`, `*.d.ts`, `src/test/**`
+- **Coverage gates that DON'T move the goalposts**: golden snapshots
+  (`crates/stint-cli/tests/verbs_json.rs`), MCP e2e
+  (`crates/stint-cli/tests/mcp_e2e.rs`), and HTTP integration
+  (`crates/stint-app/tests/http_api.rs`) each lock one wire shape —
+  they don't trade off against per-function coverage. Aim for both.
+- **Tests must pass before coverage is meaningful** — don't paper over a
+  failing suite. CI runs `cargo test --workspace -- --test-threads=1` and
+  `pnpm test:run` as separate gates before the coverage job.
 
 ### Code style
 
@@ -276,6 +342,52 @@ git checkout -b phase-2.5
   populating `recurringEventId` on overrides and expanded instances.
   Phase 3b does NOT include an iCal RRULE expander — Phase 3d (CalDAV)
   is where that machinery will live.
+- **The `verbs::` façade is the single source of truth.** All
+  transports (CLI, Tauri commands, HTTP, MCP) delegate to
+  `stint_core::verbs::*`. Don't add a new transport without going
+  through the façade — duplicating logic at the transport layer is
+  how shapes drift.
+- **HTTP API is opt-in and loopback-only.** Settings keys:
+  `api.enabled` (default `false`), `api.host` (default `127.0.0.1`),
+  `api.port` (auto-picked + persisted to the settings table on each
+  GUI launch). The server lives inside the running GUI process; the
+  CLI does not host it. `stint api info` reads the persisted settings
+  and reports the bound URL — useful for scripts that need to discover
+  the ephemeral port. Endpoints live under `/v1/`. The model is "the
+  trust boundary is anything already running as your user"; no token,
+  loopback hard-locked, listener dies when the app quits.
+- **MCP server is a CLI subcommand, not a daemon.** `stint mcp` runs
+  the rmcp server over stdio. The MCP client (Claude Code, Codex,
+  OpenCode) spawns it as a child process — no socket. Install via
+  `stint skill install <claude|codex|opencode>`, which calls each
+  harness's native registration mechanism (`claude mcp add`, TOML
+  merge under `~/.codex/config.toml`, JSON merge under
+  `~/.config/opencode/opencode.json`) and drops the bundled SKILL.md
+  in the right place per harness.
+- **`stint://` URL scheme requires a real `.app` bundle.** macOS
+  LaunchServices registers the handler from the bundle's `Info.plist`
+  (`CFBundleURLSchemes`). `scripts/dev-app.sh` runs the raw binary
+  without a bundle and does NOT register URL handlers. To test deep
+  links, run `cargo tauri build` once and let LaunchServices pick up
+  the resulting `Stint.app` (or force a re-scan with `lsregister -f
+  /Applications/Stint.app`). Supported actions parsed by
+  `stint_core::url_scheme`: `stint://start?description=…&project=…&task=…&billable=true`,
+  `stint://stop`, `stint://current`, `stint://entry/<local-uuid>`.
+- **SKILL.md is the canonical AI-agent guidance.** Lives at
+  `crates/stint-cli/skills/stint/SKILL.md` and is `include_str!`-
+  bundled into all three harness installers so the same content lands
+  regardless of which harness the user picks. Rich content: surface
+  ladder (MCP → CLI → HTTP), workflow recipes, project-ID resolution,
+  time-math reference, recovery patterns for common Invariant errors.
+  Update this file when you add a new tool / verb / behavior — the
+  agent learns from it, not from the docs site.
+- **`stint generate-man <dir>` emits the man page.** Bundled into
+  `Stint.app/Contents/Resources/man/man1/stint.1` at `cargo tauri
+  build` time via `beforeBuildCommand`. The Homebrew cask formula in
+  `reyemtech/homebrew-tap` needs a `manpage` stanza to expose it to
+  `man(1)` on cask installs (separate PR — not landed yet). For
+  cargo / `curl|sh` users, `scripts/install-man.sh` is the manual
+  path.
 
 ## When you start work on a phase
 
