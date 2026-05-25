@@ -2,7 +2,7 @@
 
 mod common;
 
-use stint_app::commands::sync::{list_sync_errors, sync_now};
+use stint_app::commands::sync::{get_sync_error_overlaps, list_sync_errors, sync_now};
 use stint_app::commands::timer::{start_timer, stop_timer, StartTimerArgs};
 use stint_core::config::secrets::Secrets;
 use stint_core::config::Settings;
@@ -195,6 +195,123 @@ async fn list_sync_errors_flags_abandoned_rows() {
         found.abandoned,
         "row parked >30d in the future must read as abandoned"
     );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn get_sync_error_overlaps_returns_empty_when_entry_missing() {
+    let ctx = common::make_app().await;
+    let handle = ctx.handle();
+    let overlaps = get_sync_error_overlaps(handle.state(), "no-such-uuid".into())
+        .await
+        .unwrap();
+    assert!(overlaps.is_empty());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn get_sync_error_overlaps_returns_empty_when_solidtime_url_missing() {
+    let ctx = common::make_app().await;
+    let handle = ctx.handle();
+
+    let view = start_timer(
+        handle.clone(),
+        handle.state(),
+        StartTimerArgs {
+            description: "no-config".into(),
+            project_id: None,
+            task_id: None,
+            billable: false,
+            start_at: None,
+        },
+    )
+    .await
+    .unwrap();
+    stop_timer(handle.clone(), handle.state()).await.unwrap();
+
+    // No solidtime.url set → command short-circuits with empty.
+    let overlaps = get_sync_error_overlaps(handle.state(), view.local_uuid)
+        .await
+        .unwrap();
+    assert!(overlaps.is_empty());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn get_sync_error_overlaps_filters_remote_entries_by_time_range() {
+    let ctx = common::make_app().await;
+    let handle = ctx.handle();
+
+    let view = start_timer(
+        handle.clone(),
+        handle.state(),
+        StartTimerArgs {
+            description: "overlapping".into(),
+            project_id: None,
+            task_id: None,
+            billable: false,
+            // Pick a specific past window so we can mock matching remote rows.
+            start_at: Some("2026-05-23T10:00:00Z".into()),
+        },
+    )
+    .await
+    .unwrap();
+    // Use update to set an explicit end_at, then save.
+    stop_timer(handle.clone(), handle.state()).await.unwrap();
+    use stint_app::commands::timer::update_entry_times;
+    update_entry_times(
+        handle.clone(),
+        handle.state(),
+        view.local_uuid.clone(),
+        "2026-05-23T10:00:00Z".into(),
+        "2026-05-23T11:00:00Z".into(),
+    )
+    .await
+    .unwrap();
+
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v1/organizations/org-1/time-entries"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "data": [
+                {
+                    "id": "remote-overlap",
+                    "description": "I clash",
+                    "start": "2026-05-23T10:30:00Z",
+                    "end": "2026-05-23T11:30:00Z",
+                    "project_id": null,
+                    "task_id": null,
+                    "billable": false,
+                    "user_id": null,
+                    "member_id": "m-1"
+                },
+                {
+                    "id": "remote-far",
+                    "description": "way before",
+                    "start": "2026-05-21T08:00:00Z",
+                    "end":   "2026-05-21T09:00:00Z",
+                    "project_id": null,
+                    "task_id": null,
+                    "billable": false,
+                    "user_id": null,
+                    "member_id": "m-1"
+                }
+            ]
+        })))
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/v1/organizations/org-1/time-entries/active"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"data": []})))
+        .mount(&server)
+        .await;
+
+    seed_solidtime_config(&ctx.store, &server.uri()).await;
+
+    let overlaps = get_sync_error_overlaps(handle.state(), view.local_uuid)
+        .await
+        .unwrap();
+    // Only the truly-overlapping row should survive the time-range filter.
+    assert_eq!(overlaps.len(), 1);
+    assert_eq!(overlaps[0].id, "remote-overlap");
+    assert_eq!(overlaps[0].description, "I clash");
 }
 
 #[tokio::test(flavor = "multi_thread")]
