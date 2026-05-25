@@ -1,11 +1,11 @@
 pub mod api;
 pub mod calendar;
-pub mod mcp;
 pub mod config;
 pub mod config_login;
 pub mod delete;
 pub mod edit;
 pub mod list;
+pub mod mcp;
 pub mod projects;
 pub mod pull;
 pub mod restart;

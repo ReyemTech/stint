@@ -184,10 +184,7 @@ impl StintServer {
         name = "start",
         description = "Start a new running timer entry. Errors if a timer is already running — call `stop` first or use `current` to check. Returns the new EntryView (local_uuid, description, project_id, start_at, …) as JSON."
     )]
-    async fn start(
-        &self,
-        Parameters(input): Parameters<StartInput>,
-    ) -> Result<String, McpError> {
+    async fn start(&self, Parameters(input): Parameters<StartInput>) -> Result<String, McpError> {
         let view = verbs::start(&self.store, input.into())
             .await
             .map_err(map_err)?;
