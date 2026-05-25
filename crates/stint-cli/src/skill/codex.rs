@@ -251,6 +251,16 @@ fn path_existed(original: &str) -> bool {
     !original.is_empty()
 }
 
+/// Public wrapper so sibling harnesses (OpenCode) can reuse the marker logic.
+pub fn replace_block_public(haystack: &str, block: &str) -> String {
+    replace_block(haystack, block)
+}
+
+/// Public wrapper for the inverse — used by sibling harnesses on uninstall.
+pub fn strip_block_public(haystack: &str) -> String {
+    strip_block(haystack)
+}
+
 /// Replace the `<!-- stint:begin -->`…`<!-- stint:end -->` block in `haystack`
 /// with `block`. If no markers are present, append `block` (separated by a
 /// blank line if the file is non-empty).
