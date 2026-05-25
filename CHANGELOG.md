@@ -1,3 +1,46 @@
+## [0.3.0](https://github.com/ReyemTech/stint/compare/v0.2.0...v0.3.0) (2026-05-25)
+
+### Features
+
+* **app:** bundle stint(1) man page into Stint.app Resources for cask install ([3b5c003](https://github.com/ReyemTech/stint/commit/3b5c003bc6064ae50dfeb0e972c857c477957566))
+* **app:** loopback HTTP API scaffold (axum, opt-in via api.enabled) ([35e83bf](https://github.com/ReyemTech/stint/commit/35e83bfbb0143752c39bfcc8dac291128e454be9))
+* **app:** register stint:// URL scheme, dispatch to verbs ([f785f5a](https://github.com/ReyemTech/stint/commit/f785f5aa3d5ad390628b6a98551dfc13955bddef))
+* **app:** Tauri commands for integrations panel (api state + toggle) ([640fc16](https://github.com/ReyemTech/stint/commit/640fc16d7616bf9e844a46527b915b15841b0aa6))
+* **cli:** Claude Code harness install + tempdir HOME tests ([28d79cf](https://github.com/ReyemTech/stint/commit/28d79cf8f70a6121e1fa1fad2735ba03702865f4))
+* **cli:** Codex harness install (TOML + AGENTS.md fragment) ([e6a3b1a](https://github.com/ReyemTech/stint/commit/e6a3b1a2ab99d141ccd60bc401e6bc951dc5518d))
+* **cli:** comprehensive SKILL.md with surface ladder, recipes, recovery patterns ([abeecfe](https://github.com/ReyemTech/stint/commit/abeecfee9c18679e2f886bfa86cef241ed036f5b))
+* **cli:** global --json flag threaded through every command ([aa2b5ca](https://github.com/ReyemTech/stint/commit/aa2b5ca1928e2066f99807c81d01914e10113a31))
+* **cli:** MCP tools — one per verb, delegating to verbs::* ([cc5bc0d](https://github.com/ReyemTech/stint/commit/cc5bc0d8cdd39438a1dc5153b5058cc1b8dd8c5d))
+* **cli:** OpenCode harness install (JSON merge + AGENTS.md fragment) ([0f3c5ed](https://github.com/ReyemTech/stint/commit/0f3c5ed1893a5ed99645979f70e151bcd4c117f5))
+* **cli:** render helper + golden snapshots for --json output ([61f2cf1](https://github.com/ReyemTech/stint/commit/61f2cf14422f9401ca7df7617e7f170b4cb10d34))
+* **cli:** stint api info subcommand ([abb40e9](https://github.com/ReyemTech/stint/commit/abb40e98d3555430d111af2aac1a63cd2a5a7487))
+* **cli:** stint current — show running timer ([298937f](https://github.com/ReyemTech/stint/commit/298937f804e86aad8b05dd11cad00b80effd98ce))
+* **cli:** stint generate-man for stint(1) man page ([27f31c3](https://github.com/ReyemTech/stint/commit/27f31c329212a1071897dc80403e64fb08407624))
+* **cli:** stint mcp subcommand skeleton (rmcp over stdio) ([4a75b41](https://github.com/ReyemTech/stint/commit/4a75b415c2ceb0145100d734e5a68c857d872c44))
+* **cli:** stint skill subcommand + Harness trait scaffolding ([8af9af7](https://github.com/ReyemTech/stint/commit/8af9af7b18b191c5f41a074e1478ae5138c44760))
+* **core:** add api.enabled/host/port settings keys ([6bc51f6](https://github.com/ReyemTech/stint/commit/6bc51f6061ce2d88cc5e10c999fef5ea55ed6030))
+* **core:** add verbs module skeleton with shared view types ([06bda2a](https://github.com/ReyemTech/stint/commit/06bda2a06117d1c2dd55965a09ec34eff33cc356))
+* **core:** stint:// URL scheme parser ([db59417](https://github.com/ReyemTech/stint/commit/db59417ba67ef3c43edf350ac7041a2f4eb8e6f8))
+* **core:** verbs::current ([6741164](https://github.com/ReyemTech/stint/commit/674116495a6168c77d032c5f1bf44d4d7e22a071))
+* **core:** verbs::delete_entry — completes verbs façade ([7ea19fd](https://github.com/ReyemTech/stint/commit/7ea19fd9cdf39a098292fd7abe0bf23f57b32bfd))
+* **core:** verbs::list_entries with EntryFilter ([4d09813](https://github.com/ReyemTech/stint/commit/4d098134f34708a928688c39ef98b09b5622c3cf))
+* **core:** verbs::list_projects ([af1cd65](https://github.com/ReyemTech/stint/commit/af1cd65fd27c05f9eb9753ea012efc8846bda0dc))
+* **core:** verbs::list_tasks with optional project filter ([6580b69](https://github.com/ReyemTech/stint/commit/6580b69cead4dfd723b594d92b1c9766dd8d649b))
+* **core:** verbs::start single-source implementation ([f532827](https://github.com/ReyemTech/stint/commit/f53282778a3a90be10ecae4fd60171c68e1a35d7))
+* **core:** verbs::stop ([b04746d](https://github.com/ReyemTech/stint/commit/b04746de7b2c5cf1b60bb51e36b4f0ec8efaeedf))
+* **core:** verbs::update_entry with EntryPatch 3-way semantics ([3f0862f](https://github.com/ReyemTech/stint/commit/3f0862f5baaf20a83ccddfdabcc0ebf41b5d8db5))
+* **coverage:** unified per-surface report across core/cli/app/ui ([41ae1e1](https://github.com/ReyemTech/stint/commit/41ae1e10f3342cd3326e6e9be73c35965912c0e8))
+* **ui:** IntegrationsPanel for HTTP API toggle + MCP/URL-scheme info ([3221314](https://github.com/ReyemTech/stint/commit/3221314a3ecd214a9e1e153db6a9541879b4163a))
+* **ui:** wire IntegrationsPanel into Settings (between Calendar and Updates) ([4b3eabf](https://github.com/ReyemTech/stint/commit/4b3eabff64a5a401becf0b8f1569e4177a320c82))
+
+### Bug Fixes
+
+* **app:** pin stint.1 to committed path so non-bundle builds compile ([fb0bbdb](https://github.com/ReyemTech/stint/commit/fb0bbdb54542e4ee9c92e1a391f60f86c847658b))
+* **cli:** consistent --json acks across admin verbs + broader golden coverage ([ea1ee82](https://github.com/ReyemTech/stint/commit/ea1ee8243f312b736140f5ea7c1d0052092aed11))
+* **core:** address Codex P1/P2 findings on Phase 6a verbs façade ([edf4b7a](https://github.com/ReyemTech/stint/commit/edf4b7a5e416c48254be2f019927ef46bf5e4f93))
+* **core:** EntryPatch uses serde_with double_option for 3-way distinction ([057d35a](https://github.com/ReyemTech/stint/commit/057d35a18877175211dd6da66e58920cd989c3c9))
+* **ui:** vi.hoisted stubEntryView so vi.mock factory can see it ([c0f202a](https://github.com/ReyemTech/stint/commit/c0f202aa4ab0ef723bae78e79c4bd865acb5c898))
+
 ## [0.2.0](https://github.com/ReyemTech/stint/compare/v0.1.5...v0.2.0) (2026-05-23)
 
 ### Features
