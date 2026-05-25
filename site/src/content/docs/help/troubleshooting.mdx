@@ -181,9 +181,9 @@ stint --json api info
 
 Three failure modes:
 
-- `enabled: false` — flip it on: `stint config set api.enabled true`,
-  then restart the GUI. The CLI doesn't host the API; only the GUI
-  process does.
+- `enabled: false` — flip it on in **Settings → Integrations** in the
+  GUI (or `stint config set api.enabled true`), then restart Stint.
+  The CLI doesn't host the API; only the GUI process does.
 - `enabled: true` but Stint.app isn't running — start it. The port is
   re-bound on every launch.
 - Pinned `api.port` collides with another process — clear it
