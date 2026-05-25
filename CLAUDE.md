@@ -276,6 +276,52 @@ git checkout -b phase-2.5
   populating `recurringEventId` on overrides and expanded instances.
   Phase 3b does NOT include an iCal RRULE expander — Phase 3d (CalDAV)
   is where that machinery will live.
+- **The `verbs::` façade is the single source of truth.** All
+  transports (CLI, Tauri commands, HTTP, MCP) delegate to
+  `stint_core::verbs::*`. Don't add a new transport without going
+  through the façade — duplicating logic at the transport layer is
+  how shapes drift.
+- **HTTP API is opt-in and loopback-only.** Settings keys:
+  `api.enabled` (default `false`), `api.host` (default `127.0.0.1`),
+  `api.port` (auto-picked + persisted to the settings table on each
+  GUI launch). The server lives inside the running GUI process; the
+  CLI does not host it. `stint api info` reads the persisted settings
+  and reports the bound URL — useful for scripts that need to discover
+  the ephemeral port. Endpoints live under `/v1/`. The model is "the
+  trust boundary is anything already running as your user"; no token,
+  loopback hard-locked, listener dies when the app quits.
+- **MCP server is a CLI subcommand, not a daemon.** `stint mcp` runs
+  the rmcp server over stdio. The MCP client (Claude Code, Codex,
+  OpenCode) spawns it as a child process — no socket. Install via
+  `stint skill install <claude|codex|opencode>`, which calls each
+  harness's native registration mechanism (`claude mcp add`, TOML
+  merge under `~/.codex/config.toml`, JSON merge under
+  `~/.config/opencode/opencode.json`) and drops the bundled SKILL.md
+  in the right place per harness.
+- **`stint://` URL scheme requires a real `.app` bundle.** macOS
+  LaunchServices registers the handler from the bundle's `Info.plist`
+  (`CFBundleURLSchemes`). `scripts/dev-app.sh` runs the raw binary
+  without a bundle and does NOT register URL handlers. To test deep
+  links, run `cargo tauri build` once and let LaunchServices pick up
+  the resulting `Stint.app` (or force a re-scan with `lsregister -f
+  /Applications/Stint.app`). Supported actions parsed by
+  `stint_core::url_scheme`: `stint://start?description=…&project=…&task=…&billable=true`,
+  `stint://stop`, `stint://current`, `stint://entry/<local-uuid>`.
+- **SKILL.md is the canonical AI-agent guidance.** Lives at
+  `crates/stint-cli/skills/stint/SKILL.md` and is `include_str!`-
+  bundled into all three harness installers so the same content lands
+  regardless of which harness the user picks. Rich content: surface
+  ladder (MCP → CLI → HTTP), workflow recipes, project-ID resolution,
+  time-math reference, recovery patterns for common Invariant errors.
+  Update this file when you add a new tool / verb / behavior — the
+  agent learns from it, not from the docs site.
+- **`stint generate-man <dir>` emits the man page.** Bundled into
+  `Stint.app/Contents/Resources/man/man1/stint.1` at `cargo tauri
+  build` time via `beforeBuildCommand`. The Homebrew cask formula in
+  `reyemtech/homebrew-tap` needs a `manpage` stanza to expose it to
+  `man(1)` on cask installs (separate PR — not landed yet). For
+  cargo / `curl|sh` users, `scripts/install-man.sh` is the manual
+  path.
 
 ## When you start work on a phase
 

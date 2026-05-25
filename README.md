@@ -160,15 +160,42 @@ rows are cascade-deleted from the local database. Any time entries
 already logged from calendar events remain (their `source_event_id`
 just becomes a dangling reference).
 
+## Other surfaces
+
+Beyond the menu-bar GUI and the interactive CLI, stint exposes the same
+operations through three more surfaces — all driven by the same
+`stint_core::verbs::*` façade, all documented at
+[stint.reyem.tech](https://stint.reyem.tech):
+
+- **Scriptable JSON** — every CLI verb accepts a global `--json` flag.
+  `stint --json current`, `stint --json start "writing tests"`,
+  `stint --json today | jq …`. Read verbs emit the canonical view
+  type; admin verbs emit a structured acknowledgement.
+- **AI integration (MCP)** — `stint mcp` is an MCP server over stdio
+  exposing 8 tools. `stint skill install <claude|codex|opencode>`
+  wires it into your harness in one shot, including a bundled
+  `SKILL.md` that teaches the agent when and how to call each tool.
+- **Loopback HTTP API** — off by default; enable with
+  `stint config set api.enabled true`. The GUI binds `127.0.0.1` on
+  an ephemeral port; discover the URL via `stint api info`. Endpoints
+  live under `/v1/`.
+- **`stint://` URL scheme** — for Raycast / Alfred / Shortcuts. Supports
+  `stint://start?description=…&project=…&billable=true`,
+  `stint://stop`, `stint://current`, `stint://entry/<local-uuid>`.
+
+The `stint(1)` man page (`man stint`) ships inside the Homebrew cask;
+for `cargo install` / `curl|sh` users, `scripts/install-man.sh`
+installs it to `/usr/local/share/man/man1/`.
+
 ## Architecture
 
 Both surfaces share `~/Library/Application Support/stint/stint.db`. Secrets
 live in macOS Keychain under the `tech.reyem.stint.*` service prefix.
 
 - `crates/stint-core/` — shared library: SQLite store, Solidtime client, sync
-  queue, timer service, recovery
+  queue, timer service, recovery, MCP/HTTP `verbs::` façade
 - `crates/stint-cli/` — the `stint` binary
-- `crates/stint-app/` — the Tauri 2 GUI binary
+- `crates/stint-app/` — the Tauri 2 GUI binary (hosts the loopback HTTP API)
 - `ui/` — SolidJS + Tailwind frontend
 
 ## Sync model
