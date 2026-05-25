@@ -17,10 +17,13 @@
 //! Panic safety: each FFI fn body runs inside `catch_unwind`. A caught panic
 //! becomes a `-1` envelope rather than undefined behavior across the C ABI.
 
-use crate::Error;
-use serde::Serialize;
-use std::ffi::{c_char, CString};
+use crate::store::Store;
+use crate::{paths, verbs, Error};
+use serde::{Deserialize, Serialize};
+use std::ffi::{c_char, CStr, CString};
 use std::panic;
+use std::sync::OnceLock;
+use tokio::runtime::Runtime;
 
 /// Stable error-code contract — see module docs.
 #[repr(i32)]
@@ -130,3 +133,204 @@ pub fn panic_for_test(out_json: *mut *mut c_char) {
     ffi_body::<_, ()>(out_json, || panic!("test panic"));
 }
 
+// ---- shared runtime + store ------------------------------------------
+
+/// Lazy multi-threaded Tokio runtime used to `block_on` async verbs from
+/// the synchronous FFI surface. One process-wide runtime; Swift callers
+/// never see tokio.
+fn runtime() -> &'static Runtime {
+    static RT: OnceLock<Runtime> = OnceLock::new();
+    RT.get_or_init(|| {
+        tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .enable_all()
+            .build()
+            .expect("ffi: failed to build tokio runtime")
+    })
+}
+
+/// Open the user-default `Store` for the current process and cache it.
+///
+/// The cache key is the DB path resolved via `paths::database_path()`. If
+/// `STINT_DATA_DIR` changes between calls (tests do this), the cache
+/// re-opens against the new path. Production opens once.
+fn store() -> Result<Store, Error> {
+    use std::collections::HashMap;
+    use std::path::PathBuf;
+    use std::sync::Mutex;
+    static CACHE: OnceLock<Mutex<HashMap<PathBuf, Store>>> = OnceLock::new();
+
+    let path = paths::database_path()?;
+    let cache = CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    {
+        let guard = cache.lock().unwrap();
+        if let Some(s) = guard.get(&path) {
+            return Ok(s.clone());
+        }
+    }
+    let s = runtime().block_on(Store::connect(&path))?;
+    cache.lock().unwrap().insert(path, s.clone());
+    Ok(s)
+}
+
+/// Parse a JSON-encoded `*const c_char` into a Deserialize. NULL maps to
+/// `Error::Invariant` so the caller sees an `err.code = 1` envelope.
+unsafe fn parse_params<'a, T: Deserialize<'a>>(ptr: *const c_char) -> Result<T, Error> {
+    if ptr.is_null() {
+        return Err(Error::Invariant("null params pointer".into()));
+    }
+    let cstr = unsafe { CStr::from_ptr(ptr) };
+    let s = cstr
+        .to_str()
+        .map_err(|e| Error::Invariant(format!("non-utf8 params: {e}")))?;
+    serde_json::from_str(s).map_err(Error::Serde)
+}
+
+// ---- verbs -----------------------------------------------------------
+
+/// Start a new running entry. JSON params match `verbs::StartParams`.
+///
+/// # Safety
+/// `params_json` is a NUL-terminated C string. `out_json` must point at a
+/// valid `*mut c_char` slot to receive the envelope (must be freed by the
+/// caller via [`stint_free_string`]).
+#[no_mangle]
+pub unsafe extern "C" fn stint_verb_start(
+    params_json: *const c_char,
+    out_json: *mut *mut c_char,
+) -> i32 {
+    ffi_body(out_json, || {
+        let params: verbs::StartParams = unsafe { parse_params(params_json) }?;
+        let store = store()?;
+        runtime().block_on(verbs::start(&store, params))
+    });
+    0
+}
+
+/// Stop the running entry. No params.
+///
+/// # Safety
+/// `out_json` must point at a valid `*mut c_char` slot.
+#[no_mangle]
+pub unsafe extern "C" fn stint_verb_stop(out_json: *mut *mut c_char) -> i32 {
+    ffi_body(out_json, || {
+        let store = store()?;
+        runtime().block_on(verbs::stop(&store))
+    });
+    0
+}
+
+/// Return the currently-running entry as `Option<EntryView>` (null if idle).
+///
+/// # Safety
+/// `out_json` must point at a valid `*mut c_char` slot.
+#[no_mangle]
+pub unsafe extern "C" fn stint_verb_current(out_json: *mut *mut c_char) -> i32 {
+    ffi_body(out_json, || {
+        let store = store()?;
+        runtime().block_on(verbs::current(&store))
+    });
+    0
+}
+
+/// List entries matching the given `EntryFilter` (JSON-encoded).
+///
+/// # Safety
+/// `filter_json` is a NUL-terminated JSON string (use `"{}"` for no filter).
+#[no_mangle]
+pub unsafe extern "C" fn stint_verb_list_entries(
+    filter_json: *const c_char,
+    out_json: *mut *mut c_char,
+) -> i32 {
+    ffi_body(out_json, || {
+        let filter: verbs::EntryFilter = unsafe { parse_params(filter_json) }?;
+        let store = store()?;
+        runtime().block_on(verbs::list_entries(&store, filter))
+    });
+    0
+}
+
+/// List all known projects.
+///
+/// # Safety
+/// `out_json` must point at a valid `*mut c_char` slot.
+#[no_mangle]
+pub unsafe extern "C" fn stint_verb_list_projects(out_json: *mut *mut c_char) -> i32 {
+    ffi_body(out_json, || {
+        let store = store()?;
+        runtime().block_on(verbs::list_projects(&store))
+    });
+    0
+}
+
+/// JSON shape for the `stint_verb_list_tasks` param: `{"project_id": "..."}` or `{}`.
+#[derive(Deserialize)]
+struct ListTasksParams {
+    #[serde(default)]
+    project_id: Option<String>,
+}
+
+/// List tasks for the given project, or all tasks if `project_id` is omitted.
+///
+/// # Safety
+/// `params_json` is a NUL-terminated JSON string.
+#[no_mangle]
+pub unsafe extern "C" fn stint_verb_list_tasks(
+    params_json: *const c_char,
+    out_json: *mut *mut c_char,
+) -> i32 {
+    ffi_body(out_json, || {
+        let p: ListTasksParams = unsafe { parse_params(params_json) }?;
+        let store = store()?;
+        runtime().block_on(verbs::list_tasks(&store, p.project_id))
+    });
+    0
+}
+
+/// JSON shape: `{"local_uuid": "...", "patch": <EntryPatch>}`.
+#[derive(Deserialize)]
+struct UpdateEntryParams {
+    local_uuid: String,
+    patch: verbs::EntryPatch,
+}
+
+/// Apply an `EntryPatch` to the entry identified by `local_uuid`.
+///
+/// # Safety
+/// `params_json` is a NUL-terminated JSON string.
+#[no_mangle]
+pub unsafe extern "C" fn stint_verb_update_entry(
+    params_json: *const c_char,
+    out_json: *mut *mut c_char,
+) -> i32 {
+    ffi_body(out_json, || {
+        let p: UpdateEntryParams = unsafe { parse_params(params_json) }?;
+        let store = store()?;
+        runtime().block_on(verbs::update_entry(&store, &p.local_uuid, p.patch))
+    });
+    0
+}
+
+/// JSON shape: `{"local_uuid": "..."}`.
+#[derive(Deserialize)]
+struct DeleteEntryParams {
+    local_uuid: String,
+}
+
+/// Delete the entry identified by `local_uuid`. Envelope `ok` is `{}` on success.
+///
+/// # Safety
+/// `params_json` is a NUL-terminated JSON string.
+#[no_mangle]
+pub unsafe extern "C" fn stint_verb_delete_entry(
+    params_json: *const c_char,
+    out_json: *mut *mut c_char,
+) -> i32 {
+    ffi_body(out_json, || {
+        let p: DeleteEntryParams = unsafe { parse_params(params_json) }?;
+        let store = store()?;
+        runtime().block_on(verbs::delete_entry(&store, &p.local_uuid))?;
+        Ok::<_, Error>(serde_json::json!({}))
+    });
+    0
+}
