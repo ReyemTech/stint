@@ -28,7 +28,8 @@ async fn main() -> Result<()> {
 
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_positioner::init())
-        .plugin(tauri_plugin_opener::init());
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_deep_link::init());
 
     #[cfg(feature = "updater")]
     let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
@@ -85,6 +86,24 @@ async fn main() -> Result<()> {
         ])
         .setup(move |app| {
             tray::build(app.handle())?;
+
+            // Register stint:// URL scheme handler. Each incoming URL is parsed
+            // by stint_core::url_scheme and dispatched to the verbs façade.
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                let handle = app.handle().clone();
+                app.deep_link().on_open_url(move |event| {
+                    for url in event.urls() {
+                        let url_str = url.to_string();
+                        let h = handle.clone();
+                        tauri::async_runtime::spawn(async move {
+                            if let Err(e) = handle_stint_url(&h, &url_str).await {
+                                tracing::warn!("stint:// dispatch failed for {url_str}: {e}");
+                            }
+                        });
+                    }
+                });
+            }
 
             // Loopback HTTP API (opt-in via `api.enabled` setting). Spawned on
             // the Tokio runtime so it lives for the GUI process lifetime.
@@ -191,5 +210,51 @@ async fn main() -> Result<()> {
         })
         .run(tauri::generate_context!())?;
 
+    Ok(())
+}
+
+async fn handle_stint_url<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    url: &str,
+) -> std::result::Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    use stint_core::url_scheme::{parse, Action};
+    let action = parse(url)?;
+
+    let state: tauri::State<'_, RwLock<AppState>> = app.state();
+    let store = {
+        let guard = state.read().await;
+        guard.store.clone()
+    };
+
+    match action {
+        Action::Start {
+            description,
+            project_id,
+            task_id,
+            billable,
+        } => {
+            stint_core::verbs::start(
+                &store,
+                stint_core::verbs::StartParams {
+                    description,
+                    project_id,
+                    task_id,
+                    billable,
+                    start_at: None,
+                    source: "url".into(),
+                },
+            )
+            .await?;
+        }
+        Action::Stop => {
+            stint_core::verbs::stop(&store).await?;
+        }
+        Action::OpenEntry { local_uuid: _ } | Action::Current => {
+            if let Some(win) = app.get_webview_window("main") {
+                let _ = win.show();
+                let _ = win.set_focus();
+            }
+        }
+    }
     Ok(())
 }
