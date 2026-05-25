@@ -12,7 +12,17 @@ vi.mock("~/api", () => ({
     setEntryBillable: vi.fn().mockResolvedValue(undefined),
     updateEntryTimes: vi.fn().mockResolvedValue(undefined),
     deleteEntry: vi.fn().mockResolvedValue(undefined),
-    restartEntry: vi.fn().mockResolvedValue("new-uuid"),
+    restartEntry: vi.fn().mockResolvedValue({
+      local_uuid: "new-uuid",
+      solidtime_id: null,
+      description: "deep work",
+      project_id: null,
+      task_id: null,
+      billable: false,
+      start_at: new Date().toISOString(),
+      end_at: null,
+      source: "gui",
+    }),
   },
 }));
 

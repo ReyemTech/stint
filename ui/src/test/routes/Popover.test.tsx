@@ -44,6 +44,22 @@ import { api } from "~/api";
 
 const flushMicrotasks = () => new Promise<void>((r) => setTimeout(r, 0));
 
+/// Build a minimal `RunningTimer` (= `EntryView`) for tests. Defaults
+/// every field the UI doesn't read so call sites can stay focused on the
+/// few fields they care about.
+const runningTimer = (overrides: Partial<RunningTimer>): RunningTimer => ({
+  local_uuid: "uuid-1",
+  solidtime_id: null,
+  description: "",
+  project_id: null,
+  task_id: null,
+  billable: false,
+  start_at: new Date().toISOString(),
+  end_at: null,
+  source: "gui",
+  ...overrides,
+});
+
 beforeEach(() => {
   setRunning(null);
   setElapsedSecs(0);
@@ -93,13 +109,12 @@ describe("<Popover> — idle state", () => {
 
 describe("<Popover> — running state", () => {
   it("renders Tracking + Live indicator + Stop button", async () => {
-    setRunning({
-      local_uuid: "uuid-1",
-      description: "morning standup",
-      start_at: new Date(Date.now() - 60_000).toISOString(),
-      project_id: null,
-      billable: false,
-    });
+    setRunning(
+      runningTimer({
+        description: "morning standup",
+        start_at: new Date(Date.now() - 60_000).toISOString(),
+      }),
+    );
     setElapsedSecs(60);
     const { getByText } = render(() => <Popover />);
     await flushMicrotasks();
@@ -112,10 +127,14 @@ describe("<Popover> — running state", () => {
   it("Stop timer button invokes timer.stop()", async () => {
     setRunning({
       local_uuid: "uuid-1",
+      solidtime_id: null,
       description: "x",
-      start_at: new Date().toISOString(),
       project_id: null,
+      task_id: null,
       billable: false,
+      start_at: new Date().toISOString(),
+      end_at: null,
+      source: "test",
     });
     const { getByText } = render(() => <Popover />);
     await flushMicrotasks();

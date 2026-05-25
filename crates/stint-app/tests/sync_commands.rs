@@ -27,7 +27,7 @@ async fn sync_now_drains_one_pending_create_and_marks_entry_synced() {
     let handle = ctx.handle();
 
     // Enqueue a create_entry op by starting and stopping a timer.
-    let id = start_timer(
+    let view = start_timer(
         handle.clone(),
         handle.state(),
         StartTimerArgs {
@@ -40,6 +40,7 @@ async fn sync_now_drains_one_pending_create_and_marks_entry_synced() {
     )
     .await
     .unwrap();
+    let id = view.local_uuid.clone();
     stop_timer(handle.clone(), handle.state()).await.unwrap();
 
     let server = MockServer::start().await;

@@ -7,11 +7,27 @@ import { createRoot } from "solid-js";
 vi.mock("@tauri-apps/api/event", () => ({
   listen: vi.fn().mockResolvedValue(() => {}),
 }));
+// Tauri timer commands now return the verbs `EntryView` shape (richer than
+// the legacy `string` id). Mocks return a minimal valid view; callers in
+// the store currently discard the return value, so only the type matters.
+const stubEntryView = (overrides: Partial<Record<string, unknown>> = {}) => ({
+  local_uuid: "local-uuid-1",
+  solidtime_id: null,
+  description: "stub",
+  project_id: null,
+  task_id: null,
+  billable: false,
+  start_at: new Date().toISOString(),
+  end_at: null,
+  source: "gui",
+  ...overrides,
+});
+
 vi.mock("~/api", () => ({
   api: {
     getRunningTimer: vi.fn(),
-    startTimer: vi.fn().mockResolvedValue("local-uuid-1"),
-    stopTimer: vi.fn().mockResolvedValue(""),
+    startTimer: vi.fn().mockResolvedValue(stubEntryView()),
+    stopTimer: vi.fn().mockResolvedValue(stubEntryView({ end_at: new Date().toISOString() })),
   },
 }));
 
@@ -48,13 +64,13 @@ describe("useTimerStore", () => {
 
   it("populates running and elapsedSecs from backend state", async () => {
     const startedAt = new Date(Date.now() - 10_000).toISOString();
-    vi.mocked(api.getRunningTimer).mockResolvedValue({
-      local_uuid: "uuid-1",
-      description: "deep work",
-      start_at: startedAt,
-      project_id: null,
-      billable: false,
-    });
+    vi.mocked(api.getRunningTimer).mockResolvedValue(
+      stubEntryView({
+        local_uuid: "uuid-1",
+        description: "deep work",
+        start_at: startedAt,
+      }) as unknown as Awaited<ReturnType<typeof api.getRunningTimer>>,
+    );
 
     await createRoot(async (dispose) => {
       const store = useTimerStore();

@@ -1,10 +1,23 @@
-export type RunningTimer = {
+/// Mirrors `stint_core::verbs::EntryView` — the canonical wire shape every
+/// transport returns for a single entry. `sync_state` is intentionally
+/// absent here (it's a local-only detail and not exposed by the verbs
+/// facade); use the richer `Entry` type below for list-style commands that
+/// re-fetch the sync flag.
+export type EntryView = {
   local_uuid: string;
+  solidtime_id: string | null;
   description: string;
-  start_at: string;
   project_id: string | null;
+  task_id: string | null;
   billable: boolean;
+  start_at: string;
+  end_at: string | null;
+  source: string;
 };
+
+/// Alias kept for the timer store, which only needs the running-entry
+/// subset of fields. Same shape as `EntryView` (no sync_state).
+export type RunningTimer = EntryView;
 
 export type Entry = {
   local_uuid: string;

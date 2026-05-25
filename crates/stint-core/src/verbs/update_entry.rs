@@ -10,6 +10,7 @@
 //! See `verbs::types::EntryPatch` for the encoding contract.
 
 use crate::store::entries::Entries;
+use crate::store::queue::{Queue, QueueOp};
 use crate::store::Store;
 use crate::verbs::types::{EntryPatch, EntryView};
 use crate::{Error, Result};
@@ -86,5 +87,18 @@ pub async fn update_entry(
         .get(local_uuid)
         .await?
         .ok_or_else(|| Error::NotFound(format!("entry {local_uuid}")))?;
+
+    // If a previously-synced entry was transitioned to "dirty" by one of the
+    // setters above, queue an update op so the sync worker reconciles with
+    // Solidtime. Mirrors the maybe_enqueue_update path in TimerService so the
+    // verb can replace the service for transports (CLI / Tauri / MCP).
+    if row.sync_state == "dirty" {
+        let queue = Queue::new(store.clone());
+        let payload = serde_json::to_string(&row)?;
+        queue
+            .enqueue(QueueOp::UpdateEntry, &payload, Some(local_uuid))
+            .await?;
+    }
+
     Ok(row.into())
 }
