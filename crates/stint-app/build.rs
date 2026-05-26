@@ -96,6 +96,42 @@ fn build_stint_intents_framework() -> Result<(), String> {
     let info_plist = dest.join("Versions/A/Resources/Info.plist");
     patch_info_plist(&info_plist).map_err(|e| format!("patch Info.plist: {e}"))?;
 
+    // The framework was signed by xcodebuild. Our copy + Metadata injection +
+    // Info.plist patch invalidated that signature. Re-sign ad-hoc so the
+    // framework loads at runtime (Gatekeeper rejects modified-but-signed
+    // bundles with "code has no resources but signature indicates they must
+    // be present"). Release builds get re-signed by the Tauri bundle step
+    // with a real identity; the ad-hoc signature here is just a stable base.
+    codesign_adhoc(&dest).map_err(|e| format!("codesign framework: {e}"))?;
+
+    // Tell cargo to link the stint-app binary against StintIntents.framework
+    // so the framework loads at app launch (and its @_cdecl symbols become
+    // resolvable via dlsym(RTLD_DEFAULT)). Without this the framework would
+    // sit unused in Contents/Frameworks/ — nothing pulls it into the process.
+    //
+    // -F <dir>:       framework search path
+    // -framework:     link directive
+    // -rpath @exec/.. /Frameworks: where dyld looks at launch time when the
+    //                 binary is run from inside an .app bundle. Matches what
+    //                 Tauri's bundle step copies to.
+    let frameworks_dir = Path::new(&manifest_dir).join("Frameworks");
+    println!(
+        "cargo:rustc-link-search=framework={}",
+        frameworks_dir.display()
+    );
+    // Use -needed_framework rather than -framework so ld doesn't dead-strip
+    // the LC_LOAD_DYLIB record when no Rust code references the framework's
+    // symbols at link time (all our calls go through dlsym).
+    println!("cargo:rustc-link-arg=-Wl,-F,{}", frameworks_dir.display());
+    println!("cargo:rustc-link-arg=-Wl,-needed_framework,StintIntents");
+    println!("cargo:rustc-link-arg=-Wl,-rpath,@executable_path/../Frameworks");
+    // Export the stint_verb_* / stint_settings_* / stint_log_warn /
+    // stint_current_focus_id / stint_free_string symbols (statically linked
+    // from libstint_core) so the dynamically-loaded StintIntents framework
+    // can resolve them at app launch — the framework was built with
+    // `-undefined dynamic_lookup`, expecting the host to provide them.
+    println!("cargo:rustc-link-arg=-Wl,-export_dynamic");
+
     println!(
         "cargo:warning=StintIntents framework rebuilt at {} (profile={})",
         dest.display(),
@@ -135,6 +171,27 @@ fn copy_dir(src: &Path, dst: &Path) -> std::io::Result<()> {
         } else {
             fs::copy(&src_path, &dst_path)?;
         }
+    }
+    Ok(())
+}
+
+/// Ad-hoc re-sign the framework. After build.rs injects Metadata.appintents
+/// and patches Info.plist, the original xcodebuild signature no longer matches
+/// the on-disk state. `codesign --force --sign -` overwrites with an ad-hoc
+/// signature, which is enough for dev/local runs. CI release builds re-sign
+/// the framework with the real Apple identity in release-artifacts.yml.
+fn codesign_adhoc(framework: &Path) -> Result<(), String> {
+    let status = Command::new("codesign")
+        .args([
+            "--force",
+            "--sign",
+            "-",
+            framework.to_str().ok_or("path not utf8")?,
+        ])
+        .status()
+        .map_err(|e| format!("codesign spawn: {e}"))?;
+    if !status.success() {
+        return Err(format!("codesign exit {status}"));
     }
     Ok(())
 }
