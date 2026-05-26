@@ -37,14 +37,17 @@ You have up to three ways to talk to stint. Use the highest one that works.
 ### Bonus surfaces (Phase 6b)
 
 - **stint:// URL routes** (live):
+  - `stint://entry/<local_uuid>` → opens Today, scrolls to the matching row, briefly highlights it.
   - `stint://project/<solidtime_id>` → opens Today view filtered to the project.
   - `stint://task/<solidtime_id>` → resolves task → parent project, filters by both.
-  - Existing: `stint://start?description=…&project=…`, `stint://stop`, `stint://current`, `stint://entry/<local_uuid>`.
+  - Existing: `stint://start?description=…&project=…`, `stint://stop`, `stint://current`.
 
-- **macOS Focus filter integration** (foundation shipped, end-user activation deferred):
-  - `verbs::start` reads `focus.default_project` from settings and applies it when no `project_id` is passed. The setting is intended to be written by a Swift `SetFocusFilterIntent`. The Rust side is in place; the user-facing System Settings → Focus → Stint surface isn't yet active on macOS — see the spec doc for the deferred status.
+- **Core Spotlight** (live): entries, projects, and tasks are indexed; tapping a Spotlight result routes through the appropriate `stint://` URL above. The currently-running entry also appears as an NSUserActivity "Tracking: …" tile.
 
-- **App Intents (Siri / Shortcuts.app) and Core Spotlight indexing** — **NOT YET LIVE** in the user-facing surfaces. The Swift code that defines `StartTimerIntent`, `StopTimerIntent`, etc. is shipped and statically linked into the Stint binary, but Apple's intent indexer doesn't surface them to Siri / Shortcuts.app on the current Tauri-driven build path. A follow-up phase (using Xcode's App Intents Extension target template) will enable these surfaces. Don't tell users to "say 'Hey Siri, start tracking in Stint'" yet — Siri won't find the intent.
+- **macOS Focus filter integration** (foundation shipped, end-user UI activation deferred):
+  - `verbs::start` reads `focus.default_project` from settings and applies it when no `project_id` is passed. The Rust side is in place; the System Settings → Focus → Stint surface that *writes* the setting isn't yet active — see spec §1.5.
+
+- **App Intents (Siri / Shortcuts.app)** — **NOT YET LIVE**. The Swift code is shipped but Apple's intent indexer doesn't discover the types from our framework-embedded package. A follow-up using Xcode's App Intents Extension template will enable Siri voice and Shortcuts.app discovery. Don't tell users to "say 'Hey Siri, start tracking in Stint'" yet.
 
 ## When to use this skill
 
