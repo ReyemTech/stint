@@ -1,23 +1,28 @@
 use std::env;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 fn main() {
-    if let Err(e) = build_stint_intents_framework() {
-        println!("cargo:warning=StintIntents framework build skipped: {e}");
+    if let Err(e) = build_stint_intents() {
+        println!("cargo:warning=StintIntents build skipped: {e}");
     }
     tauri_build::build()
 }
 
-/// Build the StintIntents.framework via xcodebuild and place a stable copy
-/// into `crates/stint-app/Frameworks/StintIntents.framework`, which
-/// `tauri.conf.json`'s `bundle.macOS.frameworks` references at app bundle
-/// time.
+/// Build the StintIntents Swift package as a static library, link its
+/// merged .o file into stint-app, and copy the App Intents metadata
+/// stencil to a path Tauri's bundle stage can consume.
 ///
-/// Set `STINT_SKIP_SWIFT_BUILD=1` to skip (useful for stint-core-only
-/// development cycles, CI runs that don't need the bundle, etc).
-fn build_stint_intents_framework() -> Result<(), String> {
+/// Why static: macOS's App Intents indexer only scans the main app binary's
+/// Swift module for type metadata. When intents lived in an embedded
+/// .framework, siriactionsd / Shortcuts.app silently skipped them. Linking
+/// the Swift `.o` into stint-app puts the types directly in the main
+/// binary's Mach-O where the indexer can find them.
+///
+/// Set `STINT_SKIP_SWIFT_BUILD=1` to skip (useful when iterating on
+/// stint-core only).
+fn build_stint_intents() -> Result<(), String> {
     if env::var_os("STINT_SKIP_SWIFT_BUILD").is_some_and(|v| !v.is_empty()) {
         return Err("STINT_SKIP_SWIFT_BUILD is set".into());
     }
@@ -32,8 +37,6 @@ fn build_stint_intents_framework() -> Result<(), String> {
         return Err(format!("missing {}", package_swift.display()));
     }
 
-    // Rerun-if-changed on every Swift source (cheap glob — depth 3 covers
-    // Sources/StintIntents/<area>/<file>.swift).
     println!("cargo:rerun-if-changed={}", package_swift.display());
     let sources_dir = swift_dir.join("Sources/StintIntents");
     if let Ok(entries) = fs::read_dir(&sources_dir) {
@@ -43,12 +46,10 @@ fn build_stint_intents_framework() -> Result<(), String> {
     }
     println!("cargo:rerun-if-env-changed=STINT_SKIP_SWIFT_BUILD");
 
-    let profile = env::var("PROFILE").unwrap_or_else(|_| "debug".into());
-    // Swift "Release" config maps to cargo "release"; we still build Swift
-    // release for both because Tauri's bundle step only consumes release
-    // artifacts and the framework is tiny.
     let derived_data = swift_dir.join("build/derived");
 
+    // xcodebuild (not plain `swift build`) so appintentsmetadataprocessor
+    // runs as a build phase and emits the Metadata.appintents stencil.
     let status = Command::new("xcodebuild")
         .current_dir(&swift_dir)
         .args([
@@ -70,72 +71,71 @@ fn build_stint_intents_framework() -> Result<(), String> {
         return Err(format!("xcodebuild exit {status}"));
     }
 
-    let built_framework =
-        derived_data.join("Build/Products/Release/PackageFrameworks/StintIntents.framework");
-    let metadata_bundle =
-        derived_data.join("Build/Products/Release/StintIntents.appintents/Metadata.appintents");
-    if !built_framework.exists() {
-        return Err(format!("missing {}", built_framework.display()));
+    let release_dir = derived_data.join("Build/Products/Release");
+    let static_obj = release_dir.join("StintIntents.o");
+    let stencil_dir = release_dir.join("StintIntents.appintents/Metadata.appintents");
+    if !static_obj.exists() {
+        return Err(format!("missing {}", static_obj.display()));
     }
-    if !metadata_bundle.exists() {
-        return Err(format!("missing {}", metadata_bundle.display()));
+    if !stencil_dir.exists() {
+        return Err(format!("missing {}", stencil_dir.display()));
     }
 
-    // Stable destination for Tauri to consume.
-    let dest = Path::new(&manifest_dir).join("Frameworks/StintIntents.framework");
-    let _ = fs::remove_dir_all(&dest);
-    copy_dir(&built_framework, &dest).map_err(|e| format!("copy framework: {e}"))?;
+    // Stable copy of the merged .o so the cargo link arg points at a path
+    // that survives `swift build` rebuilds and doesn't get pruned.
+    let stable_obj_dir = Path::new(&manifest_dir).join("build-deps");
+    fs::create_dir_all(&stable_obj_dir).map_err(|e| e.to_string())?;
+    let stable_obj = stable_obj_dir.join("StintIntents.o");
+    fs::copy(&static_obj, &stable_obj).map_err(|e| format!("copy .o: {e}"))?;
 
-    // Inject Metadata.appintents into Resources/.
-    let dest_meta = dest.join("Versions/A/Resources/Metadata.appintents");
-    let _ = fs::remove_dir_all(&dest_meta);
-    copy_dir(&metadata_bundle, &dest_meta).map_err(|e| format!("copy metadata: {e}"))?;
+    // Stable copy of the metadata stencil. tauri.conf.json references this
+    // path under bundle.resources so the stencil ends up at
+    // <Stint.app>/Contents/Resources/Metadata.appintents/ where macOS's
+    // intent indexer expects to find it.
+    let stable_stencil = Path::new(&manifest_dir).join("Metadata.appintents");
+    let _ = fs::remove_dir_all(&stable_stencil);
+    copy_dir(&stencil_dir, &stable_stencil).map_err(|e| format!("copy stencil: {e}"))?;
 
-    // Patch Info.plist with NSAppIntentsPackage=YES so macOS auto-discovers
-    // the embedded intents when the framework loads.
-    let info_plist = dest.join("Versions/A/Resources/Info.plist");
-    patch_info_plist(&info_plist).map_err(|e| format!("patch Info.plist: {e}"))?;
-
-    // The framework was signed by xcodebuild. Our copy + Metadata injection +
-    // Info.plist patch invalidated that signature. Re-sign ad-hoc so the
-    // framework loads at runtime (Gatekeeper rejects modified-but-signed
-    // bundles with "code has no resources but signature indicates they must
-    // be present"). Release builds get re-signed by the Tauri bundle step
-    // with a real identity; the ad-hoc signature here is just a stable base.
-    codesign_adhoc(&dest).map_err(|e| format!("codesign framework: {e}"))?;
-
-    // Tell cargo to link the stint-app binary against StintIntents.framework
-    // so the framework loads at app launch (and its @_cdecl symbols become
-    // resolvable via dlsym(RTLD_DEFAULT)). Without this the framework would
-    // sit unused in Contents/Frameworks/ — nothing pulls it into the process.
+    // Link the Swift static .o into stint-app + pull in everything Swift
+    // needs at runtime.
     //
-    // -F <dir>:       framework search path
-    // -framework:     link directive
-    // -rpath @exec/.. /Frameworks: where dyld looks at launch time when the
-    //                 binary is run from inside an .app bundle. Matches what
-    //                 Tauri's bundle step copies to.
-    let frameworks_dir = Path::new(&manifest_dir).join("Frameworks");
+    // -force_load (instead of bare path): release LTO would otherwise strip
+    // the Swift type metadata records (`_$s12StintIntents...`) because no
+    // Rust code references them at link time. Apple's App Intents indexer
+    // needs those records present in the main binary's Mach-O to discover
+    // the intent types via reflection.
     println!(
-        "cargo:rustc-link-search=framework={}",
-        frameworks_dir.display()
+        "cargo:rustc-link-arg=-Wl,-force_load,{}",
+        stable_obj.display()
     );
-    // Use -needed_framework rather than -framework so ld doesn't dead-strip
-    // the LC_LOAD_DYLIB record when no Rust code references the framework's
-    // symbols at link time (all our calls go through dlsym).
-    println!("cargo:rustc-link-arg=-Wl,-F,{}", frameworks_dir.display());
-    println!("cargo:rustc-link-arg=-Wl,-needed_framework,StintIntents");
-    println!("cargo:rustc-link-arg=-Wl,-rpath,@executable_path/../Frameworks");
-    // Export the stint_verb_* / stint_settings_* / stint_log_warn /
-    // stint_current_focus_id / stint_free_string symbols (statically linked
-    // from libstint_core) so the dynamically-loaded StintIntents framework
-    // can resolve them at app launch — the framework was built with
-    // `-undefined dynamic_lookup`, expecting the host to provide them.
+
+    // Swift runtime — macOS ships these in /usr/lib/swift; the linker also
+    // needs the toolchain's runtime stub.
+    println!("cargo:rustc-link-search=native=/usr/lib/swift");
+    let xcode_swift = "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx";
+    println!("cargo:rustc-link-search=native={xcode_swift}");
+    println!("cargo:rustc-link-arg=-Wl,-rpath,/usr/lib/swift");
+
+    // Apple frameworks the Swift code references.
+    for fw in [
+        "AppIntents",
+        "CoreSpotlight",
+        "UniformTypeIdentifiers",
+        "Foundation",
+        "CoreFoundation",
+    ] {
+        println!("cargo:rustc-link-lib=framework={fw}");
+    }
+
+    // Export Rust FFI symbols (stint_verb_*, etc) so Swift code statically
+    // linked in this same binary can resolve them — they were marked
+    // #[no_mangle] but cargo's default visibility doesn't put them in the
+    // dynamic symbol table.
     println!("cargo:rustc-link-arg=-Wl,-export_dynamic");
 
     println!(
-        "cargo:warning=StintIntents framework rebuilt at {} (profile={})",
-        dest.display(),
-        profile
+        "cargo:warning=StintIntents static linked into stint-app; stencil at {}",
+        stable_stencil.display()
     );
 
     Ok(())
@@ -164,7 +164,6 @@ fn copy_dir(src: &Path, dst: &Path) -> std::io::Result<()> {
         let dst_path = dst.join(entry.file_name());
         if typ.is_symlink() {
             let target = fs::read_link(&src_path)?;
-            // best-effort symlink; ignore if it already exists
             let _ = std::os::unix::fs::symlink(target, &dst_path);
         } else if typ.is_dir() {
             copy_dir(&src_path, &dst_path)?;
@@ -175,59 +174,5 @@ fn copy_dir(src: &Path, dst: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
-/// Ad-hoc re-sign the framework. After build.rs injects Metadata.appintents
-/// and patches Info.plist, the original xcodebuild signature no longer matches
-/// the on-disk state. `codesign --force --sign -` overwrites with an ad-hoc
-/// signature, which is enough for dev/local runs. CI release builds re-sign
-/// the framework with the real Apple identity in release-artifacts.yml.
-fn codesign_adhoc(framework: &Path) -> Result<(), String> {
-    let status = Command::new("codesign")
-        .args([
-            "--force",
-            "--sign",
-            "-",
-            framework.to_str().ok_or("path not utf8")?,
-        ])
-        .status()
-        .map_err(|e| format!("codesign spawn: {e}"))?;
-    if !status.success() {
-        return Err(format!("codesign exit {status}"));
-    }
-    Ok(())
-}
-
-/// Inject `NSAppIntentsPackage=true` into the framework Info.plist via
-/// `plutil`. The plist is generated by xcodebuild with the standard
-/// framework keys; we just need to add the App Intents marker.
-fn patch_info_plist(path: &Path) -> Result<(), String> {
-    if !path.exists() {
-        return Err(format!("missing {}", path.display()));
-    }
-    let status = Command::new("plutil")
-        .args([
-            "-insert",
-            "NSAppIntentsPackage",
-            "-bool",
-            "YES",
-            path.to_str().ok_or("path not utf8")?,
-        ])
-        .status()
-        .map_err(|e| format!("plutil spawn: {e}"))?;
-    if !status.success() {
-        // -insert errors if the key already exists; try -replace as a fallback.
-        let replace = Command::new("plutil")
-            .args([
-                "-replace",
-                "NSAppIntentsPackage",
-                "-bool",
-                "YES",
-                path.to_str().ok_or("path not utf8")?,
-            ])
-            .status()
-            .map_err(|e| format!("plutil replace spawn: {e}"))?;
-        if !replace.success() {
-            return Err(format!("plutil failed: {replace}"));
-        }
-    }
-    Ok(())
-}
+#[allow(dead_code)]
+fn _unused(p: PathBuf) {}

@@ -49,8 +49,8 @@
     ],
     "resources": {
       "resources/man1/stint.1": "man/man1/stint.1",
-      "Frameworks/StintIntents.framework/Versions/A/Resources/Metadata.appintents/version.json": "Metadata.appintents/version.json",
-      "Frameworks/StintIntents.framework/Versions/A/Resources/Metadata.appintents/extract.actionsdata": "Metadata.appintents/extract.actionsdata"
+      "Metadata.appintents/version.json": "Metadata.appintents/version.json",
+      "Metadata.appintents/extract.actionsdata": "Metadata.appintents/extract.actionsdata"
     },
     "icon": [
       "icons/32x32.png",
@@ -63,10 +63,7 @@
       "providerShortName": null,
       "hardenedRuntime": true,
       "entitlements": "entitlements.plist",
-      "minimumSystemVersion": "13.0",
-      "frameworks": [
-        "Frameworks/StintIntents.framework"
-      ]
+      "minimumSystemVersion": "13.0"
     }
   },
   "plugins": {

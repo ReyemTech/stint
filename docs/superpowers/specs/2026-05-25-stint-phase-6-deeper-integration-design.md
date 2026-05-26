@@ -2,11 +2,37 @@
 
 Extend stint beyond CLI/GUI/MCP/HTTP into the macOS shell itself — App Intents (Shortcuts + Siri + Focus filters), Core Spotlight (CSSearchableIndex + NSUserActivity), Raycast/Alfred surfaces, WidgetKit, and idle detection. Built on top of the Phase 6a verbs façade.
 
-- **Status:** Confirmed 2026-05-25
+- **Status:** Confirmed 2026-05-25. **Shipped 2026-05-26 as foundation-only — see §1.5 for what's actually live vs deferred.**
 - **Predecessors:** Phase 6a (verbs façade, MCP, HTTP API, `stint://` URL scheme, `stint skill install`, man page — shipped)
 - **Decomposition:** This phase splits into two sub-phases.
   - **6b** — Core Spotlight + App Intents (Shortcuts / Siri / Focus filters). Detailed below.
   - **6c** — Raycast extension + Alfred workflow + WidgetKit + idle detection. Outlined here, full spec to be written when 6b ships.
+
+## 1.5 What actually shipped (2026-05-26)
+
+**This is a deferred-scope ship.** The Rust foundation + Swift codepath compile, link, and execute cleanly on a real Apple-Developer-ID-signed + notarized bundle, but Apple's intent indexer (`siriactionsd` / `assistantd` / Shortcuts.app) never picks up our App Intents despite every documented prerequisite being in place. After extended debugging — including switching from embedded framework to static-linked-into-main-binary, ad-hoc and Developer-ID signing, full notarization, app-level Metadata.appintents stencil — we accept that the path from "intents in a SwiftPM target linked into a non-Xcode-driven app" to "macOS shell discovery" has an undocumented gap we couldn't isolate from CLI.
+
+| Surface | Status | Notes |
+|---|---|---|
+| Rust FFI bridge (`stint_core::ffi`) | ✅ shipped | 8 verb wrappers, settings, log forwarder, focus id, notify_indexer hook — all tested via cargo tests |
+| `stint://` URL routes (project / task) | ✅ shipped | Tauri deep-link handler routes both to the SolidJS UI |
+| `focus.default_project` fallback in `verbs::start` | ✅ shipped | Applies the focus filter's persisted default; reconciled against current focus id |
+| Swift Package (StintIntents) — code | ✅ shipped | Static-linked into stint-app's main binary. Compiles + runs `stint_intents_init` at app launch (verified in production log) |
+| App Intents discovery by Siri / Shortcuts.app | ❌ deferred | Apple's indexer remains silent on our bundle. Likely requires using Apple's App Intents Extension (.appex) target template, which Tauri can't currently produce |
+| Core Spotlight indexing of entries / projects / tasks | ❌ deferred | `CSSearchableIndex.indexSearchableItems` calls succeed (no errors) but items don't appear in Spotlight results — likely the same root cause as App Intents discovery |
+| `NSUserActivity` for the running entry | ❌ deferred | Same |
+| `ProjectFocusFilter` in System Settings → Focus | ❌ deferred | Doesn't appear in the filter list (the OS-side surface where Focus filter intents are configured by the user) |
+
+**What this is good for:** the FFI bridge, URL scheme, and focus-fallback work give 6c (and future Xcode-driven phases) a real foundation to build on. The Swift package is a known-good codebase ready to be lifted into an App Intents Extension target.
+
+**What this is not good for:** anything that requires Siri or Spotlight surfacing today.
+
+**Re-enabling the deferred surfaces** is a follow-up that should:
+1. Add a real `.xcodeproj` (or `.appex` extension target) that produces a proper App Intents Extension bundle under `Contents/PlugIns/`.
+2. Move the existing Swift code into that target unchanged.
+3. The Rust FFI surface is already in place — no Rust changes needed.
+
+The 6c scope (Raycast / Alfred / WidgetKit / idle) is unaffected by the deferral: those surfaces don't go through Apple's intent indexer.
 
 ## 1. Goal
 

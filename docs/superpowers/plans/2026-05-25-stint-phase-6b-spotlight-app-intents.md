@@ -1,5 +1,8 @@
 # stint Phase 6b: Spotlight + App Intents Implementation Plan
 
+> **2026-05-26 ship status — read this before editing the plan.**
+> Phase 6b shipped as **foundation-only**. The Rust FFI bridge (`stint_core::ffi`), URL scheme additions, focus-default fallback in `verbs::start`, and the Swift package (static-linked into stint-app's main binary) all shipped and tested. The user-facing Siri / Spotlight / Focus-filter surfaces did NOT activate — Apple's intent indexer remains silent on the bundle despite real Developer ID signing, notarization, app-level Metadata.appintents, and Swift type metadata correctly present in the main binary. The deferral is documented in `docs/superpowers/specs/2026-05-25-stint-phase-6-deeper-integration-design.md` §1.5. A follow-up phase using Xcode's App Intents Extension target template will re-enable those surfaces.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Land `StintIntents.framework` inside `Stint.app` so macOS Spotlight indexes entries/projects/tasks, App Intents expose all 8 verbs as Custom Shortcuts (with 5 of them promoted as App Shortcuts with voice phrases), and a Focus filter sets the default project for new timers per Focus mode.

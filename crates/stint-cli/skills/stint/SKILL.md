@@ -34,17 +34,17 @@ You have up to three ways to talk to stint. Use the highest one that works.
 
 **Pick a surface and stick with it within a single user request** to avoid mixing read/write paths.
 
-### Bonus surfaces (Phase 6b — user-facing, agent-aware)
+### Bonus surfaces (Phase 6b)
 
-These are macOS shell surfaces. Agents don't invoke them directly, but should know they exist when answering questions about how the user works with stint:
-
-- **App Intents in Shortcuts.app + Siri** — 5 App Shortcuts (Start Timer, Stop Timer, Current Timer, Switch Project, Log Past Work) callable via voice ("Hey Siri, start tracking in Stint") and Spotlight quick actions. All 8 verbs + 2 composed (SwitchProject, LogPast) are discoverable as Custom Shortcuts.
-- **Core Spotlight** — entries, projects, and tasks are indexed. Cmd+Space → "client meeting" → tap → opens the entry. Cmd+Space → "Acme" → tap → opens stint filtered to that project.
-- **macOS Focus filter** — `System Settings → Focus → <mode> → Add Filter → Stint → Default Project`. While that focus is active, new `stint start` calls without an explicit project pick up the Focus-defaulted project. **Race window:** if the user activates a focus while Stint.app is cold-launching, the default may not have been written yet — the next `stint start` will record the entry without the project, fixable via `stint edit`.
-- **stint:// URL routes** (additions for 6b):
+- **stint:// URL routes** (live):
   - `stint://project/<solidtime_id>` → opens Today view filtered to the project.
   - `stint://task/<solidtime_id>` → resolves task → parent project, filters by both.
   - Existing: `stint://start?description=…&project=…`, `stint://stop`, `stint://current`, `stint://entry/<local_uuid>`.
+
+- **macOS Focus filter integration** (foundation shipped, end-user activation deferred):
+  - `verbs::start` reads `focus.default_project` from settings and applies it when no `project_id` is passed. The setting is intended to be written by a Swift `SetFocusFilterIntent`. The Rust side is in place; the user-facing System Settings → Focus → Stint surface isn't yet active on macOS — see the spec doc for the deferred status.
+
+- **App Intents (Siri / Shortcuts.app) and Core Spotlight indexing** — **NOT YET LIVE** in the user-facing surfaces. The Swift code that defines `StartTimerIntent`, `StopTimerIntent`, etc. is shipped and statically linked into the Stint binary, but Apple's intent indexer doesn't surface them to Siri / Shortcuts.app on the current Tauri-driven build path. A follow-up phase (using Xcode's App Intents Extension target template) will enable these surfaces. Don't tell users to "say 'Hey Siri, start tracking in Stint'" yet — Siri won't find the intent.
 
 ## When to use this skill
 

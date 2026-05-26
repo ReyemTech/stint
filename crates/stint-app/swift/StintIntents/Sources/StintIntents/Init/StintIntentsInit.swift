@@ -1,10 +1,47 @@
 import Foundation
 
-/// Called once by Rust during Tauri's `setup()` hook. First call to a Swift
-/// symbol forces the framework's lazy dylib load; this fn kicks off
-/// Spotlight bulk refresh and NSUserActivity boot.
+/// Called once by Rust during Tauri's `setup()` hook.
+///
+/// Two responsibilities:
+///
+/// 1. **Keep the intent types alive.** Release LTO would otherwise dead-
+///    strip the Swift type metadata records for our intent/entity types
+///    because no Rust code reaches them — but Apple's App Intents indexer
+///    scans the main binary's Mach-O for those exact records to discover
+///    discoverable intents. Holding a reference to `.self` of each forces
+///    the linker to keep them.
+/// 2. Kick off Spotlight bulk refresh + NSUserActivity boot.
 @_cdecl("stint_intents_init")
 public func stint_intents_init() -> Int32 {
+    // Anchor the intent + provider + filter type metadata so LTO doesn't
+    // strip them. We don't actually use the array — just having the
+    // expression in code that's reachable from an @_cdecl entry point is
+    // enough.
+    let anchors: [Any.Type] = [
+        StartTimerIntent.self,
+        StopTimerIntent.self,
+        GetCurrentIntent.self,
+        SwitchProjectIntent.self,
+        LogPastIntent.self,
+        ListEntriesIntent.self,
+        ListProjectsIntent.self,
+        ListTasksIntent.self,
+        UpdateEntryIntent.self,
+        DeleteEntryIntent.self,
+        ProjectFocusFilter.self,
+        StintAppShortcutsProvider.self,
+        ProjectEntity.self,
+        TaskEntity.self,
+        EntryEntity.self,
+        ProjectQuery.self,
+        TaskQuery.self,
+        EntryQuery.self,
+    ]
+    // Force a side effect the compiler can't elide so the anchor array is
+    // really materialized. Without this `_ = anchors.count` would get
+    // const-folded and the metadata records dropped again under LTO.
+    NSLog("StintIntents: anchored %d types", anchors.count)
+
     SpotlightIndexer.shared.bulkRefresh()
     ActivityTracker.shared.boot()
     return 0
