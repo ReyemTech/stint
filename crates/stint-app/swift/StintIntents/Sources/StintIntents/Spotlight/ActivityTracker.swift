@@ -33,6 +33,13 @@ public final class ActivityTracker: @unchecked Sendable {
         let activity = NSUserActivity(activityType: Self.activityType)
         activity.title = "Tracking: \(entry.entryDescription)"
         activity.userInfo = ["uuid": entry.id]
+        // webpageURL is what Spotlight + Handoff dispatch when the activity
+        // is selected. Setting it to our deep-link scheme makes the existing
+        // tauri-plugin-deep-link handler in stint-app/src/main.rs route to
+        // the entry. Without this, macOS just launches the app with the
+        // activity attached but no obvious dispatch target on the Tauri/Rust
+        // side.
+        activity.webpageURL = URL(string: "stint://entry/\(entry.id)")
         activity.isEligibleForSearch = true
         activity.isEligibleForHandoff = true
         // NSUserActivity.isEligibleForPrediction is iOS-only; no macOS equivalent.

@@ -121,6 +121,10 @@ public final class SpotlightIndexer: @unchecked Sendable {
         if let projectId = entry.projectId {
             attrs.containerIdentifier = projectId
         }
+        // Tap → open via stint:// URL scheme. tauri-plugin-deep-link
+        // routes stint://entry/<uuid> to the OpenEntry action in
+        // stint-app/src/main.rs.
+        attrs.url = URL(string: "stint://entry/\(entry.id)")
         return CSSearchableItem(
             uniqueIdentifier: entry.id,
             domainIdentifier: Self.entryDomain,
@@ -149,6 +153,7 @@ public final class SpotlightIndexer: @unchecked Sendable {
         attrs.title = project.name
         attrs.contentDescription = "Project"
         attrs.keywords = ["stint", "project", project.name]
+        attrs.url = URL(string: "stint://project/\(project.solidtimeId)")
         return CSSearchableItem(
             uniqueIdentifier: project.solidtimeId,
             domainIdentifier: Self.projectDomain,
@@ -177,6 +182,7 @@ public final class SpotlightIndexer: @unchecked Sendable {
         attrs.title = task.name
         attrs.contentDescription = "Task in project \(task.projectId)"
         attrs.keywords = ["stint", "task", task.name]
+        attrs.url = URL(string: "stint://task/\(task.solidtimeId)")
         return CSSearchableItem(
             uniqueIdentifier: task.solidtimeId,
             domainIdentifier: Self.taskDomain,
