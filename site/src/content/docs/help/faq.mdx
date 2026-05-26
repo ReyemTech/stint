@@ -252,6 +252,8 @@ Yes. Stint.app registers the `stint://` URL scheme on macOS:
 | `stint://stop` | Stop the running timer |
 | `stint://current` | Focus the current-entry view |
 | `stint://entry/<local-uuid>` | Open an entry in the main window |
+| `stint://project/<solidtime-id>` | Open the Today view focused on a project |
+| `stint://task/<solidtime-id>` | Open Today filtered to a task (resolves parent project automatically) |
 
 `open "stint://stop"` from the shell, or wire into Raycast / Alfred /
 Shortcuts.
