@@ -36,8 +36,14 @@ public final class SpotlightIndexer: @unchecked Sendable {
 
     /// Re-fetch every entry/project/task from stint-core and reindex.
     /// Idempotent: existing items with matching uniqueIdentifier are upserted.
+    ///
+    /// Uses `DispatchQueue.global()` rather than `Task.detached` because
+    /// Swift's structured concurrency runtime is brittle when initialized
+    /// from a non-Swift host binary (Tauri-managed Rust runtime); detached
+    /// tasks sometimes never schedule. DispatchQueue is plain-old-GCD and
+    /// reliably runs.
     public func bulkRefresh() {
-        Task.detached(priority: .background) { [self] in
+        DispatchQueue.global(qos: .background).async { [self] in
             refreshEntries()
             refreshProjects()
             refreshTasks()
@@ -47,7 +53,7 @@ public final class SpotlightIndexer: @unchecked Sendable {
     /// Apply a delta the Rust side pushed in. Decodes the payload per kind
     /// and dispatches the index/delete call to a background queue.
     public func delta(kind: IndexerKind, payload: String) {
-        Task.detached(priority: .background) { [self] in
+        DispatchQueue.global(qos: .background).async { [self] in
             do {
                 switch kind {
                 case .entryStarted, .entryStopped, .entryUpdated:

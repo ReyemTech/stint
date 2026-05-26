@@ -304,22 +304,20 @@ fn focus_main_window_at_route<R: tauri::Runtime>(app: &tauri::AppHandle<R>, rout
 /// Best-effort init of the StintIntents Swift framework via dlsym lookup
 /// of `stint_intents_init`. No-op when the symbol isn't present (the
 /// framework isn't bundled into the running binary).
+// The Swift @_cdecl symbol is statically linked into this same binary
+// (see crates/stint-app/build.rs). Declare it as an extern "C" so we call
+// it directly — dlsym(RTLD_DEFAULT) returns null because the symbol isn't
+// in the binary's dynamic symbol table even with -export_dynamic (strip
+// removes non-referenced exports at the final binary step).
+extern "C" {
+    fn stint_intents_init() -> i32;
+}
+
 fn init_stint_intents() {
-    use std::ffi::CString;
-    type InitFn = unsafe extern "C" fn() -> i32;
-    let name = CString::new("stint_intents_init").unwrap();
-    let sym = unsafe { libc::dlsym(libc::RTLD_DEFAULT, name.as_ptr()) };
-    if sym.is_null() {
-        tracing::debug!(
-            "stint_intents_init not present; Spotlight/App Intents integration disabled"
-        );
-        return;
-    }
-    let f: InitFn = unsafe { std::mem::transmute(sym) };
-    let rc = unsafe { f() };
+    let rc = unsafe { stint_intents_init() };
     if rc != 0 {
         tracing::warn!(rc, "stint_intents_init returned non-zero");
     } else {
-        tracing::info!("StintIntents framework initialized");
+        tracing::info!("StintIntents initialized");
     }
 }
