@@ -1,4 +1,5 @@
 import { Show, createMemo, createResource, createSignal, onCleanup } from "solid-js";
+import { useSearchParams } from "@solidjs/router";
 import { listen } from "@tauri-apps/api/event";
 import { api, pullNow } from "~/api";
 import CalendarSection from "~/components/CalendarSection";
@@ -15,6 +16,14 @@ import { useTimerStore } from "~/stores/timer";
 
 export default function Today() {
   const timer = useTimerStore();
+  const [searchParams] = useSearchParams();
+  // `?entry=<uuid>` set by the stint:// deep-link handler (Spotlight taps
+  // and similar) — EntryList uses it to scroll the matching row into
+  // view + briefly highlight it.
+  const focusUuid = () => {
+    const raw = searchParams.entry;
+    return typeof raw === "string" ? raw : undefined;
+  };
   const [entries, { refetch }] = createResource(() => api.listToday());
   const [syncing, setSyncing] = createSignal(false);
   const [syncMsg, setSyncMsg] = createSignal<string | null>(null);
@@ -124,6 +133,7 @@ export default function Today() {
             <div class="rounded-2xl border border-black/[0.06] bg-white dark:border-white/[0.06] dark:bg-zinc-900">
               <EntryList
                 entries={entries() ?? []}
+                focusUuid={focusUuid()}
                 onChange={() => refetch()}
               />
             </div>

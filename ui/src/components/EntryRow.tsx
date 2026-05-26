@@ -1,4 +1,4 @@
-import { Show, createSignal } from "solid-js";
+import { Show, createEffect, createSignal, onMount } from "solid-js";
 import { api } from "~/api";
 import { entryDurationSecs, entrySyncMeta } from "~/lib/entryFormat";
 import type { Entry } from "~/types";
@@ -11,13 +11,37 @@ export default function EntryRow(props: {
   entry: Entry;
   projectName?: string;
   isFirst?: boolean;
+  /// When true, scroll this row into view + briefly highlight it (driven
+  /// by `?entry=<local_uuid>` in the URL — Spotlight deep-link taps).
+  focused?: boolean;
   /// Fires after any save or delete in the dialog. Callers refetch here.
   onChange?: () => void;
 }) {
   const [editing, setEditing] = createSignal(false);
   const [restarting, setRestarting] = createSignal(false);
+  // Holds a temporary "just focused" flag — drives a yellow ring for ~2.5s
+  // after a deep-link tap so the user can see which row matched.
+  const [pulse, setPulse] = createSignal(false);
+  let rowEl: HTMLLIElement | undefined;
   const isRunning = !props.entry.end_at;
   const meta = () => entrySyncMeta(props.entry.sync_state, isRunning);
+
+  function applyFocusHighlight() {
+    if (!props.focused || !rowEl) return;
+    // Defer scroll until layout settles after the route transition.
+    requestAnimationFrame(() => {
+      rowEl?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    setPulse(true);
+    setTimeout(() => setPulse(false), 2500);
+  }
+
+  onMount(applyFocusHighlight);
+  createEffect(() => {
+    // Re-trigger when props.focused flips true on an existing row (e.g.
+    // the user taps a different Spotlight result while the view is mounted).
+    if (props.focused) applyFocusHighlight();
+  });
 
   async function handleRestart() {
     if (restarting()) return;
@@ -34,9 +58,12 @@ export default function EntryRow(props: {
 
   return (
     <li
+      ref={rowEl}
       class="flex items-center transition hover:bg-zinc-50 dark:hover:bg-zinc-800/40"
       classList={{
         "border-t border-black/[0.04] dark:border-white/[0.04]": !props.isFirst,
+        "ring-2 ring-amber-400 ring-inset bg-amber-50 dark:bg-amber-900/20":
+          pulse(),
       }}
     >
       <button

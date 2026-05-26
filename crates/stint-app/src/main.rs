@@ -263,11 +263,35 @@ async fn handle_stint_url<R: tauri::Runtime>(
         Action::Stop => {
             stint_core::verbs::stop(&store).await?;
         }
-        Action::OpenEntry { local_uuid: _ } | Action::Current => {
-            if let Some(win) = app.get_webview_window("main") {
-                let _ = win.show();
-                let _ = win.set_focus();
-            }
+        Action::OpenEntry { local_uuid } => {
+            // Look up the entry's start_at so we can navigate to the day
+            // it belongs to (Today only shows today; a stint:// link from
+            // Spotlight may point at an older entry).
+            let route = match stint_core::verbs::list_entries(
+                &store,
+                stint_core::verbs::EntryFilter {
+                    limit: Some(1000),
+                    ..Default::default()
+                },
+            )
+            .await
+            {
+                Ok(entries) => entries
+                    .into_iter()
+                    .find(|e| e.local_uuid == local_uuid)
+                    .map(|e| {
+                        // Pass entry+date so Today (or future routes) can
+                        // scroll to / highlight the row.
+                        let date = e.start_at.split('T').next().unwrap_or("").to_string();
+                        format!("/today?entry={local_uuid}&date={date}")
+                    })
+                    .unwrap_or_else(|| format!("/today?entry={local_uuid}")),
+                Err(_) => format!("/today?entry={local_uuid}"),
+            };
+            focus_main_window_at_route(app, &route);
+        }
+        Action::Current => {
+            focus_main_window_at_route(app, "/today");
         }
         Action::OpenProject { project_id } => {
             focus_main_window_at_route(app, &format!("/today?project={project_id}"));

@@ -5,6 +5,9 @@ import EntryRow from "./EntryRow";
 
 export default function EntryList(props: {
   entries: Entry[];
+  /// When set, the matching entry row scrolls into view + briefly highlights.
+  /// Driven by `?entry=<local_uuid>` in the route (Spotlight deep-link taps).
+  focusUuid?: string;
   /// Fires after any save or delete in a row's edit dialog. Callers refetch here.
   onChange?: () => void;
 }) {
@@ -33,6 +36,7 @@ export default function EntryList(props: {
               entry={e}
               projectName={projectName()(e.project_id)}
               isFirst={i() === 0}
+              focused={props.focusUuid === e.local_uuid}
               onChange={props.onChange}
             />
           )}
