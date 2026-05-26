@@ -48,7 +48,9 @@
       "app"
     ],
     "resources": {
-      "resources/man1/stint.1": "man/man1/stint.1"
+      "resources/man1/stint.1": "man/man1/stint.1",
+      "Frameworks/StintIntents.framework/Versions/A/Resources/Metadata.appintents/version.json": "Metadata.appintents/version.json",
+      "Frameworks/StintIntents.framework/Versions/A/Resources/Metadata.appintents/extract.actionsdata": "Metadata.appintents/extract.actionsdata"
     },
     "icon": [
       "icons/32x32.png",
