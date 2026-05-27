@@ -4893,6 +4893,7 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
+ "stint-app",
  "stint-core",
  "tauri",
  "tauri-build",

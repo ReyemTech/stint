@@ -2,7 +2,9 @@
 
 mod common;
 
-use stint_app::commands::projects::{list_organizations, list_projects, list_tasks, refresh_projects};
+use stint_app::commands::projects::{
+    list_organizations, list_projects, list_tasks, refresh_projects,
+};
 use stint_core::config::secrets::Secrets;
 use stint_core::config::Settings;
 use stint_core::store::reference::{ProjectRow, Reference, TaskRow};
@@ -112,7 +114,9 @@ async fn list_tasks_filters_by_project_id() {
         .unwrap();
 
     let handle = ctx.handle();
-    let rows = list_tasks(handle.state(), Some("p-1".into())).await.unwrap();
+    let rows = list_tasks(handle.state(), Some("p-1".into()))
+        .await
+        .unwrap();
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].solidtime_id, "t-1");
     assert_eq!(rows[0].project_id, "p-1");

@@ -49,6 +49,19 @@ vi.mock("~/lib/openSolidtime", () => ({
 
 import Today from "~/routes/Today";
 import { api, pullNow } from "~/api";
+import { MemoryRouter, Route } from "@solidjs/router";
+
+/// Today calls `useSearchParams` for the `?entry=<uuid>` deep-link
+/// highlight path. `useSearchParams` aborts when used outside a Router,
+/// so each test renders Today through a MemoryRouter shim. Using
+/// MemoryRouter rather than the real Router keeps jsdom happy (no
+/// `window.history` manipulation surprises across tests).
+const renderToday = () =>
+  render(() => (
+    <MemoryRouter>
+      <Route path="*" component={Today} />
+    </MemoryRouter>
+  ));
 
 const flushMicrotasks = () => new Promise<void>((r) => setTimeout(r, 0));
 
@@ -85,7 +98,7 @@ beforeEach(() => {
 
 describe("<Today>", () => {
   it("renders the Today heading + the 'no entries' empty state", async () => {
-    const { getByRole, findByText } = render(() => <Today />);
+    const { getByRole, findByText } = renderToday();
     await flushMicrotasks();
     expect(getByRole("heading", { name: "Today", level: 1 })).toBeDefined();
     expect(await findByText(/No entries yet today/)).toBeDefined();
@@ -93,7 +106,7 @@ describe("<Today>", () => {
 
   it("shows 'Synced' badge when there are no pending entries", async () => {
     vi.mocked(api.listToday).mockResolvedValue([entry({ sync_state: "synced" })]);
-    const { findByText } = render(() => <Today />);
+    const { findByText } = renderToday();
     expect(await findByText("Synced")).toBeDefined();
   });
 
@@ -102,13 +115,13 @@ describe("<Today>", () => {
       entry({ local_uuid: "a", sync_state: "pending_create" }),
       entry({ local_uuid: "b", sync_state: "dirty" }),
     ]);
-    const { findByText } = render(() => <Today />);
+    const { findByText } = renderToday();
     expect(await findByText("Sync (2)")).toBeDefined();
   });
 
   it("clicking the sync badge runs pullNow + api.syncNow and surfaces a message", async () => {
     vi.mocked(api.syncNow).mockResolvedValue(3);
-    const { findByText, getByTitle } = render(() => <Today />);
+    const { findByText, getByTitle } = renderToday();
     await flushMicrotasks();
     fireEvent.click(getByTitle(/Sync with Solidtime/));
     await flushMicrotasks();
@@ -120,7 +133,7 @@ describe("<Today>", () => {
 
   it("shows a Sync failed message when syncNow throws", async () => {
     vi.mocked(api.syncNow).mockRejectedValue(new Error("network down"));
-    const { findByText, getByTitle } = render(() => <Today />);
+    const { findByText, getByTitle } = renderToday();
     await flushMicrotasks();
     fireEvent.click(getByTitle(/Sync with Solidtime/));
     await flushMicrotasks();
@@ -131,7 +144,7 @@ describe("<Today>", () => {
     vi.mocked(api.listToday).mockResolvedValue([
       entry({ description: "alpha task", sync_state: "synced" }),
     ]);
-    const { findByText } = render(() => <Today />);
+    const { findByText } = renderToday();
     expect(await findByText("alpha task")).toBeDefined();
   });
 });

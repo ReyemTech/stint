@@ -107,10 +107,7 @@ fn build_stint_intents_framework() -> Result<(), String> {
     // (everything goes through dlsym). @executable_path/../Frameworks
     // matches Tauri's bundle.macOS.frameworks copy destination.
     let frameworks_dir = Path::new(&manifest_dir).join("Frameworks");
-    println!(
-        "cargo:rustc-link-arg=-Wl,-F,{}",
-        frameworks_dir.display()
-    );
+    println!("cargo:rustc-link-arg=-Wl,-F,{}", frameworks_dir.display());
     println!("cargo:rustc-link-arg=-Wl,-needed_framework,StintIntents");
     println!("cargo:rustc-link-arg=-Wl,-rpath,@executable_path/../Frameworks");
     // The framework was built with -undefined dynamic_lookup; its calls to

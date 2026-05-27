@@ -425,9 +425,14 @@ async fn set_entry_task_round_trips() {
     .unwrap();
     let id = view.local_uuid.clone();
 
-    set_entry_task(handle.clone(), handle.state(), id.clone(), Some("t-9".into()))
-        .await
-        .expect("set task succeeds");
+    set_entry_task(
+        handle.clone(),
+        handle.state(),
+        id.clone(),
+        Some("t-9".into()),
+    )
+    .await
+    .expect("set task succeeds");
 
     let row = Entries::new((*ctx.store).clone())
         .get(&id)
