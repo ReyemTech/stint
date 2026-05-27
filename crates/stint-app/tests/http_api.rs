@@ -129,6 +129,74 @@ async fn list_projects_and_tasks_return_empty_arrays_on_fresh_store() {
 }
 
 #[tokio::test]
+async fn start_then_patch_round_trips_task_id_through_http() {
+    let ctx = common::make_app().await;
+    let app = stint_app::http::build_router(ctx.store.clone());
+
+    // POST /v1/start with task_id set should persist it and reflect it in
+    // the response view.
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::post("/v1/start")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"description":"with task","project_id":"p-1","task_id":"t-1","source":"http"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let v = body_json(resp).await;
+    let id = v["local_uuid"].as_str().unwrap().to_string();
+    assert_eq!(v["task_id"], "t-1");
+    assert_eq!(v["project_id"], "p-1");
+
+    // GET /v1/current must echo the same task_id.
+    let resp = app
+        .clone()
+        .oneshot(Request::get("/v1/current").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    let v = body_json(resp).await;
+    assert_eq!(v["task_id"], "t-1");
+
+    // PATCH with explicit `null` clears task_id (the 3-way Option<Option<T>>
+    // semantics of EntryPatch).
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::patch(format!("/v1/entries/{id}"))
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"task_id":null}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let v = body_json(resp).await;
+    assert!(
+        v["task_id"].is_null(),
+        "task_id should be cleared, got {:?}",
+        v["task_id"]
+    );
+
+    // PATCH with a new value sets it back.
+    let resp = app
+        .oneshot(
+            Request::patch(format!("/v1/entries/{id}"))
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"task_id":"t-2"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let v = body_json(resp).await;
+    assert_eq!(v["task_id"], "t-2");
+}
+
+#[tokio::test]
 async fn update_entry_via_http_returns_updated_view() {
     let ctx = common::make_app().await;
     let app = stint_app::http::build_router(ctx.store.clone());
