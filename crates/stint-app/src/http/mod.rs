@@ -7,12 +7,47 @@ pub mod handlers;
 use axum::routing::{delete, get, patch, post};
 use axum::Router;
 use std::net::SocketAddr;
+use std::path::PathBuf;
 use std::sync::Arc;
 use stint_core::config::{Settings, DEFAULT_API_HOST, KEY_API_ENABLED, KEY_API_HOST, KEY_API_PORT};
 use stint_core::store::Store;
 use stint_core::Result;
 use tokio::net::TcpListener;
 use tokio::sync::RwLock;
+
+fn port_file_path() -> Result<PathBuf> {
+    Ok(stint_core::paths::data_dir()?.join("api.port"))
+}
+
+fn write_port_file(port: u16) -> Result<()> {
+    let path = port_file_path()?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(&path, format!("{port}\n"))?;
+    Ok(())
+}
+
+fn remove_port_file() -> Result<()> {
+    let path = port_file_path()?;
+    let _ = std::fs::remove_file(&path);
+    Ok(())
+}
+
+/// Write the port file and return the port. Exposed for integration tests.
+#[doc(hidden)]
+#[allow(dead_code)]
+pub fn write_port_file_for_test(port: u16) -> Result<u16> {
+    write_port_file(port)?;
+    Ok(port)
+}
+
+/// Remove the port file. Exposed for integration tests.
+#[doc(hidden)]
+#[allow(dead_code)]
+pub fn remove_port_file_for_test() -> Result<()> {
+    remove_port_file()
+}
 
 /// Build the axum router. Exposed so integration tests can drive it via
 /// `tower::ServiceExt::oneshot` without binding a real socket.
@@ -63,12 +98,14 @@ pub async fn maybe_spawn(
     let bound = listener.local_addr().unwrap().port();
     settings.set(KEY_API_PORT, &bound.to_string()).await?;
     *port_slot.write().await = Some(bound);
+    let _ = write_port_file(bound); // best-effort; widget falls back to placeholder if missing
 
     let app = build_router(store);
     tokio::spawn(async move {
         if let Err(e) = axum::serve(listener, app).await {
             tracing::error!("http api server exited: {e}");
         }
+        let _ = remove_port_file(); // clean up on graceful shutdown; stale file on crash is harmless
     });
 
     Ok(Some(bound))
