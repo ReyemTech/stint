@@ -10,7 +10,8 @@ mod common;
 
 use stint_app::commands::timer::{
     delete_entry, get_running_timer, restart_entry, set_entry_billable, set_entry_project,
-    start_timer, stop_timer, update_description, update_entry_times, StartTimerArgs,
+    set_entry_task, start_timer, stop_timer, update_description, update_entry_times,
+    StartTimerArgs,
 };
 use stint_core::store::entries::Entries;
 use stint_core::store::queue::Queue;
@@ -373,6 +374,78 @@ async fn set_entry_project_round_trips() {
         .unwrap()
         .unwrap();
     assert_eq!(row.project_id, None);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn start_timer_persists_task_id_when_provided() {
+    let ctx = common::make_app().await;
+    let handle = ctx.handle();
+
+    let view = start_timer(
+        handle.clone(),
+        handle.state(),
+        StartTimerArgs {
+            description: "with task".into(),
+            project_id: Some("p-1".into()),
+            task_id: Some("t-1".into()),
+            billable: false,
+            start_at: None,
+        },
+    )
+    .await
+    .expect("start_timer succeeds");
+    assert_eq!(view.task_id.as_deref(), Some("t-1"));
+
+    let row = Entries::new((*ctx.store).clone())
+        .get(&view.local_uuid)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(row.task_id.as_deref(), Some("t-1"));
+    assert_eq!(row.project_id.as_deref(), Some("p-1"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn set_entry_task_round_trips() {
+    let ctx = common::make_app().await;
+    let handle = ctx.handle();
+
+    let view = start_timer(
+        handle.clone(),
+        handle.state(),
+        StartTimerArgs {
+            description: "x".into(),
+            project_id: Some("p-1".into()),
+            task_id: None,
+            billable: false,
+            start_at: None,
+        },
+    )
+    .await
+    .unwrap();
+    let id = view.local_uuid.clone();
+
+    set_entry_task(handle.clone(), handle.state(), id.clone(), Some("t-9".into()))
+        .await
+        .expect("set task succeeds");
+
+    let row = Entries::new((*ctx.store).clone())
+        .get(&id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(row.task_id.as_deref(), Some("t-9"));
+
+    // Clearing the task also round-trips.
+    set_entry_task(handle.clone(), handle.state(), id.clone(), None)
+        .await
+        .unwrap();
+    let row = Entries::new((*ctx.store).clone())
+        .get(&id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(row.task_id, None);
 }
 
 #[tokio::test(flavor = "multi_thread")]

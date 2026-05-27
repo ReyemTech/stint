@@ -2,10 +2,10 @@
 
 mod common;
 
-use stint_app::commands::projects::{list_organizations, list_projects, refresh_projects};
+use stint_app::commands::projects::{list_organizations, list_projects, list_tasks, refresh_projects};
 use stint_core::config::secrets::Secrets;
 use stint_core::config::Settings;
-use stint_core::store::reference::{ProjectRow, Reference};
+use stint_core::store::reference::{ProjectRow, Reference, TaskRow};
 use tauri::Manager;
 use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -56,6 +56,67 @@ async fn list_projects_returns_seeded_rows() {
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].id, "p-1");
     assert_eq!(rows[0].name, "Tet");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn list_tasks_returns_empty_when_no_project_filter_and_no_tasks() {
+    let ctx = common::make_app().await;
+    let handle = ctx.handle();
+    let rows = list_tasks(handle.state(), None).await.unwrap();
+    assert!(rows.is_empty());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn list_tasks_filters_by_project_id() {
+    let ctx = common::make_app().await;
+    let reference = Reference::new((*ctx.store).clone());
+    reference
+        .upsert_projects(&[
+            ProjectRow {
+                id: "p-1".into(),
+                name: "Alpha".into(),
+                color: None,
+                client_id: None,
+                client_name: None,
+                archived: 0,
+                billable_default: 0,
+            },
+            ProjectRow {
+                id: "p-2".into(),
+                name: "Beta".into(),
+                color: None,
+                client_id: None,
+                client_name: None,
+                archived: 0,
+                billable_default: 0,
+            },
+        ])
+        .await
+        .unwrap();
+    reference
+        .upsert_tasks(&[
+            TaskRow {
+                id: "t-1".into(),
+                project_id: "p-1".into(),
+                name: "Implement".into(),
+                done: 0,
+            },
+            TaskRow {
+                id: "t-2".into(),
+                project_id: "p-2".into(),
+                name: "Other".into(),
+                done: 0,
+            },
+        ])
+        .await
+        .unwrap();
+
+    let handle = ctx.handle();
+    let rows = list_tasks(handle.state(), Some("p-1".into())).await.unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].solidtime_id, "t-1");
+    assert_eq!(rows[0].project_id, "p-1");
+    assert_eq!(rows[0].name, "Implement");
 }
 
 #[tokio::test(flavor = "multi_thread")]

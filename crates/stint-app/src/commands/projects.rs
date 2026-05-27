@@ -6,6 +6,7 @@ use stint_core::solidtime::auth::build_token_provider;
 use stint_core::solidtime::SolidtimeClient;
 use stint_core::store::reference::{ProjectRow, Reference};
 use stint_core::sync::refresh::refresh_reference_data;
+use stint_core::verbs::{self, TaskView};
 use tauri::State;
 use tokio::sync::RwLock;
 
@@ -68,6 +69,18 @@ pub async fn list_projects(
     let store = store(&state).await;
     let r = Reference::new((*store).clone());
     Ok(r.list_projects().await?)
+}
+
+/// Delegates to `stint_core::verbs::list_tasks`. Passing `project_id` scopes
+/// the result to one project; omitting it returns every locally-cached task
+/// (used sparingly — the picker always passes a project_id).
+#[tauri::command]
+pub async fn list_tasks(
+    state: State<'_, RwLock<AppState>>,
+    project_id: Option<String>,
+) -> Result<Vec<TaskView>, AppError> {
+    let store = store(&state).await;
+    Ok(verbs::list_tasks(&store, project_id).await?)
 }
 
 #[tauri::command]
