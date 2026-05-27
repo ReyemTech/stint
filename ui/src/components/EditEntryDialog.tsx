@@ -4,6 +4,7 @@ import { fromLocalHHMM, toLocalHHMM } from "~/lib/entryFormat";
 import type { Entry } from "~/types";
 import Button from "./ui/Button";
 import ProjectPicker from "./ui/ProjectPicker";
+import TaskPicker from "./ui/TaskPicker";
 import Toggle from "./ui/Toggle";
 
 export default function EditEntryDialog(props: {
@@ -15,6 +16,7 @@ export default function EditEntryDialog(props: {
   const [projectId, setProjectId] = createSignal<string | null>(
     props.entry.project_id,
   );
+  const [taskId, setTaskId] = createSignal<string | null>(props.entry.task_id);
   const [billable, setBillable] = createSignal(props.entry.billable);
   const startHHMMInitial = toLocalHHMM(props.entry.start_at);
   const endHHMMInitial = props.entry.end_at
@@ -28,6 +30,14 @@ export default function EditEntryDialog(props: {
   const [projects] = createResource(() => api.listProjects(), {
     initialValue: [],
   });
+  // Tasks for the currently-selected project. Re-fetches when projectId
+  // flips. An empty projectId resolves to an empty list and the TaskPicker
+  // stays disabled — no point hitting the IPC.
+  const [tasks] = createResource(
+    () => projectId(),
+    async (pid) => (pid ? await api.listTasks(pid) : []),
+    { initialValue: [] },
+  );
 
   const isCompleted = createMemo(() => Boolean(props.entry.end_at));
 
@@ -39,6 +49,9 @@ export default function EditEntryDialog(props: {
       }
       if (projectId() !== props.entry.project_id) {
         await api.setEntryProject(props.entry.local_uuid, projectId());
+      }
+      if (taskId() !== props.entry.task_id) {
+        await api.setEntryTask(props.entry.local_uuid, taskId());
       }
       if (billable() !== props.entry.billable) {
         await api.setEntryBillable(props.entry.local_uuid, billable());
@@ -108,9 +121,31 @@ export default function EditEntryDialog(props: {
             <div class="mt-1">
               <ProjectPicker
                 value={projectId()}
-                onChange={setProjectId}
+                onChange={(id) => {
+                  // Tasks scope to projects — changing project must discard
+                  // the staged task selection so Save doesn't send a
+                  // task_id that doesn't belong to the new project.
+                  setTaskId(null);
+                  setProjectId(id);
+                }}
                 projects={projects() ?? []}
                 placeholder="No project"
+                size="sm"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500">
+              Task
+            </label>
+            <div class="mt-1">
+              <TaskPicker
+                value={taskId()}
+                onChange={setTaskId}
+                tasks={tasks() ?? []}
+                projectSelected={Boolean(projectId())}
+                placeholder="No task"
                 size="sm"
               />
             </div>

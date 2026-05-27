@@ -6,8 +6,12 @@ vi.mock("~/api", () => ({
     listProjects: vi.fn().mockResolvedValue([
       { id: "p-1", name: "Tet", color: null, client_id: null, client_name: null, archived: 0 },
     ]),
+    listTasks: vi.fn().mockResolvedValue([
+      { solidtime_id: "t-1", project_id: "p-1", name: "Implement", done: false },
+    ]),
     updateDescription: vi.fn().mockResolvedValue(undefined),
     setEntryProject: vi.fn().mockResolvedValue(undefined),
+    setEntryTask: vi.fn().mockResolvedValue(undefined),
     setEntryBillable: vi.fn().mockResolvedValue(undefined),
     updateEntryTimes: vi.fn().mockResolvedValue(undefined),
     deleteEntry: vi.fn().mockResolvedValue(undefined),
@@ -172,6 +176,46 @@ describe("<EditEntryDialog>", () => {
     expect(api.deleteEntry).toHaveBeenCalledWith("uuid-1");
     expect(onSaved).toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("renders a Task field and picker when the entry has a project", async () => {
+    const { getByText, getByLabelText } = render(() => (
+      <EditEntryDialog
+        entry={entry({ project_id: "p-1" })}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />
+    ));
+    expect(getByText("Task")).toBeDefined();
+    const trigger = getByLabelText("Open task list");
+    const taskInput = trigger.parentElement?.querySelector("input") as HTMLInputElement;
+    expect(taskInput.disabled).toBe(false);
+  });
+
+  it("disables the Task picker when the entry has no project", async () => {
+    const { getByLabelText } = render(() => (
+      <EditEntryDialog
+        entry={entry({ project_id: null })}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />
+    ));
+    const trigger = getByLabelText("Open task list");
+    const taskInput = trigger.parentElement?.querySelector("input") as HTMLInputElement;
+    expect(taskInput.disabled).toBe(true);
+  });
+
+  it("Save without touching the task leaves setEntryTask uncalled", async () => {
+    const { getByText } = render(() => (
+      <EditEntryDialog
+        entry={entry({ project_id: "p-1", task_id: "t-1" })}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />
+    ));
+    fireEvent.click(getByText("Save"));
+    await flush();
+    expect(api.setEntryTask).not.toHaveBeenCalled();
   });
 
   it("Delete's inline Cancel resets back to the Delete button without deleting", async () => {
