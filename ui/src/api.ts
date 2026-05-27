@@ -12,6 +12,7 @@ import type {
   Project,
   RunningTimer,
   SyncError,
+  Task,
 } from "./types";
 
 export const api = {
@@ -41,6 +42,8 @@ export const api = {
     invoke<void>("update_description", { localUuid, description }),
   setEntryProject: (localUuid: string, projectId: string | null) =>
     invoke<void>("set_entry_project", { localUuid, projectId }),
+  setEntryTask: (localUuid: string, taskId: string | null) =>
+    invoke<void>("set_entry_task", { localUuid, taskId }),
   setEntryBillable: (localUuid: string, billable: boolean) =>
     invoke<void>("set_entry_billable", { localUuid, billable }),
   updateEntryTimes: (localUuid: string, startAt: string, endAt: string) =>
@@ -51,6 +54,11 @@ export const api = {
     invoke<Entry[]>("list_between", { from, to }),
 
   listProjects: () => invoke<Project[]>("list_projects"),
+  /// Pass `projectId` to scope to one project (the picker always does). Omit
+  /// to list every locally-cached task — handy for admin reads, but the UI
+  /// picker never calls it without a project.
+  listTasks: (projectId?: string | null) =>
+    invoke<Task[]>("list_tasks", { projectId: projectId ?? null }),
   refreshProjects: () => invoke<number>("refresh_projects"),
   listOrganizations: () => invoke<OrgChoice[]>("list_organizations"),
 

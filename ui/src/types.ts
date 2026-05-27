@@ -41,6 +41,17 @@ export type Project = {
   archived: number;
 };
 
+/// Mirrors `stint_core::verbs::TaskView`. `solidtime_id` is the UUID that
+/// `start`/`update_entry` expect as `task_id`; `project_id` is the parent
+/// project's `solidtime_id` (so the picker can filter without an extra
+/// round trip).
+export type Task = {
+  solidtime_id: string;
+  project_id: string;
+  name: string;
+  done: boolean;
+};
+
 export type OrgChoice = {
   id: string;
   member_id: string;
