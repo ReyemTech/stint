@@ -34,17 +34,20 @@ fn remove_port_file() -> Result<()> {
     Ok(())
 }
 
-/// Write the port file and return the port. Exposed for integration tests.
+/// Write the port file and return the port. Exposed for integration tests
+/// via the `test-utils` feature.
 #[doc(hidden)]
-#[allow(dead_code)]
+#[cfg(feature = "test-utils")]
+#[allow(dead_code)] // called from integration-test binaries, not from the lib/bin itself
 pub fn write_port_file_for_test(port: u16) -> Result<u16> {
     write_port_file(port)?;
     Ok(port)
 }
 
-/// Remove the port file. Exposed for integration tests.
+/// Remove the port file. Exposed for integration tests via the `test-utils` feature.
 #[doc(hidden)]
-#[allow(dead_code)]
+#[cfg(feature = "test-utils")]
+#[allow(dead_code)] // called from integration-test binaries, not from the lib/bin itself
 pub fn remove_port_file_for_test() -> Result<()> {
     remove_port_file()
 }
