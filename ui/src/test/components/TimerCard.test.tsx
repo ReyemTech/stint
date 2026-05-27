@@ -23,7 +23,11 @@ vi.mock("~/api", () => ({
     listProjects: vi.fn().mockResolvedValue([
       { id: "p-1", name: "Tet", color: null, client_id: null, client_name: null, archived: 0 },
     ]),
+    listTasks: vi.fn().mockResolvedValue([
+      { solidtime_id: "t-1", project_id: "p-1", name: "Implement", done: false },
+    ]),
     setEntryProject: vi.fn().mockResolvedValue(undefined),
+    setEntryTask: vi.fn().mockResolvedValue(undefined),
     setEntryBillable: vi.fn().mockResolvedValue(undefined),
   },
 }));
@@ -57,7 +61,9 @@ beforeEach(() => {
   storeMock.stop.mockClear();
   storeMock.refresh.mockClear();
   vi.mocked(api.setEntryProject).mockClear();
+  vi.mocked(api.setEntryTask).mockClear();
   vi.mocked(api.setEntryBillable).mockClear();
+  vi.mocked(api.listTasks).mockClear();
 });
 
 describe("<TimerCard> — start form (no timer running)", () => {
@@ -82,7 +88,7 @@ describe("<TimerCard> — start form (no timer running)", () => {
     expect(startBtn.disabled).toBe(false);
   });
 
-  it("submitting the form calls timer.start with the description + project + billable", async () => {
+  it("submitting the form calls timer.start with the description + project + task + billable", async () => {
     const { getByPlaceholderText, getByRole, container } = render(() => <TimerCard />);
     await flushMicrotasks();
 
@@ -98,9 +104,20 @@ describe("<TimerCard> — start form (no timer running)", () => {
     expect(storeMock.start).toHaveBeenCalledWith(
       "design review",
       undefined,
+      undefined,
       true,
       undefined,
     );
+  });
+
+  it("renders a TaskPicker disabled until a project is selected", async () => {
+    const { getByLabelText } = render(() => <TimerCard />);
+    await flushMicrotasks();
+    const trigger = getByLabelText("Open task list") as HTMLButtonElement;
+    expect(trigger).toBeDefined();
+    // The Combobox input is the one that goes disabled.
+    const taskInput = trigger.parentElement?.querySelector("input") as HTMLInputElement;
+    expect(taskInput.disabled).toBe(true);
   });
 
   it("does not call start when the description is blank", async () => {
@@ -141,5 +158,23 @@ describe("<TimerCard> — running timer panel", () => {
     const { getByLabelText } = render(() => <TimerCard />);
     await flushMicrotasks();
     expect(getByLabelText("Open project list")).toBeDefined();
+  });
+
+  it("running panel exposes a TaskPicker (disabled when no project)", async () => {
+    setRunning(runningTimer({ description: "x", project_id: null }));
+    const { getByLabelText } = render(() => <TimerCard />);
+    await flushMicrotasks();
+    const trigger = getByLabelText("Open task list") as HTMLButtonElement;
+    const taskInput = trigger.parentElement?.querySelector("input") as HTMLInputElement;
+    expect(taskInput.disabled).toBe(true);
+  });
+
+  it("running panel enables the TaskPicker when the entry has a project", async () => {
+    setRunning(runningTimer({ description: "x", project_id: "p-1" }));
+    const { getByLabelText } = render(() => <TimerCard />);
+    await flushMicrotasks();
+    const trigger = getByLabelText("Open task list") as HTMLButtonElement;
+    const taskInput = trigger.parentElement?.querySelector("input") as HTMLInputElement;
+    expect(taskInput.disabled).toBe(false);
   });
 });

@@ -6,6 +6,7 @@ import Button from "./ui/Button";
 import ProjectPicker from "./ui/ProjectPicker";
 import SectionLabel from "./ui/SectionLabel";
 import StatusDot from "./ui/StatusDot";
+import TaskPicker from "./ui/TaskPicker";
 import Toggle from "./ui/Toggle";
 import { useTimerStore } from "~/stores/timer";
 
@@ -13,12 +14,32 @@ export default function TimerCard() {
   const timer = useTimerStore();
   const [description, setDescription] = createSignal("");
   const [projectId, setProjectId] = createSignal<string>("");
+  const [taskId, setTaskId] = createSignal<string | null>(null);
   const [billable, setBillable] = createSignal(false);
   const [startAt, setStartAt] = createSignal<StartAtValue>(null);
   const [projects] = createResource(() => api.listProjects(), {
     initialValue: [],
   });
   const projectList = () => projects() ?? [];
+
+  // Tasks for the *start form's* selected project. Re-fetched whenever the
+  // project changes; an empty project resolves to an empty list and the
+  // TaskPicker stays disabled (no point hitting the IPC).
+  const [startFormTasks] = createResource(
+    () => projectId() || null,
+    async (pid) => (pid ? await api.listTasks(pid) : []),
+    { initialValue: [] },
+  );
+
+  // Tasks for the *running entry's* project. Same shape, different source —
+  // the running entry's project_id might differ from the start form's
+  // (e.g. when the user is editing the live entry's project inline).
+  const runningProjectId = () => timer.running()?.project_id ?? null;
+  const [runningTasks] = createResource(
+    runningProjectId,
+    async (pid) => (pid ? await api.listTasks(pid) : []),
+    { initialValue: [] },
+  );
 
   return (
     <div class="rounded-2xl border border-black/[0.06] bg-white p-5 shadow-sm dark:border-white/[0.06] dark:bg-zinc-900">
@@ -35,6 +56,7 @@ export default function TimerCard() {
                 .start(
                   d,
                   projectId() || undefined,
+                  taskId() ?? undefined,
                   billable(),
                   startAt() ?? undefined,
                 )
@@ -42,6 +64,7 @@ export default function TimerCard() {
                   setDescription("");
                   setBillable(false);
                   setStartAt(null);
+                  setTaskId(null);
                 });
             }}
           >
@@ -57,9 +80,24 @@ export default function TimerCard() {
               <div class="min-w-0 flex-1">
                 <ProjectPicker
                   value={projectId() || null}
-                  onChange={(id) => setProjectId(id ?? "")}
+                  onChange={(id) => {
+                    // Tasks scope to projects — changing project must
+                    // discard the old task selection or we'd send a
+                    // task_id that doesn't belong to the new project.
+                    setTaskId(null);
+                    setProjectId(id ?? "");
+                  }}
                   projects={projectList()}
                   placeholder="No project"
+                />
+              </div>
+              <div class="min-w-0 flex-1">
+                <TaskPicker
+                  value={taskId()}
+                  onChange={setTaskId}
+                  tasks={startFormTasks() ?? []}
+                  projectSelected={Boolean(projectId())}
+                  placeholder="No task"
                 />
               </div>
               <Toggle label="Billable" checked={billable()} onChange={setBillable} />
@@ -91,11 +129,30 @@ export default function TimerCard() {
                 <ProjectPicker
                   value={t().project_id}
                   onChange={async (id) => {
+                    // Switching project on a live entry: clear the task
+                    // first so the queued update doesn't carry a stale
+                    // task_id from the old project.
+                    if (t().task_id) {
+                      await api.setEntryTask(t().local_uuid, null);
+                    }
                     await api.setEntryProject(t().local_uuid, id);
                     await timer.refresh();
                   }}
                   projects={projectList()}
                   placeholder="No project"
+                  size="sm"
+                />
+              </div>
+              <div class="min-w-0 flex-1">
+                <TaskPicker
+                  value={t().task_id}
+                  onChange={async (id) => {
+                    await api.setEntryTask(t().local_uuid, id);
+                    await timer.refresh();
+                  }}
+                  tasks={runningTasks() ?? []}
+                  projectSelected={Boolean(t().project_id)}
+                  placeholder="No task"
                   size="sm"
                 />
               </div>

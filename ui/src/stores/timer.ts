@@ -40,13 +40,14 @@ export function useTimerStore() {
     async start(
       description: string,
       projectId?: string,
+      taskId?: string,
       billable = false,
       startAt?: string,
     ) {
       await api.startTimer(
         description,
         projectId ?? null,
-        null,
+        taskId ?? null,
         billable,
         startAt ?? null,
       );
