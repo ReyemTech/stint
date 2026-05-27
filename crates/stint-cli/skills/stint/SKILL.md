@@ -70,6 +70,8 @@ Triggers (not exhaustive):
 2. If running, ask the user whether to stop the current one first.
 3. `start { description, project_id?, task_id?, billable? }`. The `source` field is auto-set to `"mcp"` (or `"cli"`/`"http"`).
 
+CLI equivalent: `stint start "writing tests" --project <PROJECT_UUID> --task <TASK_UUID>`. Tasks scope to projects — always pass `--project` together with `--task`; passing only `--task` is accepted today but will be rejected by Solidtime sync if the task doesn't belong to a project the entry references.
+
 ### Switch projects
 1. `current` → returns the running entry.
 2. `stop`.
@@ -119,6 +121,8 @@ Users say "the auth project", "feature X", "PR review" — they don't say `01HPY
 4. Use `project.solidtime_id` (a UUID) for `project_id` in subsequent calls.
 
 Tasks: `list_tasks { project_id }` to scope the lookup. Most users don't reference tasks by name often.
+
+CLI equivalent for tasks: `stint edit <UUID> --task <TASK_UUID>` to set, `stint edit <UUID> --clear-task` to clear. The two flags are mutually exclusive — clap rejects passing both. Same shape as the `--project` / `--clear-project` pair.
 
 If a `start` returns "project_id not found", the project may be archived or not yet pulled from Solidtime — suggest `stint pull` to refresh reference data.
 
