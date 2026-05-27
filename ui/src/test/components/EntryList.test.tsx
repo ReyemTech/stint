@@ -6,6 +6,9 @@ vi.mock("~/api", () => ({
     listProjects: vi.fn().mockResolvedValue([
       { id: "p-1", name: "Tet", color: null, client_id: null, client_name: null, archived: 0 },
     ]),
+    listTasks: vi.fn().mockResolvedValue([
+      { solidtime_id: "t-1", project_id: "p-1", name: "Implement", done: false },
+    ]),
   },
 }));
 
@@ -36,6 +39,10 @@ beforeEach(() => {
   vi.mocked(api.listProjects).mockResolvedValue([
     { id: "p-1", name: "Tet", color: null, client_id: null, client_name: null, archived: 0 } as never,
   ]);
+  vi.mocked(api.listTasks).mockClear();
+  vi.mocked(api.listTasks).mockResolvedValue([
+    { solidtime_id: "t-1", project_id: "p-1", name: "Implement", done: false } as never,
+  ]);
 });
 
 describe("<EntryList>", () => {
@@ -65,5 +72,22 @@ describe("<EntryList>", () => {
     const pill = await findByText("Tet");
     expect(pill).toBeDefined();
     expect(container.querySelector("ul")).toBeDefined();
+  });
+
+  it("resolves task name from api.listTasks and surfaces it to EntryRow", async () => {
+    const entries = [entry({ project_id: "p-1", task_id: "t-1" })];
+    const { findByText } = render(() => <EntryList entries={entries} />);
+    await flushMicrotasks();
+    const pill = await findByText("Implement");
+    expect(pill).toBeDefined();
+  });
+
+  it("does not fetch tasks when no entry references a task_id", async () => {
+    // Optimization: when the day's entries don't include any tasks, skip
+    // the listTasks IPC entirely.
+    const entries = [entry({ task_id: null }), entry({ task_id: null })];
+    render(() => <EntryList entries={entries} />);
+    await flushMicrotasks();
+    expect(api.listTasks).not.toHaveBeenCalled();
   });
 });

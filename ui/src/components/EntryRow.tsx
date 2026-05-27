@@ -10,6 +10,7 @@ import StatusDot from "./ui/StatusDot";
 export default function EntryRow(props: {
   entry: Entry;
   projectName?: string;
+  taskName?: string;
   isFirst?: boolean;
   /// When true, scroll this row into view + briefly highlight it (driven
   /// by `?entry=<local_uuid>` in the URL — Spotlight deep-link taps).
@@ -81,6 +82,9 @@ export default function EntryRow(props: {
           <div class="mt-0.5 flex items-center gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
             <Show when={props.projectName}>
               <Pill>{props.projectName}</Pill>
+            </Show>
+            <Show when={props.taskName}>
+              <Pill tone="indigo">{props.taskName}</Pill>
             </Show>
             <Show when={props.entry.billable}>
               <Pill tone="emerald">Billable</Pill>
