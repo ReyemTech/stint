@@ -7,6 +7,7 @@ import ConflictBanner from "~/components/ConflictBanner";
 import SyncErrorBanner from "~/components/SyncErrorBanner";
 import Duration from "~/components/Duration";
 import EntryList from "~/components/EntryList";
+import IdleBanner from "~/components/IdleBanner";
 import MainNav from "~/components/MainNav";
 import TimerCard from "~/components/TimerCard";
 import SectionLabel from "~/components/ui/SectionLabel";
@@ -110,6 +111,8 @@ export default function Today() {
             accent
           />
         </div>
+
+        <IdleBanner onChange={() => refetch()} />
 
         <TimerCard />
 

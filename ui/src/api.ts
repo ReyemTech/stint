@@ -72,6 +72,12 @@ export const api = {
   listSyncErrors: () => invoke<SyncError[]>("list_sync_errors"),
   getSyncErrorOverlaps: (localUuid: string) =>
     invoke<OverlapCandidate[]>("get_sync_error_overlaps", { localUuid }),
+
+  idleKeep: () => invoke<void>("idle_keep"),
+  idleDiscard: (idleStarted: string) =>
+    invoke<void>("idle_discard", { idleStarted }),
+  idleSplit: (idleStarted: string) =>
+    invoke<void>("idle_split", { idleStarted }),
 };
 
 export type SolidtimeAuthStatus = {
