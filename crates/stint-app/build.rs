@@ -7,6 +7,9 @@ fn main() {
     if let Err(e) = build_stint_intents_framework() {
         println!("cargo:warning=StintIntents framework build skipped: {e}");
     }
+    if let Err(e) = build_stint_widget() {
+        println!("cargo:warning=StintWidget appex build skipped: {e}");
+    }
     tauri_build::build()
 }
 
@@ -122,6 +125,117 @@ fn build_stint_intents_framework() -> Result<(), String> {
         dest.display()
     );
 
+    Ok(())
+}
+
+/// Build the StintWidget Swift package and repackage the framework as a
+/// proper `.appex` bundle at `crates/stint-app/PlugIns/StintWidget.appex/`.
+/// Tauri's bundle step copies that directory into
+/// `Stint.app/Contents/PlugIns/`, which is where WidgetKit looks for
+/// widget extensions.
+fn build_stint_widget() -> Result<(), String> {
+    if env::var_os("STINT_SKIP_SWIFT_BUILD").is_some_and(|v| !v.is_empty()) {
+        return Err("STINT_SKIP_SWIFT_BUILD is set".into());
+    }
+    if env::var_os("CARGO_CFG_TARGET_OS").is_some_and(|v| v != "macos") {
+        return Err("non-macOS target".into());
+    }
+
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR").map_err(|e| e.to_string())?;
+    let swift_dir = Path::new(&manifest_dir).join("swift/StintWidget");
+    let package_swift = swift_dir.join("Package.swift");
+    if !package_swift.exists() {
+        return Err(format!("missing {}", package_swift.display()));
+    }
+
+    println!("cargo:rerun-if-changed={}", package_swift.display());
+    let sources_dir = swift_dir.join("Sources/StintWidget");
+    if let Ok(entries) = fs::read_dir(&sources_dir) {
+        for entry in entries.flatten() {
+            print_rerun_if_changed_recursive(&entry.path());
+        }
+    }
+
+    let derived_data = swift_dir.join("build/derived");
+    let status = Command::new("xcodebuild")
+        .current_dir(&swift_dir)
+        .args([
+            "-scheme",
+            "StintWidget",
+            "-configuration",
+            "Release",
+            "-destination",
+            "platform=macOS",
+            "-derivedDataPath",
+            derived_data.to_str().ok_or("derived path not utf8")?,
+            "build",
+        ])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::inherit())
+        .status()
+        .map_err(|e| format!("xcodebuild spawn: {e}"))?;
+    if !status.success() {
+        return Err(format!("xcodebuild exit {status}"));
+    }
+
+    let built_framework =
+        derived_data.join("Build/Products/Release/PackageFrameworks/StintWidget.framework");
+    let dylib = built_framework.join("Versions/A/StintWidget");
+    if !dylib.exists() {
+        return Err(format!("missing {}", dylib.display()));
+    }
+
+    let dest = Path::new(&manifest_dir).join("PlugIns/StintWidget.appex");
+    let _ = fs::remove_dir_all(&dest);
+    fs::create_dir_all(dest.join("Contents/MacOS")).map_err(|e| format!("create dirs: {e}"))?;
+    fs::copy(&dylib, dest.join("Contents/MacOS/StintWidget"))
+        .map_err(|e| format!("copy dylib: {e}"))?;
+
+    let info_plist = r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>tech.reyem.stint.widget</string>
+    <key>CFBundleExecutable</key>
+    <string>StintWidget</string>
+    <key>CFBundleName</key>
+    <string>StintWidget</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>CFBundlePackageType</key>
+    <string>XPC!</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+    <key>NSExtension</key>
+    <dict>
+        <key>NSExtensionPointIdentifier</key>
+        <string>com.apple.widgetkit-extension</string>
+    </dict>
+</dict>
+</plist>
+"#;
+    fs::write(dest.join("Contents/Info.plist"), info_plist)
+        .map_err(|e| format!("write Info.plist: {e}"))?;
+
+    let stencil = derived_data
+        .join("Build/Products/Release/StintWidget.appintents/Metadata.appintents");
+    if stencil.exists() {
+        let dst = dest.join("Contents/Resources/Metadata.appintents");
+        let _ = fs::remove_dir_all(&dst);
+        fs::create_dir_all(dst.parent().unwrap())
+            .map_err(|e| format!("create resources: {e}"))?;
+        copy_dir(&stencil, &dst).map_err(|e| format!("copy stencil: {e}"))?;
+    }
+
+    codesign_adhoc(&dest).map_err(|e| format!("codesign appex: {e}"))?;
+
+    println!(
+        "cargo:warning=StintWidget.appex rebuilt at {}",
+        dest.display()
+    );
     Ok(())
 }
 
