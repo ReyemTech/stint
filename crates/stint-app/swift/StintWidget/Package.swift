@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "StintWidget",
-    platforms: [.macOS(.v13)],
+    platforms: [.macOS(.v14)],
     products: [
         .library(name: "StintWidget", type: .dynamic, targets: ["StintWidget"]),
     ],

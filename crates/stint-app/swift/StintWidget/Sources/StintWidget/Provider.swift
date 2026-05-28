@@ -1,4 +1,5 @@
 import WidgetKit
+import AppIntents
 import Foundation
 
 struct StintTimelineEntry: TimelineEntry {
@@ -14,36 +15,34 @@ enum WidgetSnapshot {
     case weekProject(projectName: String, seconds: TimeInterval, byDay: [TimeInterval])
 }
 
-struct StintProvider: TimelineProvider {
+struct StintProvider: AppIntentTimelineProvider {
+    typealias Entry = StintTimelineEntry
+    typealias Intent = WidgetConfigIntent
+
     func placeholder(in context: Context) -> StintTimelineEntry {
         StintTimelineEntry(date: Date(), snapshot: .runningTimer(description: "Loading…", projectName: nil, elapsedSecs: 0))
     }
 
-    func getSnapshot(in context: Context, completion: @escaping (StintTimelineEntry) -> Void) {
-        Task {
-            let entry = await fetchOne()
-            completion(entry)
-        }
+    func snapshot(for configuration: WidgetConfigIntent, in context: Context) async -> StintTimelineEntry {
+        await fetchOne(configuration: configuration)
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<StintTimelineEntry>) -> Void) {
-        Task {
-            let snapshot = await fetchSnapshot()
-            let now = Date()
-            switch snapshot {
-            case .runningTimer:
-                var entries: [StintTimelineEntry] = []
-                for i in 0..<60 {
-                    entries.append(StintTimelineEntry(date: now.addingTimeInterval(TimeInterval(i * 60)), snapshot: snapshot))
-                }
-                completion(Timeline(entries: entries, policy: .atEnd))
-            default:
-                completion(Timeline(entries: [StintTimelineEntry(date: now, snapshot: snapshot)], policy: .after(now.addingTimeInterval(300))))
+    func timeline(for configuration: WidgetConfigIntent, in context: Context) async -> Timeline<StintTimelineEntry> {
+        let snapshot = await fetchSnapshot(configuration: configuration)
+        let now = Date()
+        switch snapshot {
+        case .runningTimer:
+            var entries: [StintTimelineEntry] = []
+            for i in 0..<60 {
+                entries.append(StintTimelineEntry(date: now.addingTimeInterval(TimeInterval(i * 60)), snapshot: snapshot))
             }
+            return Timeline(entries: entries, policy: .atEnd)
+        default:
+            return Timeline(entries: [StintTimelineEntry(date: now, snapshot: snapshot)], policy: .after(now.addingTimeInterval(300)))
         }
     }
 
-    private func fetchSnapshot() async -> WidgetSnapshot {
+    private func fetchSnapshot(configuration: WidgetConfigIntent) async -> WidgetSnapshot {
         guard let port = try? PortDiscovery.read() else { return .unavailable }
         var request = URLRequest(url: URL(string: "http://127.0.0.1:\(port)/v1/current")!)
         request.timeoutInterval = 2
@@ -67,7 +66,7 @@ struct StintProvider: TimelineProvider {
         }
     }
 
-    private func fetchOne() async -> StintTimelineEntry {
-        StintTimelineEntry(date: Date(), snapshot: await fetchSnapshot())
+    private func fetchOne(configuration: WidgetConfigIntent) async -> StintTimelineEntry {
+        StintTimelineEntry(date: Date(), snapshot: await fetchSnapshot(configuration: configuration))
     }
 }
