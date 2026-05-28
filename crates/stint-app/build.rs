@@ -178,18 +178,19 @@ fn build_stint_widget() -> Result<(), String> {
         return Err(format!("xcodebuild exit {status}"));
     }
 
-    let built_framework =
-        derived_data.join("Build/Products/Release/PackageFrameworks/StintWidget.framework");
-    let dylib = built_framework.join("Versions/A/StintWidget");
-    if !dylib.exists() {
-        return Err(format!("missing {}", dylib.display()));
+    // The widget package builds as an executableTarget so the produced
+    // Mach-O is the kind of binary Apple's .appex loader expects (a real
+    // executable with @main bootstrap, not a dylib).
+    let executable = derived_data.join("Build/Products/Release/StintWidget");
+    if !executable.exists() {
+        return Err(format!("missing {}", executable.display()));
     }
 
     let dest = Path::new(&manifest_dir).join("PlugIns/StintWidget.appex");
     let _ = fs::remove_dir_all(&dest);
     fs::create_dir_all(dest.join("Contents/MacOS")).map_err(|e| format!("create dirs: {e}"))?;
-    fs::copy(&dylib, dest.join("Contents/MacOS/StintWidget"))
-        .map_err(|e| format!("copy dylib: {e}"))?;
+    fs::copy(&executable, dest.join("Contents/MacOS/StintWidget"))
+        .map_err(|e| format!("copy executable: {e}"))?;
 
     let info_plist = r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

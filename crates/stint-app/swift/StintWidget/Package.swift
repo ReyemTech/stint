@@ -5,10 +5,10 @@ let package = Package(
     name: "StintWidget",
     platforms: [.macOS(.v14)],
     products: [
-        .library(name: "StintWidget", type: .dynamic, targets: ["StintWidget"]),
+        .executable(name: "StintWidget", targets: ["StintWidget"]),
     ],
     targets: [
-        .target(
+        .executableTarget(
             name: "StintWidget",
             path: "Sources/StintWidget"
         ),
