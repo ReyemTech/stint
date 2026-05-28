@@ -236,7 +236,7 @@ git checkout -b phase-2.5
 | 5 | Documentation site (GitHub Pages) | ✅ shipped (`phase-5-complete`) |
 | 6a | verbs façade + MCP + HTTP API + URL scheme + man page + skill installer | ✅ shipped (`phase-6a-complete`) |
 | 6b | Spotlight + App Intents + Focus filter | ⚠️ **partial** (`phase-6b-complete`) — Spotlight indexing + tap-to-focus-entry shipped and working; Siri/Shortcuts.app/Focus-filter discovery deferred to a follow-up using an App Intents Extension. See `docs/superpowers/specs/2026-05-25-stint-phase-6-deeper-integration-design.md` §1.5 |
-| 6c | Raycast + Alfred + WidgetKit + idle detection | planned |
+| 6c | Raycast + Alfred + WidgetKit + idle detection | ✅ shipped (`phase-6c-complete`) |
 
 ## Gotchas / dev-environment notes
 

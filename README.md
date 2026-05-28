@@ -243,7 +243,7 @@ branch.
 | 5 | Documentation site (GitHub Pages) | ✅ shipped |
 | 6a | verbs façade + MCP + HTTP API + URL scheme + skill installer | ✅ shipped |
 | 6b | Spotlight + App Intents + Focus filter | ⚠️ partial — Spotlight tap-to-focus-entry works; Siri/Shortcuts.app discovery deferred |
-| 6c | Raycast + Alfred + WidgetKit + idle detection | 🔜 planned |
+| 6c | Raycast + Alfred + WidgetKit + idle detection | ✅ shipped |
 
 ---
 

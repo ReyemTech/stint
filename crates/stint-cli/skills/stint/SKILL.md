@@ -34,7 +34,7 @@ You have up to three ways to talk to stint. Use the highest one that works.
 
 **Pick a surface and stick with it within a single user request** to avoid mixing read/write paths.
 
-### Bonus surfaces (Phase 6b)
+### Bonus surfaces (Phases 6b + 6c)
 
 - **stint:// URL routes** (live):
   - `stint://entry/<local_uuid>` → opens Today, scrolls to the matching row, briefly highlights it.
@@ -48,6 +48,14 @@ You have up to three ways to talk to stint. Use the highest one that works.
   - `verbs::start` reads `focus.default_project` from settings and applies it when no `project_id` is passed. The Rust side is in place; the System Settings → Focus → Stint surface that *writes* the setting isn't yet active — see spec §1.5.
 
 - **App Intents (Siri / Shortcuts.app)** — **NOT YET LIVE**. The Swift code is shipped but Apple's intent indexer doesn't discover the types from our framework-embedded package. A follow-up using Xcode's App Intents Extension template will enable Siri voice and Shortcuts.app discovery. Don't tell users to "say 'Hey Siri, start tracking in Stint'" yet.
+
+- **Raycast extension** (Phase 6c live): five commands — Start Timer, Stop, Current, Recent Entries, Switch Project. Install via Import Extension from `raycast-stint/` until the Raycast Store listing lands.
+
+- **Alfred workflow** (Phase 6c live): keywords `s <desc>` (start), `sstop`, `scur`, `srec`. Install via the .alfredworkflow bundle from GitHub Releases.
+
+- **WidgetKit widget** (Phase 6c live): per-instance configurable. Three kinds (Running Timer, Today Total, This-Week Project) × two sizes (small, medium). Auto-enables the loopback HTTP API on first widget install.
+
+- **Idle detection** (Phase 6c live): When a timer is running and you've been idle ≥10 minutes (configurable in Settings), a banner offers to Keep, Discard, or Discard+restart. Threshold is `idle.threshold_secs` (default 600).
 
 ## When to use this skill
 
