@@ -220,13 +220,12 @@ fn build_stint_widget() -> Result<(), String> {
     fs::write(dest.join("Contents/Info.plist"), info_plist)
         .map_err(|e| format!("write Info.plist: {e}"))?;
 
-    let stencil = derived_data
-        .join("Build/Products/Release/StintWidget.appintents/Metadata.appintents");
+    let stencil =
+        derived_data.join("Build/Products/Release/StintWidget.appintents/Metadata.appintents");
     if stencil.exists() {
         let dst = dest.join("Contents/Resources/Metadata.appintents");
         let _ = fs::remove_dir_all(&dst);
-        fs::create_dir_all(dst.parent().unwrap())
-            .map_err(|e| format!("create resources: {e}"))?;
+        fs::create_dir_all(dst.parent().unwrap()).map_err(|e| format!("create resources: {e}"))?;
         copy_dir(&stencil, &dst).map_err(|e| format!("copy stencil: {e}"))?;
     }
 
