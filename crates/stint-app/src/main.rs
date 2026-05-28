@@ -2,6 +2,7 @@ mod app_state;
 mod calendar_worker;
 mod commands;
 mod http;
+mod idle_detector;
 mod logging;
 mod menu;
 mod pull_worker;
@@ -139,6 +140,10 @@ async fn main() -> Result<()> {
 
             // Periodic Solidtime → stint pull (5-min tick).
             pull_worker::spawn(app.handle().clone(), store_for_worker.clone());
+
+            // Idle detector — emits idle:detected when activity resumes after
+            // the configured threshold while a timer is running.
+            idle_detector::spawn(app.handle().clone(), store_for_worker.clone());
 
             // One-shot pull on startup: surfaces a remote-side running timer
             // or recent edits within ~1s of launch, without waiting for the

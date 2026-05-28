@@ -87,4 +87,77 @@ pub fn idle_seconds() -> f64 {
     0.0
 }
 
-// The live polling loop (spawn) is added in Task A4.
+// ---- live polling loop ----
+
+use std::sync::Arc;
+use std::time::Duration;
+use stint_core::store::Store;
+use tauri::{AppHandle, Emitter, Runtime};
+use tokio::time::interval;
+use tracing::{debug, info};
+
+const TICK: Duration = Duration::from_secs(60);
+
+/// Spawn the background idle-detector task. Lives for the GUI process lifetime.
+pub fn spawn<R: Runtime>(app: AppHandle<R>, store: Arc<Store>) {
+    tokio::spawn(async move {
+        info!("idle detector started (tick = {:?})", TICK);
+        let mut state = IdleState::default();
+        let mut tick = interval(TICK);
+        loop {
+            tick.tick().await;
+            if let Err(e) = tick_once(&app, &store, &mut state).await {
+                debug!("idle detector tick error: {e}");
+            }
+        }
+    });
+}
+
+async fn tick_once<R: Runtime>(
+    app: &AppHandle<R>,
+    store: &Store,
+    state: &mut IdleState,
+) -> stint_core::Result<()> {
+    let settings = stint_core::config::Settings::new(store.clone());
+    let enabled: bool = settings
+        .get("idle.enabled")
+        .await?
+        .as_deref()
+        .map(|s| s != "false")
+        .unwrap_or(true);
+    if !enabled {
+        state.pending_idle = None;
+        return Ok(());
+    }
+    let threshold: u32 = settings
+        .get("idle.threshold_secs")
+        .await?
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(600)
+        .clamp(60, 86_400);
+
+    // Timer running?
+    let running = stint_core::store::running::RunningTimer::new(store.clone())
+        .get()
+        .await?
+        .is_some();
+
+    let idle = idle_seconds();
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+
+    if let Some(evt) = advance(state, idle, now, threshold, running) {
+        let iso = chrono::DateTime::<chrono::Utc>::from_timestamp(evt.idle_started as i64, 0)
+            .map(|d| d.format("%Y-%m-%dT%H:%M:%SZ").to_string())
+            .unwrap_or_default();
+        let payload = serde_json::json!({
+            "idle_started": iso,
+            "idle_secs": evt.idle_secs,
+        });
+        info!(?evt, "idle detected; emitting idle:detected");
+        let _ = app.emit("idle:detected", payload);
+    }
+    Ok(())
+}
