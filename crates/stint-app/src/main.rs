@@ -103,6 +103,16 @@ async fn main() -> Result<()> {
             // scripts/dev-app.sh, missing build artifacts, etc).
             init_stint_intents();
 
+            // Widget-presence-aware HTTP auto-enable. If ≥1 stint widget is
+            // already configured, flip api.enabled = true so the widget can
+            // fetch its data without the user having to find Settings.
+            {
+                let store_for_widget_check = store_for_worker.clone();
+                tokio::spawn(async move {
+                    auto_enable_api_if_widgets_present(&store_for_widget_check).await;
+                });
+            }
+
             // Register stint:// URL scheme handler. Each incoming URL is parsed
             // by stint_core::url_scheme and dispatched to the verbs façade.
             {
@@ -361,4 +371,44 @@ fn init_stint_intents() {
     } else {
         tracing::info!("StintIntents framework initialized");
     }
+}
+
+/// If ≥1 Stint widget is configured AND api.enabled is currently false,
+/// flip it to true. The widget needs the loopback HTTP API to fetch its
+/// data; auto-enabling removes the "why is my widget showing 'Stint not
+/// running'?" onboarding friction.
+///
+/// `stint_widget_count` lives in the StintIntents framework — the widget
+/// extension itself runs in a separate process and isn't dlsym-reachable.
+/// Returns -1 (treated as "no info") when the symbol isn't loaded or
+/// WidgetCenter can't enumerate within 2s.
+async fn auto_enable_api_if_widgets_present(store: &stint_core::store::Store) {
+    use std::ffi::CString;
+    type CountFn = unsafe extern "C" fn() -> i32;
+    let name = CString::new("stint_widget_count").unwrap();
+    let sym = unsafe { libc::dlsym(libc::RTLD_DEFAULT, name.as_ptr()) };
+    if sym.is_null() {
+        return;
+    }
+    let f: CountFn = unsafe { std::mem::transmute(sym) };
+    let count = unsafe { f() };
+    if count <= 0 {
+        return;
+    }
+    let settings = stint_core::config::Settings::new(store.clone());
+    let already_on = matches!(
+        settings.get("api.enabled").await.ok().flatten().as_deref(),
+        Some("true")
+    );
+    if already_on {
+        return;
+    }
+    if let Err(e) = settings.set("api.enabled", "true").await {
+        tracing::warn!(error = %e, "auto-enable api.enabled failed");
+        return;
+    }
+    tracing::info!(
+        widgets = count,
+        "auto-enabled api.enabled — ≥1 stint widget is configured"
+    );
 }
