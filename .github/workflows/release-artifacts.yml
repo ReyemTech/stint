@@ -160,6 +160,21 @@ jobs:
           cp target/universal-apple-darwin/release/stint "$APP/Contents/MacOS/stint"
           echo "APP_PATH=$APP" >> "$GITHUB_ENV"
 
+      - name: Relocate StintWidget.appex into Contents/PlugIns/
+        run: |
+          # build.rs produces crates/stint-app/PlugIns/StintWidget.appex.
+          # Tauri's bundle.resources puts files under Contents/Resources/
+          # but macOS WidgetKit only discovers widget extensions at
+          # Contents/PlugIns/. Move it into place + strip the duplicated
+          # Resources/PlugIns copy left behind by Tauri.
+          SRC="crates/stint-app/PlugIns/StintWidget.appex"
+          DEST="$APP_PATH/Contents/PlugIns/StintWidget.appex"
+          if [ ! -d "$SRC" ]; then echo "::error::appex source missing at $SRC"; exit 1; fi
+          mkdir -p "$(dirname "$DEST")"
+          rm -rf "$DEST"
+          cp -R "$SRC" "$DEST"
+          rm -rf "$APP_PATH/Contents/Resources/PlugIns"
+
       - name: Smoke-test embedded version
         env:
           VERSION: ${{ inputs.version }}
@@ -219,6 +234,12 @@ jobs:
           codesign --force --options runtime \
             --sign "$APPLE_SIGNING_IDENTITY" \
             "$APP_PATH/Contents/Frameworks/StintIntents.framework"
+          # Sign the widget appex so the bundle wrapper can seal it. The
+          # appex's binary already carries an ad-hoc signature from build.rs;
+          # this overwrites with the production identity.
+          codesign --force --options runtime \
+            --sign "$APPLE_SIGNING_IDENTITY" \
+            "$APP_PATH/Contents/PlugIns/StintWidget.appex"
           codesign --force --options runtime \
             --sign "$APPLE_SIGNING_IDENTITY" \
             --entitlements crates/stint-app/entitlements.plist \
@@ -230,6 +251,7 @@ jobs:
           codesign --verify --deep --strict --verbose=2 "$APP_PATH"
           codesign --verify --strict --verbose=2 "$APP_PATH/Contents/MacOS/stint"
           codesign --verify --strict --verbose=2 "$APP_PATH/Contents/Frameworks/StintIntents.framework"
+          codesign --verify --strict --verbose=2 "$APP_PATH/Contents/PlugIns/StintWidget.appex"
 
       - name: Notarize .app
         env:
