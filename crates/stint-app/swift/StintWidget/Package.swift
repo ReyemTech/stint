@@ -12,5 +12,10 @@ let package = Package(
             name: "StintWidget",
             path: "Sources/StintWidget"
         ),
+        .testTarget(
+            name: "StintWidgetTests",
+            dependencies: ["StintWidget"],
+            path: "Tests/StintWidgetTests"
+        ),
     ]
 )
