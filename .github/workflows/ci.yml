@@ -15,7 +15,7 @@ concurrency:
 jobs:
   build:
     name: build
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 30
     env:
       # See crates/stint-core/tests/config.rs — gates the one Keychain test.
@@ -76,7 +76,7 @@ jobs:
 
   coverage:
     name: coverage
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 25
     env:
       STINT_SKIP_KEYCHAIN_TESTS: "1"
