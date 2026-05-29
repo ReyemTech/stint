@@ -125,7 +125,17 @@ fn build_stint_intents_framework() -> Result<(), String> {
     let frameworks_dir = Path::new(&manifest_dir).join("Frameworks");
     println!("cargo:rustc-link-arg=-Wl,-F,{}", frameworks_dir.display());
     println!("cargo:rustc-link-arg=-Wl,-needed_framework,StintIntents");
+    // Production rpath: Tauri copies the framework into Stint.app/Contents/Frameworks/
+    // and the binary lives at Stint.app/Contents/MacOS/stint-app.
     println!("cargo:rustc-link-arg=-Wl,-rpath,@executable_path/../Frameworks");
+    // Dev/test rpath: cargo test binaries live at target/$profile/deps/ and
+    // the framework gets copied to crates/stint-app/Frameworks/ by this
+    // build script. The absolute path is harmless in production binaries
+    // (dyld stops searching at the first rpath that resolves).
+    println!(
+        "cargo:rustc-link-arg=-Wl,-rpath,{}",
+        frameworks_dir.display()
+    );
     // The framework was built with -undefined dynamic_lookup; its calls to
     // stint_verb_*, stint_settings_*, etc. need to resolve against this
     // binary's flat namespace at load time. -export_dynamic exposes the
