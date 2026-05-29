@@ -236,9 +236,12 @@ jobs:
             "$APP_PATH/Contents/Frameworks/StintIntents.framework"
           # Sign the widget appex so the bundle wrapper can seal it. The
           # appex's binary already carries an ad-hoc signature from build.rs;
-          # this overwrites with the production identity.
+          # this overwrites with the production identity. The sandbox
+          # entitlement is required — pluginkit refuses to register
+          # extensions without com.apple.security.app-sandbox = true.
           codesign --force --options runtime \
             --sign "$APPLE_SIGNING_IDENTITY" \
+            --entitlements crates/stint-app/swift/StintWidget/StintWidget.entitlements \
             "$APP_PATH/Contents/PlugIns/StintWidget.appex"
           codesign --force --options runtime \
             --sign "$APPLE_SIGNING_IDENTITY" \
