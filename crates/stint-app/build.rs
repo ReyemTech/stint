@@ -202,12 +202,24 @@ fn build_stint_widget() -> Result<(), String> {
     <string>StintWidget</string>
     <key>CFBundleName</key>
     <string>StintWidget</string>
+    <key>CFBundleDisplayName</key>
+    <string>Stint Widget</string>
     <key>CFBundleVersion</key>
     <string>1</string>
     <key>CFBundleShortVersionString</key>
     <string>1.0</string>
     <key>CFBundlePackageType</key>
     <string>XPC!</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleSupportedPlatforms</key>
+    <array>
+        <string>MacOSX</string>
+    </array>
+    <key>DTPlatformName</key>
+    <string>macosx</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
     <key>NSExtension</key>

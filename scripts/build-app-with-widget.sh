@@ -40,14 +40,20 @@ cp -R "$SRC_APPEX" "$DEST_APPEX"
 # otherwise leave behind (harmless but doubles the dylib).
 rm -rf "$APP/Contents/Resources/PlugIns"
 
-echo "==> Signing $DEST_APPEX with $SIGN_IDENTITY"
-codesign --force --options runtime --sign "$SIGN_IDENTITY" "$DEST_APPEX"
+echo "==> Re-signing embedded StintIntents framework (build.rs ad-hoc only)"
+codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" \
+  "$APP/Contents/Frameworks/StintIntents.framework"
 
-echo "==> Re-signing main bundle to seal the new PlugIns/"
-codesign --force --options runtime --sign "$SIGN_IDENTITY" \
+echo "==> Signing $DEST_APPEX with $SIGN_IDENTITY (sandboxed)"
+codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" \
+  --entitlements crates/stint-app/swift/StintWidget/StintWidget.entitlements \
+  "$DEST_APPEX"
+
+echo "==> Re-signing main bundle to seal the new PlugIns/ + Frameworks/"
+codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" \
   --entitlements crates/stint-app/entitlements.plist \
   "$APP/Contents/MacOS/stint-app"
-codesign --force --options runtime --sign "$SIGN_IDENTITY" \
+codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" \
   --entitlements crates/stint-app/entitlements.plist \
   "$APP"
 
