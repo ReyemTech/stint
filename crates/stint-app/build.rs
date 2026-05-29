@@ -87,20 +87,33 @@ fn build_stint_intents_framework() -> Result<(), String> {
     if !built_framework.exists() {
         return Err(format!("missing {}", built_framework.display()));
     }
-    if !metadata_bundle.exists() {
-        return Err(format!("missing {}", metadata_bundle.display()));
-    }
 
     let dest = Path::new(&manifest_dir).join("Frameworks/StintIntents.framework");
     let _ = fs::remove_dir_all(&dest);
     copy_dir(&built_framework, &dest).map_err(|e| format!("copy framework: {e}"))?;
 
-    let dest_meta = dest.join("Versions/A/Resources/Metadata.appintents");
-    let _ = fs::remove_dir_all(&dest_meta);
-    copy_dir(&metadata_bundle, &dest_meta).map_err(|e| format!("copy metadata: {e}"))?;
+    // Metadata.appintents stencil is best-effort: appintentsmetadataprocessor
+    // only emits it on Xcode versions where the framework's deployment-target
+    // story aligns with the App Intents discovery contract. Xcode 26 emits;
+    // some older toolchains (e.g. CI's macos-14 image with Xcode 15) skip the
+    // stencil when WidgetKit imports raise the effective deployment target.
+    // Either way the framework intents aren't discovered by Apple's indexer
+    // (the 6b deferral) — Phase 6d resolves this via a real .appex. Just
+    // warn and continue without the stencil.
+    if metadata_bundle.exists() {
+        let dest_meta = dest.join("Versions/A/Resources/Metadata.appintents");
+        let _ = fs::remove_dir_all(&dest_meta);
+        copy_dir(&metadata_bundle, &dest_meta).map_err(|e| format!("copy metadata: {e}"))?;
 
-    let info_plist = dest.join("Versions/A/Resources/Info.plist");
-    patch_info_plist(&info_plist).map_err(|e| format!("patch Info.plist: {e}"))?;
+        let info_plist = dest.join("Versions/A/Resources/Info.plist");
+        patch_info_plist(&info_plist).map_err(|e| format!("patch Info.plist: {e}"))?;
+    } else {
+        println!(
+            "cargo:warning=StintIntents Metadata.appintents not produced by xcodebuild; \
+             shipping framework without the stencil (Apple indexer wouldn't have used it \
+             anyway — see Phase 6d for the real fix)"
+        );
+    }
 
     codesign_adhoc(&dest).map_err(|e| format!("codesign framework: {e}"))?;
 

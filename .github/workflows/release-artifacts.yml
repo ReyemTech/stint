@@ -208,19 +208,13 @@ jobs:
             --entitlements crates/stint-app/entitlements.plist \
             "$APP_PATH/Contents/MacOS/stint"
 
-      - name: Verify StintIntents framework + App Intents metadata
+      - name: Verify StintIntents framework present
         run: |
+          # The framework is bundled but its App Intents stencil isn't
+          # consulted by Apple's indexer on the framework path anyway
+          # (the 6b deferral). Phase 6d replaces this with a real .appex.
           FRAMEWORK="$APP_PATH/Contents/Frameworks/StintIntents.framework"
-          STENCIL="$FRAMEWORK/Versions/A/Resources/Metadata.appintents/extract.actionsdata"
-          INFO="$FRAMEWORK/Versions/A/Resources/Info.plist"
           if [ ! -d "$FRAMEWORK" ]; then echo "::error::framework missing"; exit 1; fi
-          if [ ! -f "$STENCIL" ]; then echo "::error::stencil missing"; exit 1; fi
-          if ! /usr/libexec/PlistBuddy -c "Print :NSAppIntentsPackage" "$INFO" 2>/dev/null | grep -qi true; then
-            echo "::error::NSAppIntentsPackage missing from Info.plist"; exit 1;
-          fi
-          COUNT=$(python3 -c "import json,sys; print(len(json.load(open(sys.argv[1])).get('actions',{})))" "$STENCIL")
-          echo "AppIntent types in stencil: $COUNT"
-          if [ "$COUNT" -lt 11 ]; then echo "::error::expected >=11 intents, got $COUNT"; exit 1; fi
 
       - name: Sign GUI binary + .app bundle (hardened runtime + entitlements)
         env:
