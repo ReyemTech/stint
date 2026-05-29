@@ -2,6 +2,8 @@
 /target/
 **/*.rs.bk
 *.pdb
+# llvm-cov / cargo-llvm-cov coverage instrumentation artifacts
+*.profraw
 
 # Claude Code session-local files
 .claude/
