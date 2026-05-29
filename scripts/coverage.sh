@@ -43,11 +43,16 @@ if [[ "$SKIP_RUST" != "1" ]]; then
   #     calendar_worker.rs        spawn/select! plumbing isn't unit-testable
   #   * commands/ui.rs         — window/dock visibility shims that delegate to
   #                              Tauri APIs requiring a real WebviewWindow
-  #   * updater.rs             — Tauri-updater plugin wrapper; needs a signed
-  #                              build + remote release server to exercise
+  #   * updater.rs /           — Tauri-updater plugin wrapper; needs a signed
+  #     updater_endpoint.rs       build + remote release server to exercise
+  #   * idle_detector.rs       — CGEventSource-backed polling task + tokio
+  #                              spawn loop. The pure state machine (advance)
+  #                              IS verified by tests/idle_detector.rs, but
+  #                              the polling side isn't unit-testable without
+  #                              a live AppHandle.
   # stint-app excludes: Tauri runtime wiring (main, menu, tray, workers, etc.)
   # exercises native macOS APIs and the Tauri event loop — not unit-testable.
-  APP_RE='stint-app/src/(main|menu|tray|windows|logging|app_state|sync_worker|pull_worker|calendar_worker|updater)\.rs|stint-app/src/commands/ui\.rs'
+  APP_RE='stint-app/src/(main|menu|tray|windows|logging|app_state|sync_worker|pull_worker|calendar_worker|updater|updater_endpoint|idle_detector)\.rs|stint-app/src/commands/ui\.rs'
   # stint-cli excludes: subprocess- and OAuth-bound surfaces.
   #   * cmd/mcp.rs / mcp/mod.rs  — `stint mcp` runs as a subprocess; covered
   #                                by tests/mcp_e2e.rs but the child-process
