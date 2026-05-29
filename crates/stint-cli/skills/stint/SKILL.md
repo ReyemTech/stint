@@ -34,6 +34,29 @@ You have up to three ways to talk to stint. Use the highest one that works.
 
 **Pick a surface and stick with it within a single user request** to avoid mixing read/write paths.
 
+### Bonus surfaces (Phases 6b + 6c)
+
+- **stint:// URL routes** (live):
+  - `stint://entry/<local_uuid>` → opens Today, scrolls to the matching row, briefly highlights it.
+  - `stint://project/<solidtime_id>` → opens Today view filtered to the project.
+  - `stint://task/<solidtime_id>` → resolves task → parent project, filters by both.
+  - Existing: `stint://start?description=…&project=…`, `stint://stop`, `stint://current`.
+
+- **Core Spotlight** (live): entries, projects, and tasks are indexed; tapping a Spotlight result routes through the appropriate `stint://` URL above. The currently-running entry also appears as an NSUserActivity "Tracking: …" tile.
+
+- **macOS Focus filter integration** (foundation shipped, end-user UI activation deferred):
+  - `verbs::start` reads `focus.default_project` from settings and applies it when no `project_id` is passed. The Rust side is in place; the System Settings → Focus → Stint surface that *writes* the setting isn't yet active — see spec §1.5.
+
+- **App Intents (Siri / Shortcuts.app)** — **NOT YET LIVE**. The Swift code is shipped but Apple's intent indexer doesn't discover the types from our framework-embedded package. A follow-up using Xcode's App Intents Extension template will enable Siri voice and Shortcuts.app discovery. Don't tell users to "say 'Hey Siri, start tracking in Stint'" yet.
+
+- **Raycast extension** (Phase 6c live): five commands — Start Timer, Stop, Current, Recent Entries, Switch Project. Install via Import Extension from `raycast-stint/` until the Raycast Store listing lands.
+
+- **Alfred workflow** (Phase 6c live): keywords `s <desc>` (start), `sstop`, `scur`, `srec`. Install via the .alfredworkflow bundle from GitHub Releases.
+
+- **WidgetKit widget** (Phase 6c live): per-instance configurable. Three kinds (Running Timer, Today Total, This-Week Project) × two sizes (small, medium). Auto-enables the loopback HTTP API on first widget install.
+
+- **Idle detection** (Phase 6c live): When a timer is running and you've been idle ≥10 minutes (configurable in Settings), a banner offers to Keep, Discard, or Discard+restart. Threshold is `idle.threshold_secs` (default 600).
+
 ## When to use this skill
 
 Triggers (not exhaustive):
@@ -54,6 +77,8 @@ Triggers (not exhaustive):
 1. `current` to check nothing's running (start errors if a timer is already active).
 2. If running, ask the user whether to stop the current one first.
 3. `start { description, project_id?, task_id?, billable? }`. The `source` field is auto-set to `"mcp"` (or `"cli"`/`"http"`).
+
+CLI equivalent: `stint start "writing tests" --project <PROJECT_UUID> --task <TASK_UUID>`. Tasks scope to projects — always pass `--project` together with `--task`; passing only `--task` is accepted today but will be rejected by Solidtime sync if the task doesn't belong to a project the entry references.
 
 ### Switch projects
 1. `current` → returns the running entry.
@@ -104,6 +129,8 @@ Users say "the auth project", "feature X", "PR review" — they don't say `01HPY
 4. Use `project.solidtime_id` (a UUID) for `project_id` in subsequent calls.
 
 Tasks: `list_tasks { project_id }` to scope the lookup. Most users don't reference tasks by name often.
+
+CLI equivalent for tasks: `stint edit <UUID> --task <TASK_UUID>` to set, `stint edit <UUID> --clear-task` to clear. The two flags are mutually exclusive — clap rejects passing both. Same shape as the `--project` / `--clear-project` pair.
 
 If a `start` returns "project_id not found", the project may be archived or not yet pulled from Solidtime — suggest `stint pull` to refresh reference data.
 

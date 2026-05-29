@@ -14,7 +14,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-15
     env:
       MACOSX_DEPLOYMENT_TARGET: "13.0"
     steps:
@@ -160,6 +160,21 @@ jobs:
           cp target/universal-apple-darwin/release/stint "$APP/Contents/MacOS/stint"
           echo "APP_PATH=$APP" >> "$GITHUB_ENV"
 
+      - name: Relocate StintWidget.appex into Contents/PlugIns/
+        run: |
+          # build.rs produces crates/stint-app/PlugIns/StintWidget.appex.
+          # Tauri's bundle.resources puts files under Contents/Resources/
+          # but macOS WidgetKit only discovers widget extensions at
+          # Contents/PlugIns/. Move it into place + strip the duplicated
+          # Resources/PlugIns copy left behind by Tauri.
+          SRC="crates/stint-app/PlugIns/StintWidget.appex"
+          DEST="$APP_PATH/Contents/PlugIns/StintWidget.appex"
+          if [ ! -d "$SRC" ]; then echo "::error::appex source missing at $SRC"; exit 1; fi
+          mkdir -p "$(dirname "$DEST")"
+          rm -rf "$DEST"
+          cp -R "$SRC" "$DEST"
+          rm -rf "$APP_PATH/Contents/Resources/PlugIns"
+
       - name: Smoke-test embedded version
         env:
           VERSION: ${{ inputs.version }}
@@ -193,6 +208,14 @@ jobs:
             --entitlements crates/stint-app/entitlements.plist \
             "$APP_PATH/Contents/MacOS/stint"
 
+      - name: Verify StintIntents framework present
+        run: |
+          # The framework is bundled but its App Intents stencil isn't
+          # consulted by Apple's indexer on the framework path anyway
+          # (the 6b deferral). Phase 6d replaces this with a real .appex.
+          FRAMEWORK="$APP_PATH/Contents/Frameworks/StintIntents.framework"
+          if [ ! -d "$FRAMEWORK" ]; then echo "::error::framework missing"; exit 1; fi
+
       - name: Sign GUI binary + .app bundle (hardened runtime + entitlements)
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
@@ -201,6 +224,19 @@ jobs:
           # (which seals CodeResources including the CLI's hash). Avoid
           # --deep so the per-binary signatures we did individually
           # aren't overwritten.
+          # Sign embedded framework first (inner) so the wrapper seals it.
+          codesign --force --options runtime \
+            --sign "$APPLE_SIGNING_IDENTITY" \
+            "$APP_PATH/Contents/Frameworks/StintIntents.framework"
+          # Sign the widget appex so the bundle wrapper can seal it. The
+          # appex's binary already carries an ad-hoc signature from build.rs;
+          # this overwrites with the production identity. The sandbox
+          # entitlement is required — pluginkit refuses to register
+          # extensions without com.apple.security.app-sandbox = true.
+          codesign --force --options runtime \
+            --sign "$APPLE_SIGNING_IDENTITY" \
+            --entitlements crates/stint-app/swift/StintWidget/StintWidget.entitlements \
+            "$APP_PATH/Contents/PlugIns/StintWidget.appex"
           codesign --force --options runtime \
             --sign "$APPLE_SIGNING_IDENTITY" \
             --entitlements crates/stint-app/entitlements.plist \
@@ -209,8 +245,10 @@ jobs:
             --sign "$APPLE_SIGNING_IDENTITY" \
             --entitlements crates/stint-app/entitlements.plist \
             "$APP_PATH"
-          codesign --verify --strict --verbose=2 "$APP_PATH"
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
           codesign --verify --strict --verbose=2 "$APP_PATH/Contents/MacOS/stint"
+          codesign --verify --strict --verbose=2 "$APP_PATH/Contents/Frameworks/StintIntents.framework"
+          codesign --verify --strict --verbose=2 "$APP_PATH/Contents/PlugIns/StintWidget.appex"
 
       - name: Notarize .app
         env:

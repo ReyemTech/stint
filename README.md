@@ -239,8 +239,11 @@ branch.
 | 3c | Solidtime down-sync | ✅ shipped |
 | 3.5 | Test coverage uplift | ✅ shipped |
 | 3d | UX polish + sync resilience | ✅ shipped |
-| 4 | Distribution (Homebrew cask + signing + release CD) | 🔜 planned |
-| 5 | Documentation site (GitHub Pages) | 🔜 planned |
+| 4 | Distribution (Homebrew cask + signing + release CD) | ✅ shipped |
+| 5 | Documentation site (GitHub Pages) | ✅ shipped |
+| 6a | verbs façade + MCP + HTTP API + URL scheme + skill installer | ✅ shipped |
+| 6b | Spotlight + App Intents + Focus filter | ⚠️ partial — Spotlight tap-to-focus-entry works; Siri/Shortcuts.app discovery deferred |
+| 6c | Raycast + Alfred + WidgetKit + idle detection | ✅ shipped |
 
 ---
 

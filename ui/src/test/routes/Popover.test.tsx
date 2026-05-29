@@ -101,6 +101,7 @@ describe("<Popover> — idle state", () => {
     expect(storeMock.start).toHaveBeenCalledWith(
       "deep work",
       undefined,
+      undefined,
       false,
       undefined,
     );

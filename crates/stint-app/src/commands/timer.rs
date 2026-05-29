@@ -176,6 +176,27 @@ pub async fn set_entry_project<R: Runtime>(
 }
 
 #[tauri::command]
+pub async fn set_entry_task<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, RwLock<AppState>>,
+    local_uuid: String,
+    task_id: Option<String>,
+) -> Result<(), AppError> {
+    let store = store(&state).await;
+    // Same "null = clear, value = set" semantics as set_entry_project: the
+    // Tauri arg has no distinct "absent" state, so we always lift the
+    // Option into the 3-way patch slot.
+    let patch = EntryPatch {
+        task_id: Some(task_id),
+        ..Default::default()
+    };
+    verbs::update_entry(&store, &local_uuid, patch).await?;
+    announce_change(&app);
+    sync_worker::nudge(app.clone(), store);
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn set_entry_billable<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, RwLock<AppState>>,

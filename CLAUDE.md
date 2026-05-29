@@ -232,8 +232,11 @@ git checkout -b phase-2.5
 | 3c | Solidtime down-sync | ✅ shipped (`phase-3c-complete`) |
 | 3.5 | Test coverage uplift across core / CLI / app / UI | ✅ shipped (`phase-3.5-complete`) |
 | 3d | Post-3b UX polish + sync resilience + in-app error surfacing (picker / calendar defaults / editable times / backdate / restart-from-entry / calendar undo / 4xx-abandon / adopt-on-overlap / SyncErrorBanner + coverage CI) | ✅ shipped (`phase-3d-complete`) |
-| 4 | Distribution (Homebrew cask + signing + release CD) | planned |
-| 5 | Documentation site (GitHub Pages) | planned |
+| 4 | Distribution (Homebrew cask + signing + release CD) | ✅ shipped (`phase-4-complete`) |
+| 5 | Documentation site (GitHub Pages) | ✅ shipped (`phase-5-complete`) |
+| 6a | verbs façade + MCP + HTTP API + URL scheme + man page + skill installer | ✅ shipped (`phase-6a-complete`) |
+| 6b | Spotlight + App Intents + Focus filter | ⚠️ **partial** (`phase-6b-complete`) — Spotlight indexing + tap-to-focus-entry shipped and working; Siri/Shortcuts.app/Focus-filter discovery deferred to a follow-up using an App Intents Extension. See `docs/superpowers/specs/2026-05-25-stint-phase-6-deeper-integration-design.md` §1.5 |
+| 6c | Raycast + Alfred + WidgetKit + idle detection | ✅ shipped (`phase-6c-complete`) |
 
 ## Gotchas / dev-environment notes
 

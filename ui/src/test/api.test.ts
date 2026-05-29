@@ -129,6 +129,32 @@ describe("api (entries / projects / config / sync)", () => {
     expect(mockInvoke).toHaveBeenNthCalledWith(3, "list_organizations");
   });
 
+  it("listTasks passes project_id when provided", async () => {
+    await api.listTasks("p-1");
+    expect(mockInvoke).toHaveBeenCalledWith("list_tasks", { projectId: "p-1" });
+  });
+
+  it("listTasks passes null when no project_id given", async () => {
+    await api.listTasks();
+    expect(mockInvoke).toHaveBeenCalledWith("list_tasks", { projectId: null });
+  });
+
+  it("setEntryTask accepts a task id", async () => {
+    await api.setEntryTask("uuid-1", "t-42");
+    expect(mockInvoke).toHaveBeenCalledWith("set_entry_task", {
+      localUuid: "uuid-1",
+      taskId: "t-42",
+    });
+  });
+
+  it("setEntryTask accepts null to clear", async () => {
+    await api.setEntryTask("uuid-1", null);
+    expect(mockInvoke).toHaveBeenCalledWith("set_entry_task", {
+      localUuid: "uuid-1",
+      taskId: null,
+    });
+  });
+
   it("configShow / configTest / solidtimeUrl have no args", async () => {
     await api.configShow();
     await api.configTest();

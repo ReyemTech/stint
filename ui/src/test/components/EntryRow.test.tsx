@@ -88,6 +88,21 @@ describe("<EntryRow>", () => {
     expect(getByText("Tet")).toBeDefined();
   });
 
+  it("shows the task name pill when taskName prop is set", () => {
+    const { getByText } = render(() => (
+      <EntryRow entry={entry()} taskName="Implement" />
+    ));
+    expect(getByText("Implement")).toBeDefined();
+  });
+
+  it("does not render an empty task pill when taskName is undefined", () => {
+    const { queryByText } = render(() => (
+      <EntryRow entry={entry()} projectName="Tet" />
+    ));
+    // Sanity: only Tet + Synced pills are shown.
+    expect(queryByText("Implement")).toBeNull();
+  });
+
   it("shows Running pill when end_at is null", () => {
     const { getByText } = render(() => (
       <EntryRow entry={entry({ end_at: null })} />

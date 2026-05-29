@@ -5,6 +5,9 @@ import EntryRow from "./EntryRow";
 
 export default function EntryList(props: {
   entries: Entry[];
+  /// When set, the matching entry row scrolls into view + briefly highlights.
+  /// Driven by `?entry=<local_uuid>` in the route (Spotlight deep-link taps).
+  focusUuid?: string;
   /// Fires after any save or delete in a row's edit dialog. Callers refetch here.
   onChange?: () => void;
 }) {
@@ -14,6 +17,25 @@ export default function EntryList(props: {
   const projectName = createMemo(() => {
     const map = new Map<string, string>();
     for (const p of projects() ?? []) map.set(p.id, p.name);
+    return (id: string | null | undefined) => (id ? map.get(id) : undefined);
+  });
+
+  // Resolve task names by fetching the locally-cached task list for the
+  // visible day. Only triggers when at least one entry references a task —
+  // saves an IPC for the common "no tasks yet" case. Tracks every entry's
+  // task_id (any signal change refires the resource), but the actual fetch
+  // returns all tasks the local DB knows about in one call.
+  const needsTasks = createMemo(() =>
+    props.entries.some((e) => e.task_id != null),
+  );
+  const [tasks] = createResource(
+    needsTasks,
+    async (need) => (need ? await api.listTasks() : []),
+    { initialValue: [] },
+  );
+  const taskName = createMemo(() => {
+    const map = new Map<string, string>();
+    for (const t of tasks() ?? []) map.set(t.solidtime_id, t.name);
     return (id: string | null | undefined) => (id ? map.get(id) : undefined);
   });
 
@@ -32,7 +54,9 @@ export default function EntryList(props: {
             <EntryRow
               entry={e}
               projectName={projectName()(e.project_id)}
+              taskName={taskName()(e.task_id)}
               isFirst={i() === 0}
+              focused={props.focusUuid === e.local_uuid}
               onChange={props.onChange}
             />
           )}

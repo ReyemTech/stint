@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use clap::Subcommand;
+use clap::{Args, Subcommand};
 use stint_core::config::{secrets::Secrets, Settings};
 use stint_core::solidtime::auth::build_token_provider;
 use stint_core::solidtime::SolidtimeClient;
@@ -13,10 +13,18 @@ use super::open_store;
 pub enum ProjectsCmd {
     /// List cached projects (run `projects refresh` first to pull).
     List,
+    /// List tasks for a project (by Solidtime project ID).
+    ListTasks(ListTasksArgs),
     /// Pull projects/tasks/tags from Solidtime.
     Refresh,
     /// Print the raw Solidtime `/projects` response. Diagnostic only.
     Raw,
+}
+
+#[derive(Args)]
+pub struct ListTasksArgs {
+    /// Solidtime project ID to filter tasks by.
+    pub project_id: String,
 }
 
 pub async fn run(p: ProjectsCmd, json: bool) -> Result<()> {
@@ -36,6 +44,19 @@ pub async fn run(p: ProjectsCmd, json: bool) -> Result<()> {
                 let bill = if p.billable_default != 0 { "$" } else { " " };
                 println!("{bill} {}  {}", p.id, p.name);
             }
+            Ok(())
+        }
+        ProjectsCmd::ListTasks(args) => {
+            let tasks = verbs::list_tasks(&store, Some(args.project_id)).await?;
+            crate::render::render(&tasks, json, |tasks| {
+                if tasks.is_empty() {
+                    println!("(no tasks)");
+                } else {
+                    for t in tasks {
+                        println!("  {}  {}", t.solidtime_id, t.name);
+                    }
+                }
+            });
             Ok(())
         }
         ProjectsCmd::Refresh => {

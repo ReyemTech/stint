@@ -98,11 +98,11 @@ describe("useTimerStore", () => {
       await flushMicrotasks();
       vi.mocked(api.getRunningTimer).mockClear();
 
-      await store.start("write tests", "p-1", true);
+      await store.start("write tests", "p-1", "t-1", true);
       expect(api.startTimer).toHaveBeenCalledWith(
         "write tests",
         "p-1",
-        null,
+        "t-1",
         true,
         null,
       );
@@ -112,7 +112,7 @@ describe("useTimerStore", () => {
     });
   });
 
-  it("start() with no project passes undefined → null to api", async () => {
+  it("start() with no project / task passes undefined → null to api", async () => {
     await createRoot(async (dispose) => {
       const store = useTimerStore();
       await flushMicrotasks();
@@ -124,6 +124,16 @@ describe("useTimerStore", () => {
         false,
         null,
       );
+      dispose();
+    });
+  });
+
+  it("start() forwards project but null task when only project is provided", async () => {
+    await createRoot(async (dispose) => {
+      const store = useTimerStore();
+      await flushMicrotasks();
+      await store.start("solo", "p-1");
+      expect(api.startTimer).toHaveBeenCalledWith("solo", "p-1", null, false, null);
       dispose();
     });
   });

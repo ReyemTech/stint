@@ -6,6 +6,8 @@
 pub mod calendar;
 pub mod config;
 pub mod error;
+pub mod ffi;
+pub mod focus;
 pub mod ids;
 pub mod oauth;
 pub mod paths;

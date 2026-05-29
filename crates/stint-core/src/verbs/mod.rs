@@ -3,7 +3,7 @@
 //! Every transport (CLI, Tauri command, HTTP, MCP) delegates here. Adding a
 //! new verb means a new submodule here + ≤20 LoC of wiring per transport.
 //!
-//! See `docs/superpowers/specs/2026-05-23-stint-phase-6-deeper-integration-design.md#211-dry-principle`.
+//! See `docs/superpowers/specs/2026-05-25-stint-phase-6-deeper-integration-design.md`.
 
 pub mod current;
 pub mod delete_entry;

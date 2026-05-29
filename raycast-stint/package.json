@@ -1,0 +1,70 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "stint",
+  "title": "Stint",
+  "description": "Start, stop, and inspect Stint time entries from Raycast.",
+  "icon": "icon.png",
+  "author": "reyemtech",
+  "categories": ["Productivity"],
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "start-timer",
+      "title": "Start Timer",
+      "description": "Start a new time entry",
+      "mode": "view"
+    },
+    {
+      "name": "stop-timer",
+      "title": "Stop Timer",
+      "description": "Stop the running timer",
+      "mode": "no-view"
+    },
+    {
+      "name": "current",
+      "title": "Current Timer",
+      "description": "Show the running timer",
+      "mode": "view"
+    },
+    {
+      "name": "recent-entries",
+      "title": "Recent Entries",
+      "description": "Browse and restart recent entries",
+      "mode": "view"
+    },
+    {
+      "name": "switch-project",
+      "title": "Switch Project",
+      "description": "Stop current and start on a different project",
+      "mode": "view"
+    }
+  ],
+  "preferences": [
+    {
+      "name": "stintBin",
+      "type": "textfield",
+      "title": "Stint binary path",
+      "description": "Path to the stint CLI. Leave empty to auto-detect.",
+      "required": false,
+      "default": ""
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.85.0",
+    "@raycast/utils": "^1.17.0"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^1.0.11",
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.3",
+    "eslint": "^8.57.1",
+    "prettier": "^3.3.3",
+    "typescript": "^5.5.4"
+  },
+  "scripts": {
+    "build": "ray build -e dist",
+    "dev": "ray develop",
+    "lint": "ray lint",
+    "publish": "npx @raycast/api@latest publish"
+  }
+}

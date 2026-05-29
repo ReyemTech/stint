@@ -69,6 +69,30 @@ fn parse_percent_decodes_special_chars() {
 }
 
 #[test]
+fn parse_open_project() {
+    let action = parse("stint://project/proj-uuid-1").unwrap();
+    assert!(matches!(action, Action::OpenProject { project_id } if project_id == "proj-uuid-1"));
+}
+
+#[test]
+fn parse_open_task() {
+    let action = parse("stint://task/task-uuid-1").unwrap();
+    assert!(matches!(action, Action::OpenTask { task_id } if task_id == "task-uuid-1"));
+}
+
+#[test]
+fn parse_open_project_missing_id_errors() {
+    assert!(parse("stint://project").is_err());
+    assert!(parse("stint://project/").is_err());
+}
+
+#[test]
+fn parse_open_task_missing_id_errors() {
+    assert!(parse("stint://task").is_err());
+    assert!(parse("stint://task/").is_err());
+}
+
+#[test]
 fn parse_percent_decodes_multibyte_utf8() {
     // `café` in UTF-8 is c, a, f, é → 63 61 66 c3 a9. The é must round-trip
     // as a single grapheme, not two corrupted chars. Same for emoji (🎯 →

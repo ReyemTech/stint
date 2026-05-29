@@ -6,9 +6,11 @@ use std::sync::Arc;
 use std::time::Duration;
 use stint_core::{
     config::{secrets::Secrets, Settings},
+    ffi::{notify_indexer, IndexerKind},
     solidtime::{auth::build_token_provider, SolidtimeClient},
     store::Store,
     sync::pull::{pull, Trigger},
+    verbs,
 };
 use tauri::{AppHandle, Emitter};
 use tokio::time::sleep;
@@ -51,6 +53,20 @@ async fn tick(app: &AppHandle, store: &Store, trigger: Trigger) -> stint_core::R
         use crate::commands::pull::ConflictDto;
         let _ = app.emit(EVENT_PULL_CONFLICT, ConflictDto::from(conflict));
     }
+
+    // Refresh the Spotlight project / task slices after a successful pull.
+    // No-op when the StintIntents framework isn't loaded.
+    if let Ok(projects) = verbs::list_projects(store).await {
+        if let Ok(payload) = serde_json::to_string(&projects) {
+            notify_indexer(IndexerKind::ProjectsReplaced, &payload);
+        }
+    }
+    if let Ok(tasks) = verbs::list_tasks(store, None).await {
+        if let Ok(payload) = serde_json::to_string(&tasks) {
+            notify_indexer(IndexerKind::TasksReplaced, &payload);
+        }
+    }
+
     Ok(())
 }
 

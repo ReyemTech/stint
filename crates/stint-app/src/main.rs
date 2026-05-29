@@ -2,6 +2,7 @@ mod app_state;
 mod calendar_worker;
 mod commands;
 mod http;
+mod idle_detector;
 mod logging;
 mod menu;
 mod pull_worker;
@@ -47,11 +48,13 @@ async fn main() -> Result<()> {
             commands::timer::delete_entry,
             commands::timer::update_description,
             commands::timer::set_entry_project,
+            commands::timer::set_entry_task,
             commands::timer::set_entry_billable,
             commands::timer::update_entry_times,
             commands::entries::list_today,
             commands::entries::list_between,
             commands::projects::list_projects,
+            commands::projects::list_tasks,
             commands::projects::refresh_projects,
             commands::projects::list_organizations,
             commands::pull::pull_now,
@@ -83,12 +86,32 @@ async fn main() -> Result<()> {
             commands::integrations::get_api_integration_state,
             commands::integrations::set_api_enabled,
             commands::ui::show_main_window,
+            commands::idle::idle_keep,
+            commands::idle::idle_discard,
+            commands::idle::idle_split,
             updater::check_for_updates,
             updater::install_update,
             updater::restart_app,
         ])
         .setup(move |app| {
             tray::build(app.handle())?;
+
+            // Initialize the StintIntents Swift framework if it's loaded into
+            // the app bundle. The framework exports stint_intents_init as an
+            // @_cdecl symbol; we look it up via dlsym so this path no-ops on
+            // builds where the framework is absent (raw dev binaries from
+            // scripts/dev-app.sh, missing build artifacts, etc).
+            init_stint_intents();
+
+            // Widget-presence-aware HTTP auto-enable. If ≥1 stint widget is
+            // already configured, flip api.enabled = true so the widget can
+            // fetch its data without the user having to find Settings.
+            {
+                let store_for_widget_check = store_for_worker.clone();
+                tokio::spawn(async move {
+                    auto_enable_api_if_widgets_present(&store_for_widget_check).await;
+                });
+            }
 
             // Register stint:// URL scheme handler. Each incoming URL is parsed
             // by stint_core::url_scheme and dispatched to the verbs façade.
@@ -130,6 +153,10 @@ async fn main() -> Result<()> {
 
             // Periodic Solidtime → stint pull (5-min tick).
             pull_worker::spawn(app.handle().clone(), store_for_worker.clone());
+
+            // Idle detector — emits idle:detected when activity resumes after
+            // the configured threshold while a timer is running.
+            idle_detector::spawn(app.handle().clone(), store_for_worker.clone());
 
             // One-shot pull on startup: surfaces a remote-side running timer
             // or recent edits within ~1s of launch, without waiting for the
@@ -256,12 +283,132 @@ async fn handle_stint_url<R: tauri::Runtime>(
         Action::Stop => {
             stint_core::verbs::stop(&store).await?;
         }
-        Action::OpenEntry { local_uuid: _ } | Action::Current => {
-            if let Some(win) = app.get_webview_window("main") {
-                let _ = win.show();
-                let _ = win.set_focus();
-            }
+        Action::OpenEntry { local_uuid } => {
+            // Look up the entry's start_at so we can navigate to the day
+            // it belongs to (Today only shows today; a stint:// link from
+            // Spotlight may point at an older entry).
+            let route = match stint_core::verbs::list_entries(
+                &store,
+                stint_core::verbs::EntryFilter {
+                    limit: Some(1000),
+                    ..Default::default()
+                },
+            )
+            .await
+            {
+                Ok(entries) => entries
+                    .into_iter()
+                    .find(|e| e.local_uuid == local_uuid)
+                    .map(|e| {
+                        // Pass entry+date so Today (or future routes) can
+                        // scroll to / highlight the row.
+                        let date = e.start_at.split('T').next().unwrap_or("").to_string();
+                        format!("/today?entry={local_uuid}&date={date}")
+                    })
+                    .unwrap_or_else(|| format!("/today?entry={local_uuid}")),
+                Err(_) => format!("/today?entry={local_uuid}"),
+            };
+            focus_main_window_at_route(app, &route);
+        }
+        Action::Current => {
+            focus_main_window_at_route(app, "/today");
+        }
+        Action::OpenProject { project_id } => {
+            focus_main_window_at_route(app, &format!("/today?project={project_id}"));
+        }
+        Action::OpenTask { task_id } => {
+            // Resolve task → parent project so the Today view can filter by both.
+            let route = match stint_core::verbs::list_tasks(&store, None).await {
+                Ok(tasks) => tasks
+                    .into_iter()
+                    .find(|t| t.solidtime_id == task_id)
+                    .map(|t| format!("/today?project={}&task={}", t.project_id, task_id))
+                    .unwrap_or_else(|| "/today".into()),
+                Err(_) => "/today".into(),
+            };
+            focus_main_window_at_route(app, &route);
         }
     }
     Ok(())
+}
+
+/// Bring the main window forward and emit a navigate event so the SolidJS
+/// router can land on the requested route. Payload is a bare string to
+/// match the existing `navigate` listener in `ui/src/App.tsx` (set by the
+/// tray menu and Settings shortcuts).
+fn focus_main_window_at_route<R: tauri::Runtime>(app: &tauri::AppHandle<R>, route: &str) {
+    use tauri::Emitter;
+    if let Some(win) = app.get_webview_window("main") {
+        let _ = win.show();
+        let _ = win.set_focus();
+    }
+    let _ = app.emit("navigate", route);
+}
+
+/// Best-effort init of the StintIntents Swift framework via dlsym lookup
+/// of `stint_intents_init`. No-op when the symbol isn't present (the
+/// framework isn't bundled into the running binary).
+/// Best-effort init of the StintIntents Swift framework via dlsym lookup
+/// of `stint_intents_init`. The framework loads dynamically at app launch
+/// (build.rs emits -needed_framework so LC_LOAD_DYLIB references it). At
+/// the first call, the framework's @_cdecl symbol is resolvable via the
+/// flat dyld namespace.
+fn init_stint_intents() {
+    use std::ffi::CString;
+    type InitFn = unsafe extern "C" fn() -> i32;
+    let name = CString::new("stint_intents_init").unwrap();
+    let sym = unsafe { libc::dlsym(libc::RTLD_DEFAULT, name.as_ptr()) };
+    if sym.is_null() {
+        tracing::debug!(
+            "stint_intents_init not present; Spotlight/App Intents integration disabled"
+        );
+        return;
+    }
+    let f: InitFn = unsafe { std::mem::transmute(sym) };
+    let rc = unsafe { f() };
+    if rc != 0 {
+        tracing::warn!(rc, "stint_intents_init returned non-zero");
+    } else {
+        tracing::info!("StintIntents framework initialized");
+    }
+}
+
+/// If ≥1 Stint widget is configured AND api.enabled is currently false,
+/// flip it to true. The widget needs the loopback HTTP API to fetch its
+/// data; auto-enabling removes the "why is my widget showing 'Stint not
+/// running'?" onboarding friction.
+///
+/// `stint_widget_count` lives in the StintIntents framework — the widget
+/// extension itself runs in a separate process and isn't dlsym-reachable.
+/// Returns -1 (treated as "no info") when the symbol isn't loaded or
+/// WidgetCenter can't enumerate within 2s.
+async fn auto_enable_api_if_widgets_present(store: &stint_core::store::Store) {
+    use std::ffi::CString;
+    type CountFn = unsafe extern "C" fn() -> i32;
+    let name = CString::new("stint_widget_count").unwrap();
+    let sym = unsafe { libc::dlsym(libc::RTLD_DEFAULT, name.as_ptr()) };
+    if sym.is_null() {
+        return;
+    }
+    let f: CountFn = unsafe { std::mem::transmute(sym) };
+    let count = unsafe { f() };
+    if count <= 0 {
+        return;
+    }
+    let settings = stint_core::config::Settings::new(store.clone());
+    let already_on = matches!(
+        settings.get("api.enabled").await.ok().flatten().as_deref(),
+        Some("true")
+    );
+    if already_on {
+        return;
+    }
+    if let Err(e) = settings.set("api.enabled", "true").await {
+        tracing::warn!(error = %e, "auto-enable api.enabled failed");
+        return;
+    }
+    tracing::info!(
+        widgets = count,
+        "auto-enabled api.enabled — ≥1 stint widget is configured"
+    );
 }

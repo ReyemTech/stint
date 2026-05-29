@@ -31,11 +31,17 @@ pub async fn delete_entry(store: &Store, local_uuid: &str) -> Result<()> {
     }
 
     let timer = TimerService::new(store.clone());
-    match timer.delete(local_uuid).await {
+    let result = match timer.delete(local_uuid).await {
         Ok(()) => Ok(()),
         // Race: row vanished between the probe and the delete. Still a
         // success from the verb's point of view.
         Err(Error::NotFound(_)) => Ok(()),
         Err(e) => Err(e),
+    };
+
+    if result.is_ok() {
+        let payload = serde_json::json!({ "local_uuid": local_uuid }).to_string();
+        crate::ffi::notify_indexer(crate::ffi::IndexerKind::EntryDeleted, &payload);
     }
+    result
 }

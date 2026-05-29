@@ -1,6 +1,7 @@
 pub mod calendar;
 pub mod config;
 pub mod entries;
+pub mod idle;
 pub mod integrations;
 pub mod projects;
 pub mod pull;

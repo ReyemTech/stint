@@ -13,6 +13,7 @@ import Accordion from "~/components/ui/Accordion";
 import Button from "~/components/ui/Button";
 import Pill from "~/components/ui/Pill";
 import ProjectPicker from "~/components/ui/ProjectPicker";
+import Toggle from "~/components/ui/Toggle";
 import IntegrationsPanel from "~/routes/Settings/IntegrationsPanel";
 import UpdatesPanel from "~/routes/Settings/UpdatesPanel";
 import type { CalendarAccount, CalendarRow, OrgChoice, Project } from "~/types";
@@ -23,6 +24,8 @@ const LABELS: Record<string, string> = {
   "solidtime.org": "Organization",
   "solidtime.member_id": "Membership",
   "solidtime.default-project": "Default project",
+  "idle.enabled": "Idle detection",
+  "idle.threshold_secs": "Idle threshold",
 };
 const labelFor = (key: string) => LABELS[key] ?? key;
 
@@ -39,6 +42,16 @@ export default function Settings() {
   const orgId = () => lookup("solidtime.org")?.value ?? "";
   const defaultProjectId = () => lookup("solidtime.default-project")?.value ?? "";
   const canFetchOrgs = createMemo(() => urlSet() && tokenSet());
+
+  // Idle detection — default enabled, threshold 600s. Stored as plain
+  // strings in the settings table; we coerce here so the controls work
+  // against typed values.
+  const idleEnabled = () => lookup("idle.enabled")?.value !== "false";
+  const idleThreshold = () => {
+    const raw = lookup("idle.threshold_secs")?.value;
+    const n = raw ? parseInt(raw, 10) : NaN;
+    return Number.isFinite(n) ? n : 600;
+  };
 
   // Organizations: fetched once URL+token are set.
   const [orgs, { refetch: refetchOrgs }] = createResource<OrgChoice[], boolean>(
@@ -413,6 +426,45 @@ export default function Settings() {
         hint="Local HTTP API, AI agents (MCP), and the stint:// URL scheme."
       >
         <IntegrationsPanel />
+      </Accordion>
+
+      <Accordion
+        title="Idle detection"
+        hint="Catch idle periods so they don't end up on your timesheet."
+      >
+        <div class="space-y-4">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <div class="text-sm font-medium">Detect when I leave my desk</div>
+              <div class="mt-0.5 text-xs text-zinc-500">
+                When a timer is running and you stop moving the mouse / typing,
+                stint waits for you to come back and offers to discard the gap.
+              </div>
+            </div>
+            <Toggle
+              label={idleEnabled() ? "On" : "Off"}
+              checked={idleEnabled()}
+              onChange={(next) =>
+                saveValue("idle.enabled", next ? "true" : "false")
+              }
+            />
+          </div>
+          <label class="flex items-center justify-between gap-3">
+            <span class="text-sm">After</span>
+            <select
+              class="rounded-md border border-black/10 bg-white px-2 py-1 text-sm dark:border-white/10 dark:bg-zinc-900"
+              value={String(idleThreshold())}
+              onChange={(e) =>
+                saveValue("idle.threshold_secs", e.currentTarget.value)
+              }
+            >
+              <option value="300">5 minutes</option>
+              <option value="600">10 minutes</option>
+              <option value="900">15 minutes</option>
+              <option value="1800">30 minutes</option>
+            </select>
+          </label>
+        </div>
       </Accordion>
 
       <Accordion
