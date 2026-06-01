@@ -132,12 +132,12 @@ describe("<ProjectTaskPicker>", () => {
     ));
     fireEvent.click(getByLabelText("Open project or task list"));
     await flush();
-    expect(screen.queryByText("↳ First")).toBeNull();
+    expect(screen.queryByText("First")).toBeNull();
     fireEvent.click(screen.getByLabelText("Expand"));
     await flush();
-    expect(screen.queryByText("↳ First")).not.toBeNull();
-    expect(screen.queryByText("↳ Second")).not.toBeNull();
-    fireEvent.click(screen.getByText("↳ Second"));
+    expect(screen.queryByText("First")).not.toBeNull();
+    expect(screen.queryByText("Second")).not.toBeNull();
+    fireEvent.click(screen.getByText("Second"));
     await flush();
     expect(onChange).toHaveBeenCalledWith({
       projectId: "p-1",
@@ -156,7 +156,7 @@ describe("<ProjectTaskPicker>", () => {
     ));
     fireEvent.click(getByLabelText("Open project or task list"));
     await flush();
-    expect(screen.queryByText("↳ First")).not.toBeNull();
+    expect(screen.queryByText("First")).not.toBeNull();
   });
 
   it("smart search auto-expands projects with matching tasks", async () => {
@@ -182,7 +182,7 @@ describe("<ProjectTaskPicker>", () => {
     search.value = "refactor";
     fireEvent.input(search);
     await flush();
-    expect(screen.queryByText("↳ Refactor picker")).not.toBeNull();
+    expect(screen.queryByText("Refactor picker")).not.toBeNull();
     expect(screen.queryByText("Beta")).toBeNull();
   });
 
@@ -204,8 +204,88 @@ describe("<ProjectTaskPicker>", () => {
     // Expand explicitly in case auto-expand only triggers when taskId is set.
     fireEvent.click(screen.getByLabelText("Expand"));
     await flush();
-    expect(screen.queryByText("↳ Active")).not.toBeNull();
-    expect(screen.queryByText("↳ Finished")).toBeNull();
+    expect(screen.queryByText("Active")).not.toBeNull();
+    expect(screen.queryByText("Finished")).toBeNull();
+  });
+
+  it("does NOT render a chevron for projects with no tasks", async () => {
+    const { getByLabelText } = render(() => (
+      <ProjectTaskPicker
+        value={{ projectId: null, taskId: null }}
+        onChange={vi.fn()}
+        projects={[proj({ id: "p-1", name: "Alpha" })]}
+        tasks={[]}
+      />
+    ));
+    fireEvent.click(getByLabelText("Open project or task list"));
+    await flush();
+    // Tasks have no chevron when there are no children.
+    expect(screen.queryByLabelText("Expand")).toBeNull();
+  });
+
+  it("search-driven expansions clear when the query is removed", async () => {
+    const { getByLabelText } = render(() => (
+      <ProjectTaskPicker
+        value={{ projectId: null, taskId: null }}
+        onChange={vi.fn()}
+        projects={[
+          proj({ id: "p-1", name: "Alpha" }),
+          proj({ id: "p-2", name: "Beta" }),
+        ]}
+        tasks={[
+          task({ solidtime_id: "t-1", project_id: "p-2", name: "Unique" }),
+        ]}
+      />
+    ));
+    fireEvent.click(getByLabelText("Open project or task list"));
+    await flush();
+    // Beta starts collapsed — its task not visible.
+    expect(screen.queryByText("Unique")).toBeNull();
+    // Search opens it.
+    const search = screen.getByPlaceholderText(
+      "Search projects + tasks…",
+    ) as HTMLInputElement;
+    search.value = "unique";
+    fireEvent.input(search);
+    await flush();
+    expect(screen.queryByText("Unique")).not.toBeNull();
+    // Clear the query — Beta should collapse back since the expansion was
+    // search-driven, not user-driven.
+    search.value = "";
+    fireEvent.input(search);
+    await flush();
+    expect(screen.queryByText("Unique")).toBeNull();
+  });
+
+  it("user-driven expansions persist across search activity", async () => {
+    const { getByLabelText } = render(() => (
+      <ProjectTaskPicker
+        value={{ projectId: null, taskId: null }}
+        onChange={vi.fn()}
+        projects={[proj({ id: "p-1", name: "Alpha" })]}
+        tasks={[
+          task({ solidtime_id: "t-1", project_id: "p-1", name: "Visible" }),
+        ]}
+      />
+    ));
+    fireEvent.click(getByLabelText("Open project or task list"));
+    await flush();
+    // User expands Alpha manually.
+    fireEvent.click(screen.getByLabelText("Expand"));
+    await flush();
+    expect(screen.queryByText("Visible")).not.toBeNull();
+    // Type a query that doesn't match anything.
+    const search = screen.getByPlaceholderText(
+      "Search projects + tasks…",
+    ) as HTMLInputElement;
+    search.value = "zzz-nope";
+    fireEvent.input(search);
+    await flush();
+    // Clear the query — the user's manual expansion should still hold.
+    search.value = "";
+    fireEvent.input(search);
+    await flush();
+    expect(screen.queryByText("Visible")).not.toBeNull();
   });
 
   it("shows an empty-state message when search has no matches", async () => {

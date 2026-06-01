@@ -20,16 +20,17 @@ import type { Project, Task } from "~/types";
  * no tasks.
  *
  * Layout: tree. "(No project)" sentinel at top, projects rendered as bold
- * rows with a chevron, tasks indented underneath. Project rows are
- * selectable (selecting one yields project-only, task_id=null).
+ * rows with a chevron when they have tasks (no chevron for childless
+ * projects). Project rows are selectable (selecting one yields
+ * project-only, task_id=null).
  *
  * Search: smart filter. Typing matches projects AND tasks. Matching tasks
  * auto-expand their parent project; if the parent's name doesn't match the
  * query the parent is shown dimmed (still clickable for project-only).
+ * Search-driven expansions don't persist after the query clears.
  *
  * Default expansion: all collapsed. The project containing the currently
- * selected task auto-expands when the dropdown opens. Any query
- * auto-expands all projects with matches.
+ * selected task auto-expands when the dropdown opens.
  *
  * Keyboard: ↑↓ traverses visible rows; Enter selects; Esc closes; Right
  * expands a collapsed project; Left collapses an expanded project (or
@@ -43,7 +44,13 @@ export type ProjectTaskValue = {
 
 type Row =
   | { kind: "none"; key: string }
-  | { kind: "project"; key: string; project: PickerOption; dim: boolean }
+  | {
+      kind: "project";
+      key: string;
+      project: PickerOption;
+      dim: boolean;
+      hasTasks: boolean;
+    }
   | { kind: "task"; key: string; project: PickerOption; task: Task };
 
 interface Props {
@@ -60,10 +67,12 @@ interface Props {
 export default function ProjectTaskPicker(props: Props) {
   const [open, setOpen] = createSignal(false);
   const [query, setQuery] = createSignal("");
-  const [expanded, setExpanded] = createSignal<Set<string>>(new Set());
+  // User-driven expansions only — survives query changes. Persists for
+  // the lifetime of the dropdown instance.
+  const [userExpanded, setUserExpanded] = createSignal<Set<string>>(new Set());
   const [highlightIdx, setHighlightIdx] = createSignal(0);
 
-  // Group tasks by project_id and produce a stable accessor.
+  // Group tasks by project_id (active tasks only) and produce a stable accessor.
   const tasksByProject = createMemo(() => {
     const m = new Map<string, Task[]>();
     for (const t of props.tasks) {
@@ -80,10 +89,40 @@ export default function ProjectTaskPicker(props: Props) {
 
   const projectOptions = createMemo(() => buildPickerOptions(props.projects));
 
-  // Visible rows: respects search query AND expansion state.
+  // Projects auto-expanded purely because the active search query has
+  // matching tasks under them. Recomputed from the query; not stored in
+  // userExpanded, so clearing the query collapses them back automatically.
+  const searchExpansions = createMemo<Set<string>>(() => {
+    const q = query().trim().toLowerCase();
+    if (!q) return new Set();
+    const out = new Set<string>();
+    for (const p of projectOptions()) {
+      const projMatch = p.name.toLowerCase().includes(q);
+      const projTasks = tasksByProject().get(p.id) ?? [];
+      const hasMatchingTask = projTasks.some((t) =>
+        t.name.toLowerCase().includes(q),
+      );
+      if (projMatch || hasMatchingTask) out.add(p.id);
+    }
+    return out;
+  });
+
+  // The effective expanded set is the union of user-driven and search-
+  // driven expansions. Searching shows more without losing user state;
+  // clearing search reverts to user state alone.
+  const effectiveExpanded = createMemo<Set<string>>(() => {
+    const u = userExpanded();
+    const s = searchExpansions();
+    if (s.size === 0) return u;
+    const ns = new Set(u);
+    for (const id of s) ns.add(id);
+    return ns;
+  });
+
+  // Visible rows: respects search query AND effective expansion state.
   const rows = createMemo<Row[]>(() => {
     const q = query().trim().toLowerCase();
-    const exp = expanded();
+    const exp = effectiveExpanded();
     const out: Row[] = [{ kind: "none", key: "__none__" }];
 
     for (const p of projectOptions()) {
@@ -92,6 +131,7 @@ export default function ProjectTaskPicker(props: Props) {
       const matchingTasks = q
         ? projTasks.filter((t) => t.name.toLowerCase().includes(q))
         : projTasks;
+      const hasTasks = projTasks.length > 0;
 
       if (q) {
         // Search mode: include project if its name matches OR it has any
@@ -104,6 +144,7 @@ export default function ProjectTaskPicker(props: Props) {
           key: `p:${p.id}`,
           project: p,
           dim: !projMatch,
+          hasTasks,
         });
         for (const t of matchingTasks) {
           out.push({
@@ -115,7 +156,13 @@ export default function ProjectTaskPicker(props: Props) {
         }
       } else {
         // Normal mode: project always visible; tasks only if expanded.
-        out.push({ kind: "project", key: `p:${p.id}`, project: p, dim: false });
+        out.push({
+          kind: "project",
+          key: `p:${p.id}`,
+          project: p,
+          dim: false,
+          hasTasks,
+        });
         if (exp.has(p.id)) {
           for (const t of projTasks) {
             out.push({
@@ -133,13 +180,14 @@ export default function ProjectTaskPicker(props: Props) {
 
   // When the dropdown opens, auto-expand the project that owns the
   // currently selected task so the user can see the current value
-  // without first having to expand by hand.
+  // without first having to expand by hand. This counts as a user
+  // expansion since the user effectively selected this previously.
   createEffect(
     on(open, (isOpen) => {
       if (!isOpen) return;
       const v = props.value;
       if (v.taskId && v.projectId) {
-        setExpanded((s) => {
+        setUserExpanded((s) => {
           if (s.has(v.projectId!)) return s;
           const ns = new Set(s);
           ns.add(v.projectId!);
@@ -152,29 +200,9 @@ export default function ProjectTaskPicker(props: Props) {
     }),
   );
 
-  // Auto-expand any project that has matches whenever the query changes.
-  // Empty query restores whatever expansion the user had explicitly set;
-  // we only expand on non-empty queries.
+  // Reset highlight on query change to avoid pointing at a filtered-out row.
   createEffect(
-    on(query, (q) => {
-      const trimmed = q.trim().toLowerCase();
-      if (!trimmed) return;
-      const matching = new Set<string>();
-      for (const p of projectOptions()) {
-        const projMatch = p.name.toLowerCase().includes(trimmed);
-        const projTasks = tasksByProject().get(p.id) ?? [];
-        const hasMatchingTask = projTasks.some((t) =>
-          t.name.toLowerCase().includes(trimmed),
-        );
-        if (projMatch || hasMatchingTask) matching.add(p.id);
-      }
-      setExpanded((s) => {
-        // Union with whatever the user had open so we don't collapse
-        // them mid-search.
-        const ns = new Set(s);
-        for (const id of matching) ns.add(id);
-        return ns;
-      });
+    on(query, () => {
       setHighlightIdx(0);
     }),
   );
@@ -208,8 +236,8 @@ export default function ProjectTaskPicker(props: Props) {
     setOpen(false);
   }
 
-  function toggleExpand(projectId: string) {
-    setExpanded((s) => {
+  function toggleUserExpand(projectId: string) {
+    setUserExpanded((s) => {
       const ns = new Set(s);
       if (ns.has(projectId)) ns.delete(projectId);
       else ns.add(projectId);
@@ -235,17 +263,24 @@ export default function ProjectTaskPicker(props: Props) {
       }
       case "ArrowRight": {
         const row = list[idx];
-        if (row?.kind === "project" && !expanded().has(row.project.id)) {
+        if (
+          row?.kind === "project" &&
+          row.hasTasks &&
+          !effectiveExpanded().has(row.project.id)
+        ) {
           e.preventDefault();
-          toggleExpand(row.project.id);
+          toggleUserExpand(row.project.id);
         }
         break;
       }
       case "ArrowLeft": {
         const row = list[idx];
-        if (row?.kind === "project" && expanded().has(row.project.id)) {
+        if (
+          row?.kind === "project" &&
+          effectiveExpanded().has(row.project.id)
+        ) {
           e.preventDefault();
-          toggleExpand(row.project.id);
+          toggleUserExpand(row.project.id);
         } else if (row?.kind === "task") {
           e.preventDefault();
           const parentIdx = list.findIndex(
@@ -323,11 +358,12 @@ export default function ProjectTaskPicker(props: Props) {
                   row={row}
                   highlighted={i() === highlightIdx()}
                   isExpanded={
-                    row.kind === "project" && expanded().has(row.project.id)
+                    row.kind === "project" &&
+                    effectiveExpanded().has(row.project.id)
                   }
                   onSelect={() => commitRow(row)}
                   onToggle={() => {
-                    if (row.kind === "project") toggleExpand(row.project.id);
+                    if (row.kind === "project") toggleUserExpand(row.project.id);
                   }}
                   onHover={() => setHighlightIdx(i())}
                 />
@@ -380,45 +416,84 @@ function RowItem(props: {
                 No project
               </span>
             );
-          case "project":
+          case "project": {
+            const row = props.row;
             return (
               <>
-                <button
-                  type="button"
-                  data-chevron
-                  aria-label={props.isExpanded ? "Collapse" : "Expand"}
-                  tabIndex={-1}
-                  class="flex h-4 w-4 items-center justify-center rounded text-[10px] text-zinc-400 hover:bg-zinc-200 hover:text-zinc-700 dark:hover:bg-zinc-700 dark:hover:text-zinc-200"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    props.onToggle();
-                  }}
+                <Show
+                  when={row.hasTasks}
+                  fallback={
+                    <span
+                      class="flex h-6 w-6 shrink-0 items-center justify-center text-zinc-400 dark:text-zinc-500"
+                      aria-hidden
+                    >
+                      •
+                    </span>
+                  }
                 >
-                  {props.isExpanded ? "▾" : "▸"}
-                </button>
+                  <button
+                    type="button"
+                    data-chevron
+                    aria-label={props.isExpanded ? "Collapse" : "Expand"}
+                    tabIndex={-1}
+                    class="-ml-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded text-zinc-500 transition hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-zinc-100"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      props.onToggle();
+                    }}
+                  >
+                    <svg
+                      width="10"
+                      height="10"
+                      viewBox="0 0 10 10"
+                      fill="none"
+                      class="transition-transform"
+                      style={{
+                        transform: props.isExpanded
+                          ? "rotate(90deg)"
+                          : "rotate(0deg)",
+                      }}
+                    >
+                      <path
+                        d="M3 1.5L7 5L3 8.5"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </button>
+                </Show>
                 <span
                   class={
                     "flex-1 truncate font-medium " +
-                    (props.row.dim
+                    (row.dim
                       ? "text-zinc-400 dark:text-zinc-500"
                       : "text-zinc-900 dark:text-zinc-100")
                   }
                 >
-                  {props.row.project.name}
+                  {row.project.name}
                 </span>
-                <Show when={props.row.project.clientName}>
+                <Show when={row.project.clientName}>
                   <span class="text-[11px] text-zinc-400">
-                    {props.row.project.clientName}
+                    {row.project.clientName}
                   </span>
                 </Show>
               </>
             );
+          }
           case "task":
             return (
               <>
-                <span class="w-4" aria-hidden />
-                <span class="flex-1 truncate pl-2 text-zinc-700 dark:text-zinc-300">
-                  ↳ {props.row.task.name}
+                <span class="w-6" aria-hidden />
+                <span
+                  class="flex w-4 shrink-0 items-center text-xs text-zinc-400 dark:text-zinc-500"
+                  aria-hidden
+                >
+                  –
+                </span>
+                <span class="flex-1 truncate text-xs text-zinc-600 dark:text-zinc-400">
+                  {props.row.task.name}
                 </span>
               </>
             );
