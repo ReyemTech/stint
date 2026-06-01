@@ -18,6 +18,10 @@ vi.mock("~/stores/timer", () => ({
   useTimerStore: () => storeMock,
 }));
 
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn().mockResolvedValue(() => {}),
+}));
+
 vi.mock("~/api", () => ({
   api: {
     listProjects: vi.fn().mockResolvedValue([
