@@ -1,4 +1,11 @@
-import { createMemo, createResource, createSignal, Show } from "solid-js";
+import {
+  createMemo,
+  createResource,
+  createSignal,
+  onCleanup,
+  Show,
+} from "solid-js";
+import { listen } from "@tauri-apps/api/event";
 import { api } from "~/api";
 import { fromLocalHHMM, toLocalHHMM } from "~/lib/entryFormat";
 import type { Entry } from "~/types";
@@ -26,13 +33,25 @@ export default function EditEntryDialog(props: {
   const [err, setErr] = createSignal<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = createSignal(false);
 
-  const [projects] = createResource(() => api.listProjects(), {
-    initialValue: [],
-  });
+  const [projects, { refetch: refetchProjects }] = createResource(
+    () => api.listProjects(),
+    { initialValue: [] },
+  );
   // All tasks across all projects, eager-loaded once. The combined picker
   // groups by project_id itself.
-  const [tasks] = createResource(() => api.listTasks(null), {
-    initialValue: [],
+  const [tasks, { refetch: refetchTasks }] = createResource(
+    () => api.listTasks(null),
+    { initialValue: [] },
+  );
+
+  // projects:changed fires after refresh_reference_data finishes. Refetch
+  // so the pickers reflect server-side adds, edits, archives, and deletions.
+  const unlistenProjects = listen("projects:changed", () => {
+    refetchProjects();
+    refetchTasks();
+  });
+  onCleanup(() => {
+    unlistenProjects.then((fn) => fn()).catch(() => {});
   });
 
   const isCompleted = createMemo(() => Boolean(props.entry.end_at));

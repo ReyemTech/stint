@@ -178,7 +178,9 @@ async fn refresh_projects_populates_local_cache_from_solidtime() {
     seed_solidtime_config(&ctx.store, &server.uri(), Some("org-1")).await;
 
     let handle = ctx.handle();
-    let n = refresh_projects(handle.state()).await.unwrap();
+    let n = refresh_projects(handle.clone(), handle.state())
+        .await
+        .unwrap();
     assert_eq!(n, 1);
 
     let rows = list_projects(handle.state()).await.unwrap();
@@ -190,7 +192,9 @@ async fn refresh_projects_populates_local_cache_from_solidtime() {
 async fn refresh_projects_errors_when_solidtime_url_missing() {
     let ctx = common::make_app().await;
     let handle = ctx.handle();
-    let err = refresh_projects(handle.state()).await.unwrap_err();
+    let err = refresh_projects(handle.clone(), handle.state())
+        .await
+        .unwrap_err();
     assert!(
         err.message.contains("solidtime.url"),
         "got: {}",

@@ -1,6 +1,6 @@
 use crate::app_state::AppState;
 use crate::commands::{store, AppError};
-use crate::sync_worker::EVENT_ENTRIES_CHANGED;
+use crate::sync_worker::{EVENT_ENTRIES_CHANGED, EVENT_PROJECTS_CHANGED};
 use serde::Serialize;
 use stint_core::config::{secrets::Secrets, Settings};
 use stint_core::solidtime::auth::build_token_provider;
@@ -168,8 +168,16 @@ pub async fn sync_now<R: Runtime>(
     // shouldn't mask a successful queue drain. The background sync loop
     // re-runs this every 15 ticks anyway, but users expect "Sync now" to
     // pick up project metadata changes (e.g. is_billable) on demand.
-    if let Err(e) = refresh_reference_data(&store, &client).await {
-        tracing::warn!(error = %e, "Sync now: reference refresh failed");
+    match refresh_reference_data(&store, &client).await {
+        Ok(_) => {
+            // Notify UI surfaces that consume project/task lists so they
+            // refetch and reflect any server-side additions, edits, or
+            // (after the prune fix) archives.
+            let _ = app.emit(EVENT_PROJECTS_CHANGED, 0u32);
+        }
+        Err(e) => {
+            tracing::warn!(error = %e, "Sync now: reference refresh failed");
+        }
     }
     if n > 0 {
         let _ = app.emit(EVENT_ENTRIES_CHANGED, n);

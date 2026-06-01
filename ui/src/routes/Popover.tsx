@@ -25,17 +25,27 @@ export default function Popover() {
     () => api.listToday(),
     { initialValue: [] },
   );
-  const [projects] = createResource(() => api.listProjects(), {
-    initialValue: [],
-  });
+  const [projects, { refetch: refetchProjects }] = createResource(
+    () => api.listProjects(),
+    { initialValue: [] },
+  );
   // All tasks across projects, eager-loaded once. The combined picker
   // groups by project_id itself.
-  const [tasks] = createResource(() => api.listTasks(null), {
-    initialValue: [],
-  });
+  const [tasks, { refetch: refetchTasks }] = createResource(
+    () => api.listTasks(null),
+    { initialValue: [] },
+  );
   const unlistenEntries = listen("entries:changed", () => refetchEntries());
+  // projects:changed fires after refresh_reference_data finishes (Sync now,
+  // refresh_projects). Refetch so the combined picker reflects server-side
+  // adds, edits, archives, and deletions immediately.
+  const unlistenProjects = listen("projects:changed", () => {
+    refetchProjects();
+    refetchTasks();
+  });
   onCleanup(() => {
     unlistenEntries.then((fn) => fn()).catch(() => {});
+    unlistenProjects.then((fn) => fn()).catch(() => {});
   });
 
   const totalSeconds = () =>

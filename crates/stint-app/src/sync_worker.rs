@@ -20,6 +20,10 @@ use tracing::{debug, info, warn};
 
 pub const EVENT_ENTRIES_CHANGED: &str = "entries:changed";
 pub const EVENT_PULL_CONFLICT: &str = "pull:conflict";
+/// Emitted after refresh_reference_data succeeds. UI surfaces that fetch
+/// projects / tasks / clients listen for this so they refetch and reflect
+/// server-side adds, edits, archives, and (post-prune-fix) deletions.
+pub const EVENT_PROJECTS_CHANGED: &str = "projects:changed";
 
 const TICK: Duration = Duration::from_secs(30);
 
