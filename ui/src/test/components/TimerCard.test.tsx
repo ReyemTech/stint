@@ -67,12 +67,12 @@ beforeEach(() => {
 });
 
 describe("<TimerCard> — start form (no timer running)", () => {
-  it("renders the description input, a project picker, and a Start button", () => {
+  it("renders the description input, the combined project/task picker, and a Start button", () => {
     const { getByPlaceholderText, getByText, getByLabelText } = render(() => (
       <TimerCard />
     ));
     expect(getByPlaceholderText("What are you working on?")).toBeDefined();
-    expect(getByLabelText("Open project list")).toBeDefined();
+    expect(getByLabelText("Open project or task list")).toBeDefined();
     expect(getByText("Start")).toBeDefined();
   });
 
@@ -110,14 +110,13 @@ describe("<TimerCard> — start form (no timer running)", () => {
     );
   });
 
-  it("renders a TaskPicker disabled until a project is selected", async () => {
-    const { getByLabelText } = render(() => <TimerCard />);
+  it("loads all tasks (cross-project) on mount for the combined picker", async () => {
+    render(() => <TimerCard />);
     await flushMicrotasks();
-    const trigger = getByLabelText("Open task list") as HTMLButtonElement;
-    expect(trigger).toBeDefined();
-    // The Combobox input is the one that goes disabled.
-    const taskInput = trigger.parentElement?.querySelector("input") as HTMLInputElement;
-    expect(taskInput.disabled).toBe(true);
+    // The combined ProjectTaskPicker fetches all tasks upfront (passing
+    // null to scope to "everything") so the dropdown can render tasks
+    // grouped under their parent projects without per-expansion fetches.
+    expect(api.listTasks).toHaveBeenCalledWith(null);
   });
 
   it("does not call start when the description is blank", async () => {
@@ -153,28 +152,10 @@ describe("<TimerCard> — running timer panel", () => {
     expect(storeMock.stop).toHaveBeenCalledTimes(1);
   });
 
-  it("running panel shows the ProjectPicker for live project changes", async () => {
+  it("running panel shows the combined project/task picker for live changes", async () => {
     setRunning(runningTimer({ description: "x" }));
     const { getByLabelText } = render(() => <TimerCard />);
     await flushMicrotasks();
-    expect(getByLabelText("Open project list")).toBeDefined();
-  });
-
-  it("running panel exposes a TaskPicker (disabled when no project)", async () => {
-    setRunning(runningTimer({ description: "x", project_id: null }));
-    const { getByLabelText } = render(() => <TimerCard />);
-    await flushMicrotasks();
-    const trigger = getByLabelText("Open task list") as HTMLButtonElement;
-    const taskInput = trigger.parentElement?.querySelector("input") as HTMLInputElement;
-    expect(taskInput.disabled).toBe(true);
-  });
-
-  it("running panel enables the TaskPicker when the entry has a project", async () => {
-    setRunning(runningTimer({ description: "x", project_id: "p-1" }));
-    const { getByLabelText } = render(() => <TimerCard />);
-    await flushMicrotasks();
-    const trigger = getByLabelText("Open task list") as HTMLButtonElement;
-    const taskInput = trigger.parentElement?.querySelector("input") as HTMLInputElement;
-    expect(taskInput.disabled).toBe(false);
+    expect(getByLabelText("Open project or task list")).toBeDefined();
   });
 });

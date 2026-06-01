@@ -3,8 +3,7 @@ import { api } from "~/api";
 import { fromLocalHHMM, toLocalHHMM } from "~/lib/entryFormat";
 import type { Entry } from "~/types";
 import Button from "./ui/Button";
-import ProjectPicker from "./ui/ProjectPicker";
-import TaskPicker from "./ui/TaskPicker";
+import ProjectTaskPicker from "./ui/ProjectTaskPicker";
 import Toggle from "./ui/Toggle";
 
 export default function EditEntryDialog(props: {
@@ -30,14 +29,11 @@ export default function EditEntryDialog(props: {
   const [projects] = createResource(() => api.listProjects(), {
     initialValue: [],
   });
-  // Tasks for the currently-selected project. Re-fetches when projectId
-  // flips. An empty projectId resolves to an empty list and the TaskPicker
-  // stays disabled — no point hitting the IPC.
-  const [tasks] = createResource(
-    () => projectId(),
-    async (pid) => (pid ? await api.listTasks(pid) : []),
-    { initialValue: [] },
-  );
+  // All tasks across all projects, eager-loaded once. The combined picker
+  // groups by project_id itself.
+  const [tasks] = createResource(() => api.listTasks(null), {
+    initialValue: [],
+  });
 
   const isCompleted = createMemo(() => Boolean(props.entry.end_at));
 
@@ -116,36 +112,18 @@ export default function EditEntryDialog(props: {
 
           <div>
             <label class="block text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500">
-              Project
+              Project / task
             </label>
             <div class="mt-1">
-              <ProjectPicker
-                value={projectId()}
-                onChange={(id) => {
-                  // Tasks scope to projects — changing project must discard
-                  // the staged task selection so Save doesn't send a
-                  // task_id that doesn't belong to the new project.
-                  setTaskId(null);
-                  setProjectId(id);
+              <ProjectTaskPicker
+                value={{ projectId: projectId(), taskId: taskId() }}
+                onChange={(v) => {
+                  setProjectId(v.projectId);
+                  setTaskId(v.taskId);
                 }}
                 projects={projects() ?? []}
-                placeholder="No project"
-                size="sm"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500">
-              Task
-            </label>
-            <div class="mt-1">
-              <TaskPicker
-                value={taskId()}
-                onChange={setTaskId}
                 tasks={tasks() ?? []}
-                projectSelected={Boolean(projectId())}
-                placeholder="No task"
+                placeholder="No project"
                 size="sm"
               />
             </div>

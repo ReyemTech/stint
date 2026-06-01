@@ -7,8 +7,10 @@ vi.mock("~/api", () => ({
       { id: "p-1", name: "Tet", color: null, client_id: null, client_name: null, archived: 0 },
       { id: "p-2", name: "Other", color: null, client_id: null, client_name: null, archived: 0 },
     ]),
+    listTasks: vi.fn().mockResolvedValue([]),
     updateDescription: vi.fn().mockResolvedValue(undefined),
     setEntryProject: vi.fn().mockResolvedValue(undefined),
+    setEntryTask: vi.fn().mockResolvedValue(undefined),
     setEntryBillable: vi.fn().mockResolvedValue(undefined),
     updateEntryTimes: vi.fn().mockResolvedValue(undefined),
     deleteEntry: vi.fn().mockResolvedValue(undefined),
@@ -118,14 +120,14 @@ describe("<EntryRow>", () => {
     expect(queryByText("Edit entry")).not.toBeNull();
   });
 
-  it("dialog shows the ProjectPicker after the row is clicked", async () => {
+  it("dialog shows the combined project/task picker after the row is clicked", async () => {
     const { container, queryByLabelText } = render(() => (
       <EntryRow entry={entry()} />
     ));
-    expect(queryByLabelText("Open project list")).toBeNull();
+    expect(queryByLabelText("Open project or task list")).toBeNull();
     fireEvent.click(container.querySelector("button")!);
     await flush();
-    expect(queryByLabelText("Open project list")).not.toBeNull();
+    expect(queryByLabelText("Open project or task list")).not.toBeNull();
   });
 
   it("renders a Restart button on completed entries", () => {

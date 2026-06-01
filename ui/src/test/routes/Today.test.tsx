@@ -25,6 +25,7 @@ vi.mock("~/api", () => ({
   api: {
     listToday: vi.fn().mockResolvedValue([]),
     listProjects: vi.fn().mockResolvedValue([]),
+    listTasks: vi.fn().mockResolvedValue([]),
     syncNow: vi.fn().mockResolvedValue(0),
     deleteEntry: vi.fn().mockResolvedValue(undefined),
     listSyncErrors: vi.fn().mockResolvedValue([]),
