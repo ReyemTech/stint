@@ -96,6 +96,9 @@ pub async fn refresh_projects<R: Runtime>(
     // immediately, including any locally-archived rows the prune step
     // produced.
     let _ = app.emit(EVENT_PROJECTS_CHANGED, 0u32);
+    // Replace Spotlight slices so deleted-on-Solidtime projects/tasks
+    // don't keep surfacing in Spotlight after the user manually refreshes.
+    crate::commands::sync::replace_spotlight_slices(&store).await;
     let r = Reference::new((*store).clone());
     Ok(r.list_projects().await?.len())
 }

@@ -1,6 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render } from "@solidjs/testing-library";
 
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn().mockResolvedValue(() => {}),
+}));
+
 vi.mock("~/api", () => ({
   api: {
     listProjects: vi.fn().mockResolvedValue([
