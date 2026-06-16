@@ -47,7 +47,7 @@ beforeEach(() => {
 });
 
 describe("<EditEntryDialog>", () => {
-  it("renders the description, project picker, billable toggle, and time inputs for a completed entry", () => {
+  it("renders the description, project/task picker, billable toggle, and time inputs for a completed entry", () => {
     const { getByText, getByLabelText, container } = render(() => (
       <EditEntryDialog
         entry={entry()}
@@ -57,10 +57,10 @@ describe("<EditEntryDialog>", () => {
     ));
     expect(getByText("Edit entry")).toBeDefined();
     expect(getByText("Description")).toBeDefined();
-    expect(getByText("Project")).toBeDefined();
+    expect(getByText("Project / task")).toBeDefined();
     expect(getByText("Start")).toBeDefined();
     expect(getByText("End")).toBeDefined();
-    expect(getByLabelText("Open project list")).toBeDefined();
+    expect(getByLabelText("Open project or task list")).toBeDefined();
     const times = container.querySelectorAll('input[type="time"]');
     expect(times.length).toBe(2);
   });
@@ -178,31 +178,19 @@ describe("<EditEntryDialog>", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("renders a Task field and picker when the entry has a project", async () => {
-    const { getByText, getByLabelText } = render(() => (
+  it("eagerly loads all tasks for the combined project/task picker", async () => {
+    render(() => (
       <EditEntryDialog
         entry={entry({ project_id: "p-1" })}
         onClose={vi.fn()}
         onSaved={vi.fn()}
       />
     ));
-    expect(getByText("Task")).toBeDefined();
-    const trigger = getByLabelText("Open task list");
-    const taskInput = trigger.parentElement?.querySelector("input") as HTMLInputElement;
-    expect(taskInput.disabled).toBe(false);
-  });
-
-  it("disables the Task picker when the entry has no project", async () => {
-    const { getByLabelText } = render(() => (
-      <EditEntryDialog
-        entry={entry({ project_id: null })}
-        onClose={vi.fn()}
-        onSaved={vi.fn()}
-      />
-    ));
-    const trigger = getByLabelText("Open task list");
-    const taskInput = trigger.parentElement?.querySelector("input") as HTMLInputElement;
-    expect(taskInput.disabled).toBe(true);
+    await flush();
+    // The combined picker fetches all tasks upfront (project_id=null) so
+    // it can group them under their parents. The previous separate
+    // TaskPicker fetched per-project on demand.
+    expect(api.listTasks).toHaveBeenCalledWith(null);
   });
 
   it("Save without touching the task leaves setEntryTask uncalled", async () => {

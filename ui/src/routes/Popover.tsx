@@ -5,7 +5,7 @@ import { api } from "~/api";
 import Duration from "~/components/Duration";
 import StartAtPicker, { type StartAtValue } from "~/components/StartAtPicker";
 import Button from "~/components/ui/Button";
-import ProjectPicker from "~/components/ui/ProjectPicker";
+import ProjectTaskPicker from "~/components/ui/ProjectTaskPicker";
 import SectionLabel from "~/components/ui/SectionLabel";
 import StatusDot from "~/components/ui/StatusDot";
 import Toggle from "~/components/ui/Toggle";
@@ -17,7 +17,8 @@ import { useTimerStore } from "~/stores/timer";
 export default function Popover() {
   const timer = useTimerStore();
   const [description, setDescription] = createSignal("");
-  const [projectId, setProjectId] = createSignal<string>("");
+  const [projectId, setProjectId] = createSignal<string | null>(null);
+  const [taskId, setTaskId] = createSignal<string | null>(null);
   const [billable, setBillable] = createSignal(false);
   const [startAt, setStartAt] = createSignal<StartAtValue>(null);
   const [entries, { refetch: refetchEntries }] = createResource(
@@ -25,6 +26,11 @@ export default function Popover() {
     { initialValue: [] },
   );
   const [projects] = createResource(() => api.listProjects(), {
+    initialValue: [],
+  });
+  // All tasks across projects, eager-loaded once. The combined picker
+  // groups by project_id itself.
+  const [tasks] = createResource(() => api.listTasks(null), {
     initialValue: [],
   });
   const unlistenEntries = listen("entries:changed", () => refetchEntries());
@@ -88,8 +94,8 @@ export default function Popover() {
                   timer
                     .start(
                       d,
-                      projectId() || undefined,
-                      undefined,
+                      projectId() ?? undefined,
+                      taskId() ?? undefined,
                       billable(),
                       startAt() ?? undefined,
                     )
@@ -97,6 +103,11 @@ export default function Popover() {
                       setDescription("");
                       setBillable(false);
                       setStartAt(null);
+                      // Clear the task so the next start doesn't silently
+                      // inherit it. Keep the project — the old single-picker
+                      // popover preserved project across starts and users
+                      // rely on that for back-to-back same-project work.
+                      setTaskId(null);
                     });
                 }}
               >
@@ -110,10 +121,14 @@ export default function Popover() {
                 <StartAtPicker value={startAt()} onChange={setStartAt} />
                 <div class="flex items-center gap-2">
                   <div class="min-w-0 flex-1">
-                    <ProjectPicker
-                      value={projectId() || null}
-                      onChange={(id) => setProjectId(id ?? "")}
+                    <ProjectTaskPicker
+                      value={{ projectId: projectId(), taskId: taskId() }}
+                      onChange={(v) => {
+                        setProjectId(v.projectId);
+                        setTaskId(v.taskId);
+                      }}
                       projects={projects() ?? []}
+                      tasks={tasks() ?? []}
                       placeholder="No project"
                       size="sm"
                     />
