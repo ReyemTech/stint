@@ -1,3 +1,14 @@
+## [0.5.0](https://github.com/ReyemTech/stint/compare/v0.4.0...v0.5.0) (2026-06-16)
+
+### Features
+
+* **ui:** ProjectTaskPicker combined picker — fixes missing task select in popover ([4673278](https://github.com/ReyemTech/stint/commit/467327835157581c1033ae8c4c16e7bbe7d4f021))
+
+### Bug Fixes
+
+* **picker:** visual polish after first review ([f2f3aba](https://github.com/ReyemTech/stint/commit/f2f3abaeb76f46bf22b19821e598146c0e3d1d3a))
+* **popover:** clear task selection after starting a timer ([c2fe481](https://github.com/ReyemTech/stint/commit/c2fe481558399607b232bb9796d07a2cf34d2109))
+
 ## [0.4.0](https://github.com/ReyemTech/stint/compare/v0.3.1...v0.4.0) (2026-05-29)
 
 ### Features
