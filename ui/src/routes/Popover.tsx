@@ -103,6 +103,11 @@ export default function Popover() {
                       setDescription("");
                       setBillable(false);
                       setStartAt(null);
+                      // Clear the task so the next start doesn't silently
+                      // inherit it. Keep the project — the old single-picker
+                      // popover preserved project across starts and users
+                      // rely on that for back-to-back same-project work.
+                      setTaskId(null);
                     });
                 }}
               >
