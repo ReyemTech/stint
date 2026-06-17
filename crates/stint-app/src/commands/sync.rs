@@ -1,12 +1,14 @@
 use crate::app_state::AppState;
 use crate::commands::{store, AppError};
-use crate::sync_worker::EVENT_ENTRIES_CHANGED;
+use crate::sync_worker::{EVENT_ENTRIES_CHANGED, EVENT_PROJECTS_CHANGED};
 use serde::Serialize;
 use stint_core::config::{secrets::Secrets, Settings};
+use stint_core::ffi::{notify_indexer, IndexerKind};
 use stint_core::solidtime::auth::build_token_provider;
 use stint_core::solidtime::SolidtimeClient;
 use stint_core::store::queue::{FailedQueueRow, Queue};
 use stint_core::sync::{drain_once, refresh::refresh_reference_data};
+use stint_core::verbs;
 use tauri::{AppHandle, Emitter, Runtime, State};
 use tokio::sync::RwLock;
 
@@ -168,11 +170,43 @@ pub async fn sync_now<R: Runtime>(
     // shouldn't mask a successful queue drain. The background sync loop
     // re-runs this every 15 ticks anyway, but users expect "Sync now" to
     // pick up project metadata changes (e.g. is_billable) on demand.
-    if let Err(e) = refresh_reference_data(&store, &client).await {
-        tracing::warn!(error = %e, "Sync now: reference refresh failed");
+    match refresh_reference_data(&store, &client).await {
+        Ok(_) => {
+            // Notify UI surfaces that consume project/task lists so they
+            // refetch and reflect any server-side additions, edits, or
+            // (after the prune fix) archives.
+            let _ = app.emit(EVENT_PROJECTS_CHANGED, 0u32);
+            // Also replace the Spotlight slices so deleted-on-Solidtime
+            // projects/tasks don't keep showing up in Spotlight results.
+            // pull_worker.rs does this on its tick; sync_now must too,
+            // otherwise the user clicks "Sync now", sees the picker
+            // update, then hits Spotlight and gets stale hits.
+            replace_spotlight_slices(&store).await;
+        }
+        Err(e) => {
+            tracing::warn!(error = %e, "Sync now: reference refresh failed");
+        }
     }
     if n > 0 {
         let _ = app.emit(EVENT_ENTRIES_CHANGED, n);
     }
     Ok(n)
+}
+
+/// Replay the current project + task slices to the Spotlight indexer so
+/// it forgets any rows that were just pruned. Mirrors the post-pull
+/// block in pull_worker.rs; called from the user-driven refresh paths
+/// (Sync now, Refresh projects) so deleted projects/tasks disappear
+/// from Spotlight on the same click that drops them from the picker.
+pub(crate) async fn replace_spotlight_slices(store: &stint_core::store::Store) {
+    if let Ok(projects) = verbs::list_projects(store).await {
+        if let Ok(payload) = serde_json::to_string(&projects) {
+            notify_indexer(IndexerKind::ProjectsReplaced, &payload);
+        }
+    }
+    if let Ok(tasks) = verbs::list_tasks(store, None).await {
+        if let Ok(payload) = serde_json::to_string(&tasks) {
+            notify_indexer(IndexerKind::TasksReplaced, &payload);
+        }
+    }
 }

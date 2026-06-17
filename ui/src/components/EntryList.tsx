@@ -1,4 +1,5 @@
-import { For, Show, createMemo, createResource } from "solid-js";
+import { For, Show, createMemo, createResource, onCleanup } from "solid-js";
+import { listen } from "@tauri-apps/api/event";
 import { api } from "~/api";
 import type { Entry } from "~/types";
 import EntryRow from "./EntryRow";
@@ -11,9 +12,10 @@ export default function EntryList(props: {
   /// Fires after any save or delete in a row's edit dialog. Callers refetch here.
   onChange?: () => void;
 }) {
-  const [projects] = createResource(() => api.listProjects(), {
-    initialValue: [],
-  });
+  const [projects, { refetch: refetchProjects }] = createResource(
+    () => api.listProjects(),
+    { initialValue: [] },
+  );
   const projectName = createMemo(() => {
     const map = new Map<string, string>();
     for (const p of projects() ?? []) map.set(p.id, p.name);
@@ -28,11 +30,22 @@ export default function EntryList(props: {
   const needsTasks = createMemo(() =>
     props.entries.some((e) => e.task_id != null),
   );
-  const [tasks] = createResource(
+  const [tasks, { refetch: refetchTasks }] = createResource(
     needsTasks,
     async (need) => (need ? await api.listTasks() : []),
     { initialValue: [] },
   );
+
+  // projects:changed fires after refresh_reference_data succeeds. A
+  // Solidtime-side rename or deletion otherwise leaves stale labels on
+  // historical entries until the list is unmounted and remounted.
+  const unlistenProjects = listen("projects:changed", () => {
+    refetchProjects();
+    refetchTasks();
+  });
+  onCleanup(() => {
+    unlistenProjects.then((fn) => fn()).catch(() => {});
+  });
   const taskName = createMemo(() => {
     const map = new Map<string, string>();
     for (const t of tasks() ?? []) map.set(t.solidtime_id, t.name);

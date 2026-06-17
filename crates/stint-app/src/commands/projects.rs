@@ -1,5 +1,6 @@
 use crate::app_state::AppState;
 use crate::commands::{store, AppError};
+use crate::sync_worker::EVENT_PROJECTS_CHANGED;
 use serde::Serialize;
 use stint_core::config::{secrets::Secrets, Settings};
 use stint_core::solidtime::auth::build_token_provider;
@@ -7,7 +8,7 @@ use stint_core::solidtime::SolidtimeClient;
 use stint_core::store::reference::{ProjectRow, Reference};
 use stint_core::sync::refresh::refresh_reference_data;
 use stint_core::verbs::{self, TaskView};
-use tauri::State;
+use tauri::{AppHandle, Emitter, Runtime, State};
 use tokio::sync::RwLock;
 
 async fn build_client(store: &stint_core::store::Store) -> Result<SolidtimeClient, AppError> {
@@ -84,10 +85,20 @@ pub async fn list_tasks(
 }
 
 #[tauri::command]
-pub async fn refresh_projects(state: State<'_, RwLock<AppState>>) -> Result<usize, AppError> {
+pub async fn refresh_projects<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, RwLock<AppState>>,
+) -> Result<usize, AppError> {
     let store = store(&state).await;
     let client = build_client(&store).await?;
     refresh_reference_data(&store, &client).await?;
+    // Notify UI surfaces so the picker reflects the refreshed list
+    // immediately, including any locally-archived rows the prune step
+    // produced.
+    let _ = app.emit(EVENT_PROJECTS_CHANGED, 0u32);
+    // Replace Spotlight slices so deleted-on-Solidtime projects/tasks
+    // don't keep surfacing in Spotlight after the user manually refreshes.
+    crate::commands::sync::replace_spotlight_slices(&store).await;
     let r = Reference::new((*store).clone());
     Ok(r.list_projects().await?.len())
 }

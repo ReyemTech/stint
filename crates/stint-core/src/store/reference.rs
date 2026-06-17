@@ -188,4 +188,78 @@ impl Reference {
                 .await?;
         Ok(rows)
     }
+
+    /// Soft-archive any project whose id isn't in `keep`. Used by the
+    /// reference-data refresh path: if a project was deleted on Solidtime
+    /// we set `archived = 1` locally so the picker hides it but historical
+    /// time entries can still resolve the project name.
+    ///
+    /// An empty `keep` slice archives every project — that's the correct
+    /// semantics for "remote returned zero projects."
+    pub async fn archive_projects_not_in(&self, keep: &[&str]) -> Result<()> {
+        let now = time::now_utc();
+        let keep_json =
+            serde_json::to_string(keep).map_err(|e| crate::Error::Invariant(e.to_string()))?;
+        sqlx::query(
+            r#"UPDATE projects
+               SET archived = 1, fetched_at = ?
+               WHERE archived = 0
+                 AND id NOT IN (SELECT value FROM json_each(?))"#,
+        )
+        .bind(&now)
+        .bind(&keep_json)
+        .execute(self.store.pool())
+        .await?;
+        Ok(())
+    }
+
+    /// Soft-archive any client whose id isn't in `keep`. Same rationale as
+    /// `archive_projects_not_in`.
+    pub async fn archive_clients_not_in(&self, keep: &[&str]) -> Result<()> {
+        let now = time::now_utc();
+        let keep_json =
+            serde_json::to_string(keep).map_err(|e| crate::Error::Invariant(e.to_string()))?;
+        sqlx::query(
+            r#"UPDATE clients
+               SET archived = 1, fetched_at = ?
+               WHERE archived = 0
+                 AND id NOT IN (SELECT value FROM json_each(?))"#,
+        )
+        .bind(&now)
+        .bind(&keep_json)
+        .execute(self.store.pool())
+        .await?;
+        Ok(())
+    }
+
+    /// Hard-delete any task whose id isn't in `keep`. Tasks have no
+    /// `archived` column so we delete; historical entries that referenced
+    /// a deleted task will show no task name (the foreign key on
+    /// entries.task_id is unenforced and resolves via JOIN at display time).
+    pub async fn delete_tasks_not_in(&self, keep: &[&str]) -> Result<()> {
+        let keep_json =
+            serde_json::to_string(keep).map_err(|e| crate::Error::Invariant(e.to_string()))?;
+        sqlx::query(
+            r#"DELETE FROM tasks
+               WHERE id NOT IN (SELECT value FROM json_each(?))"#,
+        )
+        .bind(&keep_json)
+        .execute(self.store.pool())
+        .await?;
+        Ok(())
+    }
+
+    /// Hard-delete any tag whose id isn't in `keep`.
+    pub async fn delete_tags_not_in(&self, keep: &[&str]) -> Result<()> {
+        let keep_json =
+            serde_json::to_string(keep).map_err(|e| crate::Error::Invariant(e.to_string()))?;
+        sqlx::query(
+            r#"DELETE FROM tags
+               WHERE id NOT IN (SELECT value FROM json_each(?))"#,
+        )
+        .bind(&keep_json)
+        .execute(self.store.pool())
+        .await?;
+        Ok(())
+    }
 }

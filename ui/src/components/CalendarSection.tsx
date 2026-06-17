@@ -73,9 +73,10 @@ export default function CalendarSection(props: { onEntriesChanged: () => void })
     },
   );
 
-  const [projects] = createResource(() => api.listProjects(), {
-    initialValue: [],
-  });
+  const [projects, { refetch: refetchProjects }] = createResource(
+    () => api.listProjects(),
+    { initialValue: [] },
+  );
 
   const projectNameById = createMemo(() => {
     const m = new Map<string, string>();
@@ -90,8 +91,12 @@ export default function CalendarSection(props: { onEntriesChanged: () => void })
   };
 
   const unlistenChanged = listen("calendar:changed", () => refetch());
+  // Server-side project rename/delete would otherwise leave the mounted
+  // calendar's project-label pills stale until the section is remounted.
+  const unlistenProjects = listen("projects:changed", () => refetchProjects());
   onCleanup(() => {
     unlistenChanged.then((fn) => fn()).catch(() => {});
+    unlistenProjects.then((fn) => fn()).catch(() => {});
   });
 
   const total = createMemo(() =>

@@ -1,4 +1,5 @@
-import { Show, createResource, createSignal } from "solid-js";
+import { Show, createResource, createSignal, onCleanup } from "solid-js";
+import { listen } from "@tauri-apps/api/event";
 import { api } from "~/api";
 import Duration from "./Duration";
 import StartAtPicker, { type StartAtValue } from "./StartAtPicker";
@@ -16,16 +17,18 @@ export default function TimerCard() {
   const [taskId, setTaskId] = createSignal<string | null>(null);
   const [billable, setBillable] = createSignal(false);
   const [startAt, setStartAt] = createSignal<StartAtValue>(null);
-  const [projects] = createResource(() => api.listProjects(), {
-    initialValue: [],
-  });
+  const [projects, { refetch: refetchProjects }] = createResource(
+    () => api.listProjects(),
+    { initialValue: [] },
+  );
   const projectList = () => projects() ?? [];
 
   // All tasks across all projects, eager-loaded once. The combined picker
   // groups by project_id itself, so we don't have to refetch per selection.
-  const [tasks] = createResource(() => api.listTasks(null), {
-    initialValue: [],
-  });
+  const [tasks, { refetch: refetchTasks }] = createResource(
+    () => api.listTasks(null),
+    { initialValue: [] },
+  );
 
   /// Apply a project+task change to a running entry. Always clears the
   /// task first so a queued patch can't carry a task_id from the old
@@ -45,6 +48,17 @@ export default function TimerCard() {
     }
     await timer.refresh();
   }
+
+  // projects:changed fires after refresh_reference_data finishes. Refetch
+  // the project + task lists so the combined picker reflects server-side
+  // adds, edits, archives, and (post-prune-fix) deletions.
+  const unlistenProjects = listen("projects:changed", () => {
+    refetchProjects();
+    refetchTasks();
+  });
+  onCleanup(() => {
+    unlistenProjects.then((fn) => fn()).catch(() => {});
+  });
 
   return (
     <div class="rounded-2xl border border-black/[0.06] bg-white p-5 shadow-sm dark:border-white/[0.06] dark:bg-zinc-900">
