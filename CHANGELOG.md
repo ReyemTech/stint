@@ -1,3 +1,11 @@
+## [0.5.1](https://github.com/ReyemTech/stint/compare/v0.5.0...v0.5.1) (2026-06-17)
+
+### Bug Fixes
+
+* **sync:** emit projects:changed event so picker hosts auto-refetch ([4862cc4](https://github.com/ReyemTech/stint/commit/4862cc40f549fb364277a5a2ea328d0893fd73b5))
+* **sync:** refetch all picker hosts + replay Spotlight slices post-refresh ([acc879f](https://github.com/ReyemTech/stint/commit/acc879f70fd3fbfdf51c6d833ddddc82c12fa2e7))
+* **sync:** refresh_reference_data prunes server-side deletions ([31685ae](https://github.com/ReyemTech/stint/commit/31685ae275f14e48ef591223d5c4833be51d3618))
+
 ## [0.5.0](https://github.com/ReyemTech/stint/compare/v0.4.0...v0.5.0) (2026-06-16)
 
 ### Features
